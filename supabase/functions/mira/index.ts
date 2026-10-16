@@ -228,17 +228,6 @@ function faixaSvg(k: string, semente: string, icone: string, ativo = false) {
 }
 const faixa = (k: string, semente: string, icone: string, ativo = false) => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "bg", k, n: semente.slice(0, 40), i: icone, ...(ativo ? { x: "1" } : {}) }).toString()}`;
 
-// selo quadrado com gradiente e um número/letra (usado à esquerda das linhas da lista sobre o vídeo)
-function seloSvg(k: string, texto: string, ativo: boolean) {
-  let h = 0; for (const ch of texto) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const pal = PALETAS[k] ?? PALETAS.live;
-  const [c1, c2] = ativo ? ["#7C5CFF", "#EC4899"] : pal[h % pal.length];
-  const t = xml(texto === "‹" ? "‹" : limparNome(texto).slice(0, 3) || "•");
-  const fs = t.length >= 3 ? 56 : 72;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}" stop-opacity="${ativo ? 1 : 0.75}"/><stop offset="1" stop-color="${c2}" stop-opacity="${ativo ? 1 : 0.45}"/></linearGradient></defs><rect x="22" y="22" width="156" height="156" rx="40" fill="url(#g)"/><rect x="23.5" y="23.5" width="153" height="153" rx="38.5" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="3"/><text x="100" y="${100 + fs * 0.36}" text-anchor="middle" font-size="${fs}" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">${t}</text></svg>`;
-}
-const selo = (k: string, texto: string, ativo = false) => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "selo", k, n: texto.slice(0, 3), ...(ativo ? { on: "1" } : {}) }).toString()}`;
-
 const SELF = () => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira`;
 const q = (o: Record<string, string | number>) =>
   Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join("&");
@@ -485,7 +474,7 @@ async function tratar(url: URL) {
       : [];
     const canais = todos.map((x, i) => ({ ...canalItem(x, cred, t, c, true, s, cn, i + 1), focus: undefined }));
     const idx = todos.findIndex((x) => String(x.stream_id) === s);
-    const fixo = idx >= 0 ? [{ ...canalItem(todos[idx], cred, t, c, true, s, cn), titleFooter: "▶ Assistindo agora  ·  ▼ categorias logo abaixo", focus: true }] : [];
+    const fixo = idx >= 0 ? [{ ...canalItem(todos[idx], cred, t, c, true, s, cn), titleFooter: "▶ Assistindo agora", focus: true }] : [];
     return {
       type: "list", headline: "Canais", extension: cn || `${todos.length}`,
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
@@ -561,10 +550,6 @@ Deno.serve(async (req: Request) => {
     if (req.method === "GET" && u0.searchParams.get("a") === "bg") {
       const g = u0.searchParams;
       return new Response(faixaSvg(g.get("k") ?? "live", g.get("n") ?? "", g.get("i") ?? "play", g.get("x") === "1"), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
-    }
-    if (req.method === "GET" && u0.searchParams.get("a") === "selo") {
-      const g = u0.searchParams;
-      return new Response(seloSvg(g.get("k") ?? "live", g.get("n") ?? "", g.get("on") === "1"), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
     }
     if (req.method === "POST") {
       const b = await req.json().catch(() => ({}));
