@@ -42,6 +42,51 @@
     return null;
   }
 
+  // Faz um GET e informa se o navegador conseguiu LER a resposta (isso exige CORS liberado
+  // e, numa página https, um endereço https).
+  function xhrGet(url, timeoutMs, cb) {
+    var t0 = new Date().getTime(), finished = false;
+    function end(res) {
+      if (finished) { return; }
+      finished = true; res.ms = new Date().getTime() - t0; cb(res);
+    }
+    try {
+      var x = new XMLHttpRequest();
+      x.open('GET', url, true);
+      x.timeout = timeoutMs;
+      x.onload = function () { end({ ok: true, status: x.status, text: x.responseText || '' }); };
+      x.onerror = function () { end({ ok: false, why: 'bloqueado ou sem resposta' }); };
+      x.ontimeout = function () { end({ ok: false, why: 'tempo esgotado' }); };
+      x.send();
+    } catch (e) { end({ ok: false, why: 'erro: ' + e }); }
+  }
+
+  // Lê provedores.json e testa cada provedor por http e por https, sem usuário nem senha.
+  function testProviders(done) {
+    var lines = ['Plugin aberto por: ' + location.protocol.replace(':', '')];
+    xhrGet(BASE + 'provedores.json', 4000, function (r) {
+      var list = null;
+      if (r.ok) { try { list = JSON.parse(r.text).provedores; } catch (e) { list = null; } }
+      if (!list || !list.length) { lines.push('provedores.json não pôde ser lido'); done(lines); return; }
+      var jobs = [];
+      for (var i = 0; i < list.length; i++) {
+        var p = list[i], other = (p.protocolo === 'https') ? 'http' : 'https';
+        jobs.push({ nome: p.nome || p.host, proto: p.protocolo || 'http', host: p.host, porta: p.porta });
+        jobs.push({ nome: p.nome || p.host, proto: other, host: p.host, porta: (p.protocolo === 'https' ? '' : p.porta) });
+      }
+      var pending = jobs.length;
+      jobs.forEach(function (j) {
+        var url = j.proto + '://' + j.host + (j.porta ? ':' + j.porta : '') + '/player_api.php';
+        xhrGet(url, 6000, function (res) {
+          if (res.ok) { lines.push(j.nome + ' ' + j.proto + ': RESPONDEU (HTTP ' + res.status + ', ' + res.ms + ' ms) - dá para ler direto'); }
+          else { lines.push(j.nome + ' ' + j.proto + ': NÃO (' + res.why + ', ' + res.ms + ' ms)'); }
+          pending--;
+          if (pending === 0) { lines.sort(); done(lines); }
+        });
+      });
+    });
+  }
+
   // Transforma um objeto em linhas "caminho: valor" (até a profundidade indicada).
   function flatten(prefix, obj, out, depth) {
     if (obj === null || obj === undefined) { out.push(prefix + ': (vazio)'); return; }
@@ -151,7 +196,9 @@
     };
   }
 
-  function buildMenu(infoLines) {
+  function buildMenu(infoLines, provLines) {
+    var provItems = [];
+    for (var pi = 0; pi < (provLines || []).length; pi++) { provItems.push(button(provLines[pi])); }
     var infoItems = [];
     infoItems.push(button('>> Ler Device ID real (clique aqui)', 'interaction:commit:info:extended'));
     for (var i = 0; i < infoLines.length; i++) { infoItems.push(button(infoLines[i])); }
@@ -178,7 +225,8 @@
       menu: [
         { icon: 'blank', label: '1. Aparelho', data: listPage('Dados do aparelho', infoItems) },
         { icon: 'blank', label: '2. Vídeos de teste', data: listPage('Vídeos de teste', videoItems) },
-        { icon: 'blank', label: '3. Minha lista M3U', data: listPage('Minha lista M3U', listItems) }
+        { icon: 'blank', label: '3. Minha lista M3U', data: listPage('Minha lista M3U', listItems) },
+        { icon: 'blank', label: '4. Teste do provedor', data: listPage('Conexão direta com o provedor', provItems) }
       ]
     };
   }
@@ -196,7 +244,10 @@
     };
     this.handleRequest = function (dataId, data, callback) {
       if (dataId === 'init') {
-        collectInfo(function (lines) { callback(buildMenu(lines)); });
+        var infoLines = null, provLines = null;
+        function both() { if (infoLines && provLines) { callback(buildMenu(infoLines, provLines)); } }
+        testProviders(function (l) { provLines = l; both(); });
+        collectInfo(function (l) { infoLines = l; both(); });
       } else {
         callback(null);
       }
