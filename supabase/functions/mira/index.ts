@@ -600,60 +600,120 @@ async function tratar(url: URL) {
   return aviso("Gold Play", "Tela não encontrada");
 }
 
-// ---------- Jogos do dia (placar público da ESPN, sem chave) ----------
-const LIGAS: [string, string][] = [
-  ["bra.1", "Brasileirão"], ["bra.copa_do_brazil", "Copa do Brasil"], ["conmebol.libertadores", "Libertadores"],
-  ["conmebol.sudamericana", "Sul-Americana"], ["uefa.champions", "Champions League"], ["uefa.europa", "Europa League"],
-  ["eng.1", "Premier League"], ["esp.1", "La Liga"], ["ita.1", "Serie A"], ["ger.1", "Bundesliga"], ["fra.1", "Ligue 1"],
-  ["por.1", "Liga Portugal"], ["arg.1", "Argentino"], ["bra.2", "Série B"], ["usa.1", "MLS"],
-  ["fifa.friendly", "Amistoso"], ["uefa.nations", "Nations League"], ["fifa.worldq.conmebol", "Eliminatórias"],
-];
-type Jogo = { liga: string; ord: number; quando: number; estado: string; status: string; casa: Time; fora: Time };
+// ---------- Jogos do dia (API própria do painel) ----------
+// A API é consultada pelo Edge Function para evitar bloqueio de CORS no navegador da TV.
+const JOGOS_API = "https://xsender.painelmaster.lol/retornojogosmx.json";
+type Jogo = {
+  liga: string;
+  ord: number;
+  quando: number;
+  estado: string;
+  status: string;
+  casa: Time;
+  fora: Time;
+  transmissao: string;
+};
 type Time = { nome: string; sigla: string; cor: string; gols: string; venceu: boolean };
 let cacheJogos: { em: number; dia: string; v: Jogo[] } | null = null;
 const FUSO = -3 * 3600_000; // America/Fortaleza (sem horário de verão)
 const diaLocal = (ms = Date.now()) => new Date(ms + FUSO).toISOString().slice(0, 10);
 const horaLocal = (ms: number) => new Date(ms + FUSO).toISOString().slice(11, 16);
 
-async function jogosDoDia(limiteMs = 2500): Promise<Jogo[] | null> {
+const semAcentoJogo = (v: unknown) => String(v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const textoJogo = (v: unknown) => limparNome(String(v ?? ""));
+const siglaTime = (nome: string) => {
+  const palavras = nome.split(/\s+/).filter(Boolean);
+  if (!palavras.length) return "?";
+  if (palavras.length === 1) return palavras[0].slice(0, 4).toUpperCase();
+  return palavras.filter((p) => !/^(fc|sc|ec|ac|cf|club|clube)$/i.test(p)).slice(0, 3).map((p) => p[0]).join("").slice(0, 4).toUpperCase();
+};
+const golsJogo = (v: unknown) => {
+  const s = String(v ?? "").trim();
+  return /^\d{1,3}$/.test(s) ? s : "";
+};
+const jogoHoje = (v: unknown, hoje: string) => {
+  const s = semAcentoJogo(v);
+  if (!s || s === "hoje" || s === "today") return true;
+  const dmy = hoje.slice(8, 10) + "/" + hoje.slice(5, 7) + "/" + hoje.slice(0, 4);
+  return s === hoje || s === dmy || s === hoje.split("-").reverse().join("/");
+};
+function estadoJogo(statusRaw: unknown, placar1: string, placar2: string) {
+  const s = semAcentoJogo(statusRaw);
+  if (/ao vivo|aovivo|live|andamento|em andamento|inplay/.test(s)) {
+    return { estado: "in", status: /intervalo|half|ht/.test(s) ? "INTERVALO" : "AO VIVO" };
+  }
+  if (/intervalo|half time|halftime/.test(s)) return { estado: "in", status: "INTERVALO" };
+  if (/adiad|cancel|postpon/.test(s)) return { estado: "post", status: "ADIADO" };
+  if (/encerr|finaliz|finished|fim de jogo|full time|ft/.test(s)) return { estado: "post", status: "ENCERRADO" };
+  // Alguns retornos só preenchem o placar após o término.
+  if (placar1 !== "" && placar2 !== "" && /final|resultado/.test(s)) return { estado: "post", status: "ENCERRADO" };
+  return { estado: "pre", status: "" };
+}
+function horaDoJogo(horario: unknown) {
+  const m = String(horario ?? "").match(/(\\d{1,2}):(\\d{2})/);
+  if (!m) return NaN;
+  const h = Number(m[1]), min = Number(m[2]);
+  if (h > 23 || min > 59) return NaN;
+  const d = diaLocal();
+  return Date.parse(`${d}T${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}:00-03:00`);
+}
+const montarTimeJogo = (nomeRaw: unknown, corRaw: unknown, gols: string, venceu = false): Time => {
+  const nome = textoJogo(nomeRaw) || "?";
+  const cor = String(corRaw ?? "").replace("#", "");
+  return {
+    nome,
+    sigla: siglaTime(nome),
+    cor: /^[0-9a-f]{6}$/i.test(cor) ? cor : "475569",
+    gols,
+    venceu,
+  };
+};
+
+async function jogosDoDia(limiteMs = 3500): Promise<Jogo[] | null> {
   const dia = diaLocal();
   if (cacheJogos && cacheJogos.dia === dia && Date.now() - cacheJogos.em < 90_000) return cacheJogos.v;
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), limiteMs);
-  const res = await Promise.all(LIGAS.map(async ([id, nome], ord) => {
-    try {
-      const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${id}/scoreboard?dates=${dia.replace(/-/g, "")}`, { signal: ctl.signal });
-      if (!r.ok) return null;
-      const j = await r.json();
-      return (j?.events ?? []).map((ev: any): Jogo | null => {
-        const comp = ev?.competitions?.[0];
-        const cs = comp?.competitors ?? [];
-        const time = (lado: string): Time => {
-          const c = cs.find((x: any) => x.homeAway === lado) ?? {};
-          return {
-            nome: limparNome(String(c.team?.shortDisplayName ?? c.team?.displayName ?? "?")),
-            sigla: String(c.team?.abbreviation ?? "").slice(0, 4).toUpperCase(),
-            cor: /^[0-9a-f]{6}$/i.test(String(c.team?.color ?? "")) ? c.team.color : "475569",
-            gols: c.score != null ? String(c.score) : "", venceu: !!c.winner,
-          };
-        };
-        const quando = Date.parse(ev.date);
-        if (!isFinite(quando) || diaLocal(quando) !== dia) return null;
-        const tipo = ev?.status?.type ?? {};
-        const estado = String(tipo.state ?? "pre");
-        let status = horaLocal(quando);
-        if (estado === "in") status = /half|HT|intervalo/i.test(String(tipo.shortDetail ?? tipo.name ?? "")) ? "INTERVALO" : `AO VIVO ${String(ev?.status?.displayClock ?? "").replace(/:00$/, "")}`.trim();
-        else if (estado === "post") status = /postp|adiad|cancel/i.test(String(tipo.name ?? "")) ? "ADIADO" : "ENCERRADO";
-        return { liga: nome, ord, quando, estado, status, casa: time("home"), fora: time("away") };
-      }).filter(Boolean);
-    } catch { return null; }
-  }));
-  clearTimeout(timer);
-  if (res.every((x) => x === null)) return cacheJogos?.v ?? null;
-  const peso: Record<string, number> = { in: 0, pre: 1, post: 2 };
-  const v = (res.flat().filter(Boolean) as Jogo[]).sort((a, b) => (peso[a.estado] ?? 1) - (peso[b.estado] ?? 1) || (a.estado === "post" ? b.quando - a.quando : a.quando - b.quando) || a.ord - b.ord);
-  cacheJogos = { em: Date.now(), dia, v };
-  return v;
+  try {
+    const r = await fetch(JOGOS_API, {
+      signal: ctl.signal,
+      headers: { "accept": "application/json", "user-agent": "GoldPlay-MSX/1.0" },
+    });
+    if (!r.ok) throw new Error("API de jogos respondeu " + r.status);
+    const bruto = await r.json();
+    const lista = Array.isArray(bruto) ? bruto : [];
+    const jogos = lista.map((x: any, ord: number): Jogo | null => {
+      const placar1 = golsJogo(x?.placar_time1);
+      const placar2 = golsJogo(x?.placar_time2);
+      if (!jogoHoje(x?.data_jogo, dia)) return null;
+      const casaNome = textoJogo(x?.time1) || "Time 1";
+      const foraNome = textoJogo(x?.time2) || "Time 2";
+      const estado = estadoJogo(x?.status, placar1, placar2);
+      const quando = horaDoJogo(x?.horario);
+      const canais = Array.isArray(x?.canais)
+        ? x.canais.map((c: any) => textoJogo(c?.nome)).filter(Boolean).join(" · ")
+        : "";
+      return {
+        liga: textoJogo(x?.competicao) || "Futebol",
+        ord,
+        quando: Number.isFinite(quando) ? quando : Date.now() + ord,
+        estado: estado.estado,
+        status: estado.status || (String(x?.horario ?? "").match(/\\d{1,2}:\\d{2}/)?.[0] ?? "A DEFINIR"),
+        casa: montarTimeJogo(casaNome, "", placar1, placar1 !== "" && placar2 !== "" && Number(placar1) > Number(placar2)),
+        fora: montarTimeJogo(foraNome, "", placar2, placar1 !== "" && placar2 !== "" && Number(placar2) > Number(placar1)),
+        transmissao: canais,
+      };
+    }).filter(Boolean) as Jogo[];
+    const peso: Record<string, number> = { in: 0, pre: 1, post: 2 };
+    jogos.sort((a, b) => (peso[a.estado] ?? 1) - (peso[b.estado] ?? 1) || a.quando - b.quando || a.ord - b.ord);
+    cacheJogos = { em: Date.now(), dia, v: jogos };
+    return jogos;
+  } catch {
+    // Se a fonte cair momentaneamente, conserva os últimos jogos do mesmo dia.
+    return cacheJogos?.dia === dia ? cacheJogos.v : null;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // cartão SVG de um jogo (placar em duas linhas, estilo app esportivo)
