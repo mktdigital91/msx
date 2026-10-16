@@ -6,24 +6,53 @@
 <style type="text/css">body { background: #000; color: #fff; font-family: sans-serif; }</style>
 <script type="text/javascript" src="//msx.benzac.de/js/tvx-plugin.min.js"></script>
 <script type="text/javascript">
-/* Plugin de início do Mira (ES5). Só descobre o ID do aparelho e pede a tela ao servidor. */
+/* Plugin de início do Mira (ES5).
+ * 1) descobre o ID do aparelho e pede a tela inicial ao servidor;
+ * 2) se ainda não há login, espera o pareamento pelo celular e entra sozinho. */
 (function () {
   var SERVIDOR = 'https://tmaqxzqswtaejvxkqgfg.supabase.co/functions/v1/mira';
+  var idAparelho = '';
+  var espera = null;
 
   function falha(msg) {
     return { type: 'list', headline: 'Mira', template: { type: 'separate', layout: '0,0,12,1', color: 'msx-glass' },
       items: [{ title: msg, action: 'none', color: 'msx-red' }] };
   }
-  function abrir(id, callback) {
+  function pedir(url, ok, erro) {
     var x = new XMLHttpRequest();
-    x.open('GET', SERVIDOR + '?a=inicio&d=' + encodeURIComponent(id), true);
+    x.open('GET', url, true);
     x.timeout = 25000;
-    x.onload = function () {
-      try { callback(JSON.parse(x.responseText)); } catch (e) { callback(falha('Resposta inválida do servidor')); }
-    };
-    x.onerror = function () { callback(falha('Sem conexão com o servidor')); };
-    x.ontimeout = function () { callback(falha('Servidor demorou a responder')); };
+    x.onload = function () { try { ok(JSON.parse(x.responseText)); } catch (e) { erro(); } };
+    x.onerror = erro;
+    x.ontimeout = erro;
     x.send();
+  }
+  function paraEspera() { if (espera) { clearInterval(espera); espera = null; } }
+
+  // Enquanto a tela de login estiver aberta, pergunta ao servidor se o celular já fez o login.
+  function aguardarPareamento(id) {
+    paraEspera();
+    var tentativas = 0;
+    espera = setInterval(function () {
+      tentativas++;
+      if (tentativas > 200) { paraEspera(); return; }   // ~10 min
+      pedir(SERVIDOR + '?a=ver&d=' + encodeURIComponent(id), function (r) {
+        if (r && r.ok) {
+          paraEspera();
+          try { TVXInteractionPlugin.executeAction('content:' + SERVIDOR + '?a=inicio&d=' + encodeURIComponent(id)); } catch (e) { }
+        }
+      }, function () { });
+    }, 3000);
+  }
+
+  function abrir(id, callback, acao) {
+    idAparelho = id;
+    pedir(SERVIDOR + '?a=' + (acao || 'inicio') + '&d=' + encodeURIComponent(id), function (tela) {
+      callback(tela);
+      // tela de login (traz o item do QR code) => fica esperando o celular
+      var texto = ''; try { texto = JSON.stringify(tela); } catch (e) { }
+      if (texto.indexOf('"id":"qr"') >= 0) { aguardarPareamento(id); }
+    }, function () { callback(falha('Sem conexão com o servidor')); });
   }
 
   function MiraHandler() {
@@ -32,9 +61,9 @@
     this.handleEvent = function () { };
     this.handleData = function () { };
     this.handleRequest = function (dataId, data, callback) {
-      if (dataId !== 'init') { callback(null); return; }
+      if (dataId !== 'init' && dataId !== 'sair') { callback(null); return; }
       var feito = false;
-      function seguir(id) { if (feito) return; feito = true; abrir(id || 'sem-id', callback); }
+      function seguir(id) { if (feito) return; feito = true; abrir(id || 'sem-id', callback, dataId === 'sair' ? 'sair' : 'inicio'); }
       try {
         TVXInteractionPlugin.requestDeviceId(function (id) {
           seguir(typeof id === 'string' && id ? id : (TVXSettings.ID || ''));

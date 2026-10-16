@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B0D1A">
+<title>Mira · Conectar TV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #090B18;
+    --card: rgba(255,255,255,.06);
+    --card-line: rgba(255,255,255,.10);
+    --txt: #F5F6FF;
+    --muted: rgba(245,246,255,.62);
+    --field: rgba(255,255,255,.07);
+    --field-line: rgba(255,255,255,.12);
+    --accent: #7C5CFF;
+    --accent2: #22D3EE;
+    --ok: #34D399;
+    --err: #FB7185;
+  }
+  * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { min-height: 100%; }
+  body { min-height: 100vh; min-height: 100dvh; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    color: var(--txt);
+    background:
+      radial-gradient(700px 520px at 12% -5%, rgba(124,92,255,.38), transparent 62%),
+      radial-gradient(640px 520px at 100% 105%, rgba(34,211,238,.22), transparent 60%),
+      linear-gradient(160deg, #090B18, #14103A 60%, #0B1226);
+    background-color: var(--bg);
+    padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    display: flex; align-items: center; justify-content: center;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { width: 100%; max-width: 420px; }
+  .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 26px; }
+  .logo {
+    width: 52px; height: 52px; border-radius: 16px; flex: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: grid; place-items: center;
+    box-shadow: 0 10px 30px rgba(124,92,255,.45);
+  }
+  .logo svg { width: 28px; height: 28px; fill: #fff; }
+  .brand b { font-size: 28px; font-weight: 800; letter-spacing: -.8px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-line);
+    border-radius: 28px;
+    padding: 28px 22px 24px;
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    box-shadow: 0 30px 80px rgba(0,0,0,.35);
+  }
+  h1 { font-size: 26px; line-height: 1.15; font-weight: 800; letter-spacing: -.6px; }
+  .sub { color: var(--muted); font-size: 15px; line-height: 1.5; margin-top: 8px; }
+  .tv {
+    display: flex; align-items: center; gap: 12px;
+    margin: 20px 0 6px; padding: 12px 14px;
+    border-radius: 16px; background: rgba(124,92,255,.14); border: 1px solid rgba(124,92,255,.35);
+  }
+  .tv svg { width: 22px; height: 22px; fill: #B9A8FF; flex: none; }
+  .tv small { display: block; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .tv strong { font-size: 18px; letter-spacing: .28em; font-weight: 700; }
+  .tv button { margin-left: auto; background: none; border: 0; color: #B9A8FF; font: inherit; font-size: 13px; font-weight: 600; padding: 6px; cursor: pointer; }
+  form { margin-top: 18px; display: grid; gap: 14px; }
+  label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 7px; }
+  .field { position: relative; }
+  .field > svg { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; fill: var(--muted); pointer-events: none; }
+  input {
+    width: 100%; height: 56px; border-radius: 16px;
+    background: var(--field); border: 1.5px solid var(--field-line);
+    color: var(--txt); font: inherit; font-size: 17px; font-weight: 500;
+    padding: 0 16px 0 48px; outline: none; transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  input.code { letter-spacing: .3em; text-transform: uppercase; font-weight: 700; }
+  input::placeholder { color: rgba(245,246,255,.32); font-weight: 400; letter-spacing: 0; }
+  input:focus { border-color: var(--accent); background: rgba(124,92,255,.10); box-shadow: 0 0 0 4px rgba(124,92,255,.22); }
+  .eye { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border: 0; background: none; display: grid; place-items: center; cursor: pointer; border-radius: 12px; }
+  .eye svg { width: 22px; height: 22px; fill: var(--muted); }
+  #senha { padding-right: 54px; }
+  .msg { display: none; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.45; padding: 12px 14px; border-radius: 14px; background: rgba(251,113,133,.12); border: 1px solid rgba(251,113,133,.35); color: #FFD3DA; }
+  .msg.show { display: flex; }
+  .msg svg { width: 18px; height: 18px; fill: var(--err); flex: none; margin-top: 1px; }
+  .go {
+    margin-top: 6px; height: 58px; border: 0; border-radius: 18px; cursor: pointer;
+    font: inherit; font-size: 17px; font-weight: 700; color: #fff; letter-spacing: .01em;
+    background: linear-gradient(135deg, var(--accent), #5B8CFF 55%, var(--accent2));
+    box-shadow: 0 14px 34px rgba(124,92,255,.45);
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    transition: transform .12s, box-shadow .12s, opacity .12s;
+  }
+  .go:active { transform: scale(.985); }
+  .go[disabled] { opacity: .75; cursor: progress; }
+  .go svg { width: 22px; height: 22px; fill: #fff; }
+  .spin { width: 22px; height: 22px; border-radius: 50%; border: 3px solid rgba(255,255,255,.35); border-top-color: #fff; animation: g .8s linear infinite; display: none; }
+  .loading .spin { display: block; } .loading .go svg { display: none; }
+  @keyframes g { to { transform: rotate(360deg); } }
+  .foot { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 18px; line-height: 1.5; }
+  .foot svg { width: 13px; height: 13px; fill: var(--muted); vertical-align: -2px; margin-right: 4px; }
+  /* sucesso */
+  .done { display: none; text-align: center; padding: 14px 0 6px; }
+  .ok .done { display: block; } .ok .formwrap { display: none; }
+  .check { width: 84px; height: 84px; border-radius: 50%; margin: 0 auto 20px; display: grid; place-items: center; background: rgba(52,211,153,.14); border: 2px solid rgba(52,211,153,.55); animation: pop .5s cubic-bezier(.2,1.4,.4,1); }
+  .check svg { width: 42px; height: 42px; fill: var(--ok); }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .done h2 { font-size: 24px; font-weight: 800; letter-spacing: -.5px; }
+  .done p { color: var(--muted); font-size: 15px; line-height: 1.5; margin-top: 8px; }
+</style>
+</head>
+<body>
+<main id="app">
+  <div class="brand">
+    <div class="logo"><svg viewBox="0 0 24 24"><path d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.11-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z"/></svg></div>
+    <b>Mira</b>
+  </div>
+
+  <section class="card">
+    <div class="formwrap">
+      <h1>Conectar sua TV</h1>
+      <p class="sub">Entre com o usuário e a senha da sua lista. Sua TV abre sozinha em seguida.</p>
+
+      <div class="tv" id="tvbox" hidden>
+        <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>
+        <div><small>Código da TV</small><strong id="tvcode"></strong></div>
+        <button type="button" id="trocar">Trocar</button>
+      </div>
+
+      <form id="f" autocomplete="on" novalidate>
+        <div id="codewrap" hidden>
+          <label for="codigo">Código mostrado na TV</label>
+          <div class="field">
+            <svg viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>
+            <input id="codigo" class="code" inputmode="text" autocapitalize="characters" autocomplete="off" maxlength="9" placeholder="K7M2QX">
+          </div>
+        </div>
+
+        <div>
+          <label for="usuario">Usuário</label>
+          <div class="field">
+            <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            <input id="usuario" name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Seu usuário">
+          </div>
+        </div>
+
+        <div>
+          <label for="senha">Senha</label>
+          <div class="field">
+            <svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+            <input id="senha" name="password" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Sua senha">
+            <button class="eye" type="button" id="olho" aria-label="Mostrar senha">
+              <svg viewBox="0 0 24 24" id="olhoico"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="msg" id="erro" role="alert" aria-live="polite">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          <span id="erromsg"></span>
+        </div>
+
+        <button class="go" id="enviar" type="submit">
+          <span class="spin"></span>
+          <svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5v10zM19 3H5c-1.1 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
+          <span id="enviartxt">Conectar TV</span>
+        </button>
+      </form>
+
+      <p class="foot"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>Conexão protegida. O código vale por 10 minutos.</p>
+    </div>
+
+    <div class="done" role="status" aria-live="polite">
+      <div class="check"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+      <h2>Tudo certo!</h2>
+      <p>Sua TV está entrando agora. Já pode largar o celular e aproveitar.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  var API = 'https://tmaqxzqswtaejvxkqgfg.supabase.co/functions/v1/mira';
+  var $ = function (id) { return document.getElementById(id); };
+  var app = $('app'), f = $('f'), btn = $('enviar');
+  var code = '';
+
+  function limpa(v) { return String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6); }
+  function params() { try { return new URLSearchParams(location.search); } catch (e) { return { get: function () { return null; } }; } }
+  function mostrarCodigo() {
+    if (code.length === 6) { $('tvcode').textContent = code.split('').join(' '); $('tvbox').hidden = false; $('codewrap').hidden = true; }
+    else { $('tvbox').hidden = true; $('codewrap').hidden = false; }
+  }
+  code = limpa(params().get('c'));
+  mostrarCodigo();
+
+  $('trocar').addEventListener('click', function () { code = ''; $('codigo').value = ''; mostrarCodigo(); $('codigo').focus(); });
+  $('codigo').addEventListener('input', function (e) { e.target.value = limpa(e.target.value); });
+
+  var visivel = false;
+  $('olho').addEventListener('click', function () {
+    visivel = !visivel;
+    $('senha').type = visivel ? 'text' : 'password';
+    $('olho').setAttribute('aria-label', visivel ? 'Ocultar senha' : 'Mostrar senha');
+    $('olhoico').innerHTML = visivel
+      ? '<path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2z"/>'
+      : '<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>';
+  });
+
+  function erro(m) { $('erromsg').textContent = m; $('erro').classList.add('show'); }
+  function semErro() { $('erro').classList.remove('show'); }
+  function ocupado(on) { btn.disabled = on; app.classList.toggle('loading', on); $('enviartxt').textContent = on ? 'Conectando…' : 'Conectar TV'; }
+
+  f.addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    semErro();
+    var c = code || limpa($('codigo').value);
+    var u = $('usuario').value.trim(), p = $('senha').value;
+    if (c.length !== 6) { erro('Digite o código de 6 letras que aparece na TV.'); $('codewrap').hidden = false; $('codigo').focus(); return; }
+    if (!u) { erro('Digite o seu usuário.'); $('usuario').focus(); return; }
+    if (!p) { erro('Digite a sua senha.'); $('senha').focus(); return; }
+    ocupado(true);
+    fetch(API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ c: c, u: u, p: p }) })
+      .then(function (r) { return r.json(); })
+      .then(function (r) {
+        ocupado(false);
+        if (r && r.ok) { document.body.classList.add('ok'); app.classList.add('ok'); return; }
+        var e = r && r.erro;
+        if (e === 'codigo') { erro('Esse código não vale mais. Olhe a TV: use o código novo ou toque em "Novo código".'); code = ''; mostrarCodigo(); }
+        else if (e === 'credenciais') erro('Usuário ou senha incorretos. Confira e tente de novo.');
+        else if (e === 'provedor') erro('Não consegui falar com o provedor agora. Tente de novo em instantes.');
+        else erro('Preencha todos os campos.');
+      })
+      .catch(function () { ocupado(false); erro('Sem conexão. Verifique a internet do celular e tente de novo.'); });
+  });
+})();
+</script>
+</body>
+</html>

@@ -96,6 +96,58 @@ async function apagarSessao(d: string | null) {
   try { await fetch(`${REST()}?aparelho=eq.${encodeURIComponent(d)}`, { method: "DELETE", headers: cab(), signal: AbortSignal.timeout(8000) }); } catch { /* ignora */ }
 }
 
+// ---------- pareamento pelo celular (código de 6 letras/números, vale 10 min) ----------
+const REST_COD = () => `${Deno.env.get("SUPABASE_URL")}/rest/v1/pareamentos`;
+const VALIDADE_COD_MS = 10 * 60 * 1000;
+const ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function novoCodigo() {
+  const b = crypto.getRandomValues(new Uint8Array(6));
+  return Array.from(b, (x) => ALFABETO[x % ALFABETO.length]).join("");
+}
+async function codigoDoAparelho(d: string | null): Promise<string | null> {
+  if (!d) return null;
+  try {
+    const r = await fetch(`${REST_COD()}?aparelho=eq.${encodeURIComponent(d)}&select=codigo,criado&order=criado.desc&limit=1`, { headers: cab(), signal: AbortSignal.timeout(8000) });
+    const j = await r.json();
+    if (Array.isArray(j) && j[0] && Date.now() - new Date(j[0].criado).getTime() < VALIDADE_COD_MS - 60000) return j[0].codigo as string;
+    await fetch(`${REST_COD()}?aparelho=eq.${encodeURIComponent(d)}`, { method: "DELETE", headers: cab(), signal: AbortSignal.timeout(8000) });
+    const codigo = novoCodigo();
+    const ins = await fetch(REST_COD(), { method: "POST", headers: cab(), body: JSON.stringify({ codigo, aparelho: d }), signal: AbortSignal.timeout(8000) });
+    return ins.ok ? codigo : null;
+  } catch { return null; }
+}
+async function aparelhoDoCodigo(codigo: string): Promise<string | null> {
+  try {
+    const r = await fetch(`${REST_COD()}?codigo=eq.${encodeURIComponent(codigo)}&select=aparelho,criado&limit=1`, { headers: cab(), signal: AbortSignal.timeout(8000) });
+    const j = await r.json();
+    if (!Array.isArray(j) || !j[0]) return null;
+    if (Date.now() - new Date(j[0].criado).getTime() > VALIDADE_COD_MS) return null;
+    return j[0].aparelho as string;
+  } catch { return null; }
+}
+async function apagarCodigo(codigo: string) {
+  try { await fetch(`${REST_COD()}?codigo=eq.${encodeURIComponent(codigo)}`, { method: "DELETE", headers: cab(), signal: AbortSignal.timeout(8000) }); } catch { /* ignora */ }
+}
+const PLUGIN = "https://mktdigital91.github.io/msx/msx/mira.html";
+const PAGINA_CELULAR = "https://mktdigital91.github.io/msx/entrar/";
+
+// Chamado pela página do celular: confere o código, valida usuário e senha e liga a sessão à TV.
+async function parear(corpo: { c?: string; u?: string; p?: string }) {
+  const codigo = String(corpo.c ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const u = String(corpo.u ?? "").trim();
+  const p = String(corpo.p ?? "");
+  if (codigo.length !== 6) return { ok: false, erro: "codigo" };
+  if (!u || !p) return { ok: false, erro: "campos" };
+  const aparelho = await aparelhoDoCodigo(codigo);
+  if (!aparelho) return { ok: false, erro: "codigo" };
+  let info;
+  try { info = await api({ u, p }); } catch { return { ok: false, erro: "provedor" }; }
+  if (!info?.user_info || Number(info.user_info.auth) !== 1) return { ok: false, erro: "credenciais" };
+  await salvarSessao(aparelho, await criarToken(u, p));
+  await apagarCodigo(codigo);
+  return { ok: true, usuario: u };
+}
+
 const SELF = () => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira`;
 const q = (o: Record<string, string | number>) =>
   Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join("&");
@@ -107,11 +159,27 @@ function inputAction(servico: string, titulo: string, dica: string) {
 }
 
 function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Record<string, unknown> = {}, extensao?: string) {
-  return { type: "list", headline, extension: extensao, background: IMG + "fundo.jpg", transparent: true, template: { type: "separate", layout, color: COR.vidro, ...extra }, items };
+  return { type: "list", headline, extension: extensao, background: IMG + "fundo.jpg", template: { type: "separate", layout, color: COR.vidro, ...extra }, items };
 }
 function aviso(titulo: string, msg: string, voltar?: unknown[]) {
   return lista(titulo, [{ title: msg, action: "none" }, ...(voltar ?? [])], "0,0,12,1");
 }
+function telaCelular(codigo: string | null, d: string | null, msg?: string) {
+  const link = codigo ? `${PAGINA_CELULAR}?c=${codigo}` : PAGINA_CELULAR;
+  const qr = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=2&data=${encodeURIComponent(link)}`;
+  return {
+    type: "pages", background: IMG + "fundo.jpg",
+    pages: [{ items: [
+      { type: "space", layout: "0,0,12,1", headline: "Entre pelo celular", text: msg ?? "Aponte a câmera para o QR code e digite seu usuário e senha no celular." },
+      { id: "qr", type: "default", layout: "0,1,4,4", color: "#FFFFFF", image: qr, imageFiller: "fit", action: "none", focus: true },
+      { type: "default", layout: "4,1,8,1", color: COR.vidro, titleHeader: "OU ACESSE NO NAVEGADOR", title: PAGINA_CELULAR.replace("https://", ""), action: "none" },
+      { type: "default", layout: "4,2,8,2", color: COR.destaque, titleHeader: "CÓDIGO DA SUA TV", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Vale por 10 minutos. A TV entra sozinha.", action: "none" },
+      { type: "default", layout: "4,4,4,1", color: COR.vidro, icon: "refresh", iconSize: "small", title: "Novo código", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
+      { type: "default", layout: "8,4,4,1", color: COR.vidro, icon: "keyboard", iconSize: "small", title: "Digitar na TV", action: go(d ? { a: "form", d } : { a: "form" }) },
+    ] }],
+  };
+}
+
 function telaEntrar(msg?: string, d?: string | null, u = "", p = "", auto = false) {
   const base = (o: Record<string, string>) => (d ? { ...o, d } : o);
   const eu = u ? { u } : {};
@@ -136,7 +204,7 @@ function telaEntrar(msg?: string, d?: string | null, u = "", p = "", auto = fals
     action: pronto ? go(base({ a: "login", u, p })) : "warn:Preencha o usuário e a senha",
   };
   return {
-    type: "pages", background: IMG + "login.jpg", transparent: true,
+    type: "pages", background: IMG + "login.jpg",
     pages: [{ items: [
       { type: "space", layout: "6,1,5,1", headline: "Entrar", text: msg ?? "Use o usuário e a senha da sua lista" },
       campoUsuario, campoSenha, botao,
@@ -173,12 +241,18 @@ async function tratar(url: URL) {
     const tk = await lerSessao(d);
     const cr = await lerToken(tk);
     if (tk && cr) return await home(tk, cr.u, d);
-    return telaEntrar(undefined, d);
+    if (d && url.searchParams.get("r")) await fetch(`${REST_COD()}?aparelho=eq.${encodeURIComponent(d)}`, { method: "DELETE", headers: cab() }).catch(() => {});
+    return telaCelular(await codigoDoAparelho(d), d);
+  }
+
+  if (a === "ver") {
+    const tk = await lerSessao(d);
+    return { ok: !!(tk && (await lerToken(tk))) };
   }
 
   if (a === "sair") {
     await apagarSessao(d);
-    return telaEntrar("Você saiu", d);
+    return telaCelular(await codigoDoAparelho(d), d, "Você saiu. Entre de novo pelo celular.");
   }
 
   // Resposta para o plugin de teclado do MSX: ele só aceita uma ação (ou lista simples).
@@ -291,10 +365,10 @@ async function tratar(url: URL) {
 async function home(t: string, quem: string, d: string | null = null) {
   const [usuario, venc] = quem.split(" · ");
   return {
-    type: "pages", background: IMG + "fundo.jpg", transparent: true,
+    type: "pages", background: IMG + "fundo.jpg",
     pages: [{ items: [
       { type: "space", layout: "0,0,8,1", headline: `Olá, ${usuario}`, text: venc ?? "" },
-      { type: "default", layout: "10,0,2,1", color: "rgba(255,255,255,0.10)", icon: "logout", iconSize: "small", title: "Sair", action: go(d ? { a: "sair", d } : { a: "inicio" }) },
+      { type: "default", layout: "10,0,2,1", color: "rgba(255,255,255,0.10)", icon: "logout", iconSize: "small", title: "Sair", action: d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" }) },
       { id: "tv", type: "default", layout: "0,1,4,5", image: IMG + "card-tv.jpg", imageFiller: "cover", title: "TV ao vivo", titleFooter: "Canais por categoria", focus: true, action: go({ a: "cats", k: "live", t }) },
       { type: "default", layout: "4,1,4,5", image: IMG + "card-filmes.jpg", imageFiller: "cover", title: "Filmes", titleFooter: "Catálogo completo", action: go({ a: "cats", k: "vod", t }) },
       { type: "default", layout: "8,1,4,5", image: IMG + "card-series.jpg", imageFiller: "cover", title: "Séries", titleFooter: "Temporadas e episódios", action: go({ a: "cats", k: "series", t }) },
@@ -305,6 +379,10 @@ async function home(t: string, quem: string, d: string | null = null) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   try {
+    if (req.method === "POST") {
+      const b = await req.json().catch(() => ({}));
+      return new Response(JSON.stringify(await parear(b)), { headers: CORS });
+    }
     const corpo = await tratar(new URL(req.url));
     return new Response(JSON.stringify(corpo), { headers: CORS });
   } catch (e) {
