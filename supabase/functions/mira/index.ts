@@ -313,11 +313,14 @@ async function paginar(
   ext?: string,
 ) {
   const ini = pg * POR_PAGINA;
-  const itens = todos.slice(ini, ini + POR_PAGINA).map(montar) as unknown[];
+  const itens = todos.slice(ini, ini + POR_PAGINA).map(montar) as any[];
+  if (itens.length) itens[0] = { ...itens[0], focus: true }; // foco no 1º item, não no botão de categorias
   const total = Math.ceil(todos.length / POR_PAGINA);
   if (ini + POR_PAGINA < todos.length) itens.push({ title: "Próxima página", titleFooter: `${pg + 2} de ${total}`, icon: "navigate-next", color: COR.destaque, action: proxima(pg + 1) });
   if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${total}`, icon: "navigate-before", color: COR.destaque, action: proxima(pg - 1) });
   if (!todos.length) itens.push({ title: "Nada encontrado", action: "none" });
+  // botão fixo no topo para voltar às categorias (volta para a tela anterior, sem recarregar)
+  itens.unshift({ title: "Categorias", titleFooter: "Voltar às categorias", icon: "apps", iconSize: "small", color: "rgba(245,158,11,0.85)", action: "back" });
   return lista(titulo, itens, layout, {}, ext ?? `${todos.length} itens`);
 }
 const nota = (v: unknown) => { const n = Number(v); return n > 0 ? n.toFixed(1) : undefined; };
@@ -475,7 +478,8 @@ async function tratar(url: URL) {
     if (!T) return aviso("Mira", "Seção desconhecida");
     const cats = await api(cred, `&action=${T.cats}`);
     const lst = Array.isArray(cats) ? cats : [];
-    const linha = (nome: string, ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, image: faixa(tipoQ, nome, ic), imageFiller: "cover", color: "transparent", action: go({ a: "itens", k: tipoQ, t, c: cid, cn: cid ? nome : "" }) });
+    // visual transparente (o vídeo/fundo aparece por trás), como o usuário preferiu
+    const linha = (nome: string, _ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, color: "rgba(255,255,255,0.06)", action: go({ a: "itens", k: tipoQ, t, c: cid, cn: cid ? nome : "" }) });
     const itens = [
       { ...linha("Todos", "apps", "", `Todo o catálogo de ${T.nome.toLowerCase()}`), focus: true },
       ...lst.map((x: any) => { const nome = limparNome(String(x.category_name)); return linha(nome, iconeDoNome(nome, "play"), x.category_id, T.nome); }),
