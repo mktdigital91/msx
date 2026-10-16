@@ -250,7 +250,7 @@ function inputAction(servico: string, titulo: string, dica: string) {
 
 const FUNDO: Record<string, string> = { live: "bg-tv.jpg", vod: "bg-filmes.jpg", series: "bg-series.jpg" };
 function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Record<string, unknown> = {}, extensao?: string, kind = "") {
-  return { type: "list", headline, extension: extensao, background: IMG + (FUNDO[kind] ?? "fundo.jpg"), template: { type: "default", layout, color: COR.vidro, ...extra }, items };
+  return { type: "list", headline, extension: extensao, transparent: 2, background: IMG + (FUNDO[kind] ?? "fundo.jpg"), template: { type: "default", layout, color: COR.vidro, ...extra }, items };
 }
 function aviso(titulo: string, msg: string, voltar?: unknown[]) {
   return lista(titulo, [{ title: msg, action: "none" }, ...(voltar ?? [])], "0,0,12,1");
@@ -259,7 +259,7 @@ function telaCelular(codigo: string | null, d: string | null, msg?: string) {
   const link = codigo ? `${PAGINA_CELULAR}?c=${codigo}` : PAGINA_CELULAR;
   const qr = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=2&data=${encodeURIComponent(link)}`;
   return {
-    type: "pages", background: IMG + "fundo.jpg",
+    type: "pages", transparent: 2, background: IMG + "bg-tv.jpg",
     pages: [{ items: [
       { type: "space", layout: "0,0,12,1", headline: "Entre pelo celular", text: msg ?? "Aponte a câmera para o QR code e digite seu usuário e senha no celular." },
       { id: "qr", type: "default", layout: "0,1,4,4", color: "#FFFFFF", image: qr, imageFiller: "fit", action: "none", focus: true },
@@ -389,6 +389,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
     action: tocar("live", cred, x.stream_id, "ts", "o canal"),
     properties: {
       "control:type": "extended",
+      "control:transparent": true,
       "control:action": lista,
       "info:headline": nome,
       "info:text": guia.player || (cn ? `${cn} · sem guia de programação` : "Sem guia de programação"),
@@ -585,7 +586,7 @@ async function tratar(url: URL) {
 async function home(t: string, quem: string, d: string | null = null) {
   const [usuario, venc] = quem.split(" · ");
   return {
-    type: "pages", background: IMG + "fundo.jpg",
+    type: "pages", transparent: 2, background: IMG + "bg-tv.jpg",
     pages: [{ items: [
       { type: "space", layout: "0,0,8,1", headline: `Olá, ${usuario}`, text: venc ?? "" },
       { type: "default", layout: "10,0,2,1", color: "rgba(255,255,255,0.10)", icon: "logout", iconSize: "small", title: "Sair", action: d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" }) },
