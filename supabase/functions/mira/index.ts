@@ -148,6 +148,75 @@ async function parear(corpo: { c?: string; u?: string; p?: string }) {
   return { ok: true, usuario: u };
 }
 
+// ---------- cartões desenhados pelo servidor (imagem SVG com gradiente, ícone e nome) ----------
+const ICONES: Record<string, string> = {
+  play: "M8 5v14l11-7z",
+  star: "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z",
+  heart: "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z",
+  bolt: "M7 2v11h3v9l7-12h-4l4-8z",
+  mood: "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z",
+  eye: "M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z",
+  search: "M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z",
+  explore: "M12 10.9c-.61 0-1.1.49-1.1 1.1s.49 1.1 1.1 1.1c.61 0 1.1-.49 1.1-1.1s-.49-1.1-1.1-1.1zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm2.19 12.19L6 18l3.81-8.19L18 6l-3.81 8.19z",
+  family: "M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z",
+  live: "M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3c-1.1 0-2 .89-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.11-.9-2-2-2zm0 14H3V8h18v12zM9 10v8l7-4z",
+  movie: "M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z",
+  series: "M4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm16-4H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8 12.5v-9l6 4.5-6 4.5z",
+  apps: "M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z",
+  next: "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
+  prev: "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z",
+};
+const PALETAS: Record<string, string[][]> = {
+  live: [["#7C5CFF", "#3B82F6"], ["#6D4AFF", "#22D3EE"], ["#8B5CF6", "#EC4899"], ["#4F46E5", "#06B6D4"]],
+  vod: [["#F43F8E", "#F59E0B"], ["#EF4444", "#F97316"], ["#EC4899", "#8B5CF6"], ["#E11D48", "#FB923C"]],
+  series: [["#22D3EE", "#10B981"], ["#06B6D4", "#6366F1"], ["#14B8A6", "#3B82F6"], ["#0EA5E9", "#34D399"]],
+};
+const semAcento = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+function limparNome(t: string) {
+  return String(t ?? "").replace(/[^\p{L}\p{N}\s&'+\-.\/:,!?()]/gu, " ").replace(/\s+/g, " ").trim();
+}
+function iconeDoNome(nome: string, padrao: string) {
+  const n = semAcento(nome);
+  const tab: [RegExp, string][] = [
+    [/acao|action|luta|guerra/, "bolt"], [/comedia|humor|stand/, "mood"], [/drama|romance|novela/, "heart"],
+    [/terror|horror|suspense|thriller|misterio/, "eye"], [/crime|policial|investig|document/, "search"],
+    [/aventura|viagem|faroeste|western/, "explore"], [/familia|infantil|animacao|kids|desenho|crianc|anime/, "family"],
+    [/ficcao|fantasia|sci|lancamento|top |4k|uhd|cinema|oscar|destaque/, "star"], [/esporte|futebol|sport|ufc|nba|tnt|espn|premiere/, "live"],
+  ];
+  for (const [re, ic] of tab) if (re.test(n)) return ic;
+  return padrao;
+}
+const xml = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+function quebrar(t: string, max = 15, linhas = 3) {
+  const out: string[] = [];
+  let atual = "";
+  for (const w of t.split(" ")) {
+    if ((atual + " " + w).trim().length <= max) atual = (atual + " " + w).trim();
+    else { if (atual) out.push(atual); atual = w.length > max ? w.slice(0, max - 1) + "…" : w; }
+  }
+  if (atual) out.push(atual);
+  if (out.length > linhas) { out.length = linhas; out[linhas - 1] = out[linhas - 1].replace(/.?$/, "…"); }
+  return out;
+}
+function cartaoSvg(k: string, titulo: string, sub: string, icone: string, retrato = false) {
+  const nome = limparNome(titulo).slice(0, 70) || "Sem nome";
+  let h = 0; for (const ch of nome) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const pal = PALETAS[k] ?? PALETAS.live;
+  const [c1, c2] = pal[h % pal.length];
+  const ic = ICONES[icone] ?? ICONES.play;
+  const W = retrato ? 480 : 640, H = retrato ? 720 : 480;
+  const ls = quebrar(nome, retrato ? 11 : 15, retrato ? 4 : 3);
+  const fs = retrato ? 46 : ls.length >= 3 ? 44 : 52, lh = fs + 8;
+  const base = sub ? H - 76 : H - 42;
+  const y0 = base - (ls.length - 1) * lh;
+  const textos = ls.map((l, n) => `<text x="40" y="${y0 + n * lh}" font-size="${fs}" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">${xml(l)}</text>`).join("");
+  const subt = sub ? `<text x="42" y="${base + 40}" font-size="28" font-weight="600" fill="#fff" fill-opacity=".82" font-family="Arial, Helvetica, sans-serif">${xml(limparNome(sub).slice(0, 34))}</text>` : "";
+  const gx = retrato ? 110 : 340, gy = retrato ? 190 : 150;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" overflow="hidden"><defs><clipPath id="c"><rect width="${W}" height="${H}"/></clipPath><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><g clip-path="url(#c)"><rect width="${W}" height="${H}" fill="url(#g)"/><circle cx="${W - 70}" cy="50" r="190" fill="#fff" fill-opacity=".12"/><circle cx="30" cy="${H}" r="170" fill="#000" fill-opacity=".15"/><g transform="translate(${gx} ${gy}) scale(11)" fill="#fff" fill-opacity=".17"><path d="${ic}"/></g><rect x="40" y="40" width="88" height="88" rx="26" fill="#fff" fill-opacity=".22"/><g transform="translate(60 60) scale(2)" fill="#fff"><path d="${ic}"/></g>${textos}${subt}</g></svg>`;
+}
+// URL da imagem de um cartão
+const cartao = (k: string, t: string, s = "", i = "play", retrato = false) => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "img", k, t: limparNome(t).slice(0, 70), s, i, ...(retrato ? { f: "p" } : {}) }).toString()}`;
+
 const SELF = () => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira`;
 const q = (o: Record<string, string | number>) =>
   Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join("&");
@@ -219,13 +288,14 @@ async function paginar(
   montar: (x: any) => unknown,
   proxima: (n: number) => string,
   layout: string,
-  cor: string,
+  kind: string,
   ext?: string,
 ) {
   const ini = pg * POR_PAGINA;
   const itens = todos.slice(ini, ini + POR_PAGINA).map(montar) as unknown[];
-  if (ini + POR_PAGINA < todos.length) itens.push({ title: `Próxima página`, titleFooter: `${pg + 2} de ${Math.ceil(todos.length / POR_PAGINA)}`, icon: "navigate-next", color: cor, action: proxima(pg + 1) });
-  if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${Math.ceil(todos.length / POR_PAGINA)}`, icon: "navigate-before", color: cor, action: proxima(pg - 1) });
+  const total = Math.ceil(todos.length / POR_PAGINA);
+  if (ini + POR_PAGINA < todos.length) itens.push({ image: cartao(kind, "Próxima página", `${pg + 2} de ${total}`, "next", layout === "0,0,2,3"), imageFiller: "cover", action: proxima(pg + 1) });
+  if (pg > 0) itens.unshift({ image: cartao(kind, "Página anterior", `${pg} de ${total}`, "prev", layout === "0,0,2,3"), imageFiller: "cover", action: proxima(pg - 1) });
   if (!todos.length) itens.push({ title: "Nada encontrado", action: "none" });
   return lista(titulo, itens, layout, {}, ext ?? `${todos.length} itens`);
 }
@@ -291,9 +361,9 @@ async function tratar(url: URL) {
   if (a === "home") return await home(t, cred.u, d);
 
   const TIPOS = {
-    live: { nome: "TV ao vivo", cats: "get_live_categories", itens: "get_live_streams", cor: COR.tv, icone: "live-tv" },
+    live: { nome: "TV ao vivo", cats: "get_live_categories", itens: "get_live_streams", cor: COR.tv, icone: "live" },
     vod: { nome: "Filmes", cats: "get_vod_categories", itens: "get_vod_streams", cor: COR.vod, icone: "movie" },
-    series: { nome: "Séries", cats: "get_series_categories", itens: "get_series", cor: COR.series, icone: "tv" },
+    series: { nome: "Séries", cats: "get_series_categories", itens: "get_series", cor: COR.series, icone: "series" },
   } as const;
   const tipoQ = url.searchParams.get("k") as keyof typeof TIPOS;
   const T = TIPOS[tipoQ];
@@ -303,10 +373,13 @@ async function tratar(url: URL) {
     const cats = await api(cred, `&action=${T.cats}`);
     const lst = Array.isArray(cats) ? cats : [];
     const itens = [
-      { title: "Todos", titleFooter: "Ver tudo", icon: "apps", color: T.cor, action: go({ a: "itens", k: tipoQ, t, c: "" }) },
-      ...lst.map((x: any) => ({ title: String(x.category_name), icon: T.icone, color: COR.vidro, action: go({ a: "itens", k: tipoQ, t, c: x.category_id }) })),
+      { image: cartao(tipoQ, "Todos", T.nome, "apps"), imageFiller: "cover", action: go({ a: "itens", k: tipoQ, t, c: "" }) },
+      ...lst.map((x: any) => {
+        const nome = limparNome(String(x.category_name));
+        return { image: cartao(tipoQ, nome, T.nome, iconeDoNome(nome, T.icone)), imageFiller: "cover", action: go({ a: "itens", k: tipoQ, t, c: x.category_id }) };
+      }),
     ];
-    return lista(T.nome, itens, "0,0,3,2", { iconSize: "medium" }, `${lst.length} categorias`);
+    return lista(T.nome, itens, "0,0,3,2", {}, `${lst.length} categorias`);
   }
 
   if (a === "itens") {
@@ -315,26 +388,32 @@ async function tratar(url: URL) {
     const todos = Array.isArray(dados) ? dados : [];
     const prox = (n: number) => go({ a: "itens", k: tipoQ, t, c, pg: n });
     if (tipoQ === "live") {
-      return paginar("Canais", todos, pg, (x) => ({
-        title: String(x.name), image: x.stream_icon || undefined, imageFiller: "smart",
-        icon: x.stream_icon ? undefined : "live-tv", color: COR.vidro,
-        action: `video:${urlFluxo("live", cred, x.stream_id, "ts")}`, playerLabel: String(x.name),
-      }), prox, "0,0,3,2", T.cor);
+      return paginar("Canais", todos, pg, (x) => {
+        const nome = limparNome(String(x.name));
+        return {
+          image: x.stream_icon || cartao("live", nome, "Ao vivo", "live"), imageFiller: x.stream_icon ? "smart" : "cover", color: COR.vidro,
+          action: `video:${urlFluxo("live", cred, x.stream_id, "ts")}`, playerLabel: nome,
+        };
+      }, prox, "0,0,3,2", tipoQ);
     }
     if (tipoQ === "vod") {
-      return paginar("Filmes", todos, pg, (x) => ({
-        title: String(x.name), image: x.stream_icon || undefined, imageFiller: "cover",
-        icon: x.stream_icon ? undefined : "movie", color: COR.vidro,
-        tag: nota(x.rating), tagColor: "rgba(0,0,0,0.65)",
-        action: `video:${urlFluxo("movie", cred, x.stream_id, x.container_extension || "mp4")}`, playerLabel: String(x.name),
-      }), prox, "0,0,2,3", T.cor);
+      return paginar("Filmes", todos, pg, (x) => {
+        const nome = limparNome(String(x.name));
+        return {
+          title: nome, image: x.stream_icon || cartao("vod", nome, "Filme", "movie", true), imageFiller: "cover", color: COR.vidro,
+          tag: nota(x.rating), tagColor: COR.destaque,
+          action: `video:${urlFluxo("movie", cred, x.stream_id, x.container_extension || "mp4")}`, playerLabel: nome,
+        };
+      }, prox, "0,0,2,3", tipoQ);
     }
-    return paginar("Séries", todos, pg, (x) => ({
-      title: String(x.name), image: x.cover || undefined, imageFiller: "cover",
-      icon: x.cover ? undefined : "tv", color: COR.vidro,
-      tag: nota(x.rating), tagColor: "rgba(0,0,0,0.65)",
-      action: go({ a: "serie", t, s: x.series_id }),
-    }), prox, "0,0,2,3", T.cor);
+    return paginar("Séries", todos, pg, (x) => {
+      const nome = limparNome(String(x.name));
+      return {
+        title: nome, image: x.cover || cartao("series", nome, "Série", "series", true), imageFiller: "cover", color: COR.vidro,
+        tag: nota(x.rating), tagColor: COR.destaque,
+        action: go({ a: "serie", t, s: x.series_id }),
+      };
+    }, prox, "0,0,2,3", tipoQ);
   }
 
   if (a === "serie") {
@@ -345,8 +424,8 @@ async function tratar(url: URL) {
     const eps = info?.episodes ?? {};
     const numeros = Object.keys(eps).sort((x, y) => Number(x) - Number(y));
     if (temp === null) {
-      return lista(nome, numeros.map((n) => ({
-        title: `Temporada ${n}`, titleFooter: `${eps[n].length} episódios`, icon: "tv", color: COR.series,
+      return lista(limparNome(nome), numeros.map((n) => ({
+        image: cartao("series", `Temporada ${n}`, `${eps[n].length} episódios`, "series"), imageFiller: "cover",
         action: go({ a: "serie", t, s, n }),
       })), "0,0,3,2", {}, `${numeros.length} temporadas`);
     }
@@ -379,6 +458,12 @@ async function home(t: string, quem: string, d: string | null = null) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   try {
+    const u0 = new URL(req.url);
+    if (req.method === "GET" && u0.searchParams.get("a") === "img") {
+      const g = u0.searchParams;
+      const svg = cartaoSvg(g.get("k") ?? "live", g.get("t") ?? "", g.get("s") ?? "", g.get("i") ?? "play", g.get("f") === "p");
+      return new Response(svg, { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
+    }
     if (req.method === "POST") {
       const b = await req.json().catch(() => ({}));
       return new Response(JSON.stringify(await parear(b)), { headers: CORS });
