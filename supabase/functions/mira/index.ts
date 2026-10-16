@@ -169,6 +169,7 @@ const ICONES: Record<string, string> = {
 const PALETAS: Record<string, string[][]> = {
   live: [["#7C5CFF", "#3B82F6"], ["#6D4AFF", "#22D3EE"], ["#8B5CF6", "#EC4899"], ["#4F46E5", "#06B6D4"]],
   vod: [["#F43F8E", "#F59E0B"], ["#EF4444", "#F97316"], ["#EC4899", "#8B5CF6"], ["#E11D48", "#FB923C"]],
+  nav: [["#F59E0B", "#F43F5E"]],
   series: [["#22D3EE", "#10B981"], ["#06B6D4", "#6366F1"], ["#14B8A6", "#3B82F6"], ["#0EA5E9", "#34D399"]],
 };
 const semAcento = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -312,9 +313,55 @@ async function paginar(
 }
 const nota = (v: unknown) => { const n = Number(v); return n > 0 ? n.toFixed(1) : undefined; };
 
+// ---------- EPG (programação) com cache curto em memória ----------
+type Prog = { titulo: string; ini: number; fim: number };
+const cacheEpg = new Map<string, { em: number; v: Prog[] }>();
+const fmtHora = (ms: number) => new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Fortaleza" });
+async function epgDe(cred: { u: string; p: string }, id: string): Promise<Prog[]> {
+  const c = cacheEpg.get(id);
+  if (c && Date.now() - c.em < 5 * 60 * 1000) return c.v;
+  let v: Prog[] = [];
+  try {
+    const j = await api(cred, `&action=get_short_epg&stream_id=${encodeURIComponent(id)}&limit=3`);
+    v = ((Array.isArray(j?.epg_listings) ? j.epg_listings : []) as any[])
+      .map((p) => ({ titulo: b64txt(p.title).trim(), ini: Number(p.start_timestamp) * 1000, fim: Number(p.stop_timestamp) * 1000 }))
+      .filter((p) => p.titulo && p.fim > Date.now())
+      .sort((a, b) => a.ini - b.ini);
+  } catch { /* sem guia */ }
+  cacheEpg.set(id, { em: Date.now(), v });
+  return v;
+}
+// busca a programação de vários canais em paralelo, sem passar do tempo-limite
+async function epgVarios(cred: { u: string; p: string }, ids: string[], limiteMs = 3500, paralelo = 16) {
+  const out = new Map<string, Prog[]>();
+  const fila = [...ids];
+  const fim = Date.now() + limiteMs;
+  const trabalhador = async () => {
+    while (fila.length && Date.now() < fim) {
+      const id = fila.shift()!;
+      const v = await Promise.race([epgDe(cred, id), new Promise<Prog[]>((r) => setTimeout(() => r([]), Math.max(0, fim - Date.now())))]);
+      out.set(id, v);
+    }
+  };
+  await Promise.all(Array.from({ length: paralelo }, trabalhador));
+  return out;
+}
+function textoEpg(v: Prog[] | undefined) {
+  const agora = v?.find((p) => p.ini <= Date.now() && p.fim > Date.now());
+  const prox = v?.find((p) => p.ini >= (agora?.fim ?? Date.now()) - 60000 && p !== agora);
+  if (!agora) return { linha: "", player: prox ? `A seguir · ${fmtHora(prox.ini)}  ${prox.titulo}` : "" };
+  const pct = Math.min(100, Math.max(0, Math.round(((Date.now() - agora.ini) / (agora.fim - agora.ini)) * 100)));
+  const falta = Math.max(1, Math.round((agora.fim - Date.now()) / 60000));
+  return {
+    linha: `${fmtHora(agora.ini)}  ${agora.titulo}`,
+    player: `AGORA  ${fmtHora(agora.ini)} – ${fmtHora(agora.fim)}   ${agora.titulo}{br}${pct}% exibido · faltam ${falta} min` + (prox ? `{br}A SEGUIR  ${fmtHora(prox.ini)}   ${prox.titulo}` : ""),
+  };
+}
+
 // ---------- TV ao vivo dentro do player: OK abre a lista de canais (com EPG) por cima do vídeo ----------
-function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string, painel = false, atual = "", cn = "", n = 0) {
+function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string, painel = false, atual = "", cn = "", n = 0, epg?: Prog[]) {
   const nome = limparNome(String(x.name));
+  const guia = textoEpg(epg);
   const logo = x.stream_icon || undefined;
   const lista = `panel:${SELF()}?${q({ a: "painel", t, c, cn, s: x.stream_id })}`;
   const ativo = painel && String(x.stream_id) === atual;
@@ -322,7 +369,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
     ? { titleHeader: n ? `CANAL ${n}` : undefined, image: faixa("live", nome, ativo ? "play" : "live", ativo), imageFiller: "cover", color: "transparent" }
     : { image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)", icon: logo ? undefined : "live-tv", iconSize: "small", color: COR.vidro };
   return {
-    title: nome, titleFooter: ativo ? "▶ Assistindo agora" : "Ao vivo", truncation: "title",
+    title: nome, titleFooter: (ativo ? "▶ " : "") + (guia.linha || (ativo ? "Assistindo agora" : "Ao vivo")), truncation: "title|titleFooter",
     ...visual,
     focus: ativo ? true : undefined, enumerate: true,
     playerLabel: nome,
@@ -331,10 +378,11 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
       "control:type": "extended",
       "control:action": lista,
       "info:headline": nome,
-      "info:text": cn ? `${cn} · OK: canais e programação` : "OK: canais e programação",
+      "info:text": guia.player || (cn ? `${cn} · sem guia de programação` : "Sem guia de programação"),
       ...(logo ? { "info:image": logo, "info:size": "small" } : {}),
       "button:content:icon": "list",
       "button:content:action": lista,
+      "button:content:focus": true,
       "button:forward:icon": "apps",
       "button:forward:action": `panel:${SELF()}?${q({ a: "pcats", t, s: x.stream_id })}`,
       "button:rewind:display": false,
@@ -430,7 +478,8 @@ async function tratar(url: URL) {
     const todos = Array.isArray(dados) ? dados : [];
     const prox = (n: number) => go({ a: "itens", k: tipoQ, t, c, cn: url.searchParams.get("cn") ?? "", pg: n });
     if (tipoQ === "live") {
-      return paginar("Canais", todos, pg, (x) => canalItem(x, cred, t, c, false, "", url.searchParams.get("cn") ?? ""), prox, "0,0,4,1", tipoQ);
+      const ep = await epgVarios(cred, todos.slice(pg * POR_PAGINA, (pg + 1) * POR_PAGINA).map((x: any) => String(x.stream_id)));
+      return paginar("Canais", todos, pg, (x) => canalItem(x, cred, t, c, false, "", url.searchParams.get("cn") ?? "", 0, ep.get(String(x.stream_id))), prox, "0,0,4,1", tipoQ);
     }
     if (tipoQ === "vod") {
       return paginar("Filmes", todos, pg, (x) => {
@@ -455,30 +504,22 @@ async function tratar(url: URL) {
   if (a === "painel") {
     const s = url.searchParams.get("s") ?? "";
     const cn = url.searchParams.get("cn") ?? "";
-    const [dados, epg] = await Promise.all([
-      api(cred, `&action=get_live_streams${c ? "&category_id=" + encodeURIComponent(c) : ""}`),
-      api(cred, `&action=get_short_epg&stream_id=${encodeURIComponent(s)}&limit=3`).catch(() => null),
-    ]);
+    const dados = await api(cred, `&action=get_live_streams${c ? "&category_id=" + encodeURIComponent(c) : ""}`);
     const todos = (Array.isArray(dados) ? dados : []).slice(0, 400);
-    const prog = (Array.isArray(epg?.epg_listings) ? epg.epg_listings : []) as any[];
-    const voltar = {
-      title: "☰  Trocar categoria", titleFooter: `Atual: ${cn || "Todos os canais"}`,
-      image: faixa("live", "categorias", "apps"), imageFiller: "cover", color: "transparent",
+    const idx = todos.findIndex((x: any) => String(x.stream_id) === s);
+    const ids = [s, ...todos.slice(0, 120).map((x: any) => String(x.stream_id)).filter((i: string) => i !== s)];
+    const ep = await epgVarios(cred, ids);
+    const navegar = {
+      titleHeader: "NAVEGAR", title: "Trocar categoria", titleFooter: `Atual: ${cn || "Todos os canais"}`,
+      image: faixa("nav", "nav", "apps", true), imageFiller: "cover", color: "transparent",
       action: `panel:${SELF()}?${q({ a: "pcats", t, s })}`,
     };
-    const guia: unknown[] = prog.length
-      ? prog.slice(0, 2).map((p, i) => ({
-          titleHeader: i === 0 ? "● AGORA" : "A SEGUIR", title: b64txt(p.title), titleFooter: `${hora(p.start)} – ${hora(p.end ?? p.stop)}`,
-          truncation: "title", color: i === 0 ? "rgba(124,92,255,0.30)" : "rgba(255,255,255,0.06)", action: "none",
-        }))
-      : [];
-    const canais = todos.map((x, i) => ({ ...canalItem(x, cred, t, c, true, s, cn, i + 1), focus: undefined }));
-    const idx = todos.findIndex((x) => String(x.stream_id) === s);
-    const fixo = idx >= 0 ? [{ ...canalItem(todos[idx], cred, t, c, true, s, cn), titleFooter: "▶ Assistindo agora", focus: true }] : [];
+    const canais = todos.map((x: any, i: number) => ({ ...canalItem(x, cred, t, c, true, s, cn, i + 1, ep.get(String(x.stream_id))), focus: undefined }));
+    const fixo = idx >= 0 ? [{ ...canalItem(todos[idx], cred, t, c, true, s, cn, idx + 1, ep.get(s)), focus: true }] : [];
     return {
       type: "list", headline: "Canais", extension: cn || `${todos.length}`,
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [...fixo, { ...voltar, focus: idx < 0 ? true : undefined }, ...guia, ...canais],
+      items: [...fixo, { ...navegar, focus: idx < 0 ? true : undefined }, ...canais],
     };
   }
 
