@@ -217,6 +217,17 @@ function cartaoSvg(k: string, titulo: string, sub: string, icone: string, retrat
 // URL da imagem de um cartão
 const cartao = (k: string, t: string, s = "", i = "play", retrato = false) => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "img", k, t: limparNome(t).slice(0, 70), s, i, ...(retrato ? { f: "p" } : {}) }).toString()}`;
 
+// fundo de bloco largo: degradê translúcido + ícone grande e suave à direita (o nome vem por cima, em texto do MSX)
+function faixaSvg(k: string, semente: string, icone: string) {
+  let h = 0; for (const ch of semente) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const pal = PALETAS[k] ?? PALETAS.live;
+  const [c1, c2] = pal[h % pal.length];
+  const ic = ICONES[icone] ?? ICONES.play;
+  const W = 960, H = 160;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><clipPath id="c"><rect width="${W}" height="${H}" rx="22"/></clipPath><linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${c1}" stop-opacity=".92"/><stop offset=".55" stop-color="${c2}" stop-opacity=".55"/><stop offset="1" stop-color="${c2}" stop-opacity=".18"/></linearGradient><linearGradient id="l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><g clip-path="url(#c)"><rect width="${W}" height="${H}" fill="#0B0B1A" fill-opacity=".55"/><rect width="${W}" height="${H}" fill="url(#g)"/><rect width="${W}" height="${H}" fill="url(#l)"/><circle cx="${W - 120}" cy="-50" r="150" fill="#fff" fill-opacity=".08"/><g transform="translate(${W - 200} 8) scale(6)" fill="#fff" fill-opacity=".16"><path d="${ic}"/></g></g><rect x="1.5" y="1.5" width="${W - 3}" height="${H - 3}" rx="21" fill="none" stroke="#fff" stroke-opacity=".22" stroke-width="3"/></svg>`;
+}
+const faixa = (k: string, semente: string, icone: string) => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "bg", k, n: semente.slice(0, 40), i: icone }).toString()}`;
+
 const SELF = () => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira`;
 const q = (o: Record<string, string | number>) =>
   Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join("&");
@@ -372,10 +383,10 @@ async function tratar(url: URL) {
     if (!T) return aviso("Mira", "Seção desconhecida");
     const cats = await api(cred, `&action=${T.cats}`);
     const lst = Array.isArray(cats) ? cats : [];
-    const linha = (nome: string, ic: string, cid: string) => ({ title: nome, icon: ic, iconSize: "small", color: T.solido, action: go({ a: "itens", k: tipoQ, t, c: cid }) });
+    const linha = (nome: string, ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, image: faixa(tipoQ, nome, ic), imageFiller: "cover", color: "transparent", action: go({ a: "itens", k: tipoQ, t, c: cid }) });
     const itens = [
-      { ...linha("Todos", "apps", ""), focus: true },
-      ...lst.map((x: any) => linha(limparNome(String(x.category_name)), T.icone, x.category_id)),
+      { ...linha("Todos", "apps", "", `Todo o catálogo de ${T.nome.toLowerCase()}`), focus: true },
+      ...lst.map((x: any) => { const nome = limparNome(String(x.category_name)); return linha(nome, iconeDoNome(nome, "play"), x.category_id, T.nome); }),
     ];
     return lista(T.nome, itens, "0,0,6,1", {}, `${lst.length} categorias`);
   }
@@ -423,7 +434,7 @@ async function tratar(url: URL) {
     const numeros = Object.keys(eps).sort((x, y) => Number(x) - Number(y));
     if (temp === null) {
       return lista(limparNome(nome), numeros.map((n) => ({
-        title: `Temporada ${n}`, titleFooter: `${eps[n].length} episódios`, icon: "video-library", iconSize: "small", color: "#0B8F9C",
+        title: `Temporada ${n}`, titleFooter: `${eps[n].length} episódios`, image: faixa("series", "Temporada " + n, "series"), imageFiller: "cover", color: "transparent",
         action: go({ a: "serie", t, s, n }),
       })), "0,0,6,1", {}, `${numeros.length} temporadas`);
     }
@@ -461,6 +472,10 @@ Deno.serve(async (req: Request) => {
       const g = u0.searchParams;
       const svg = cartaoSvg(g.get("k") ?? "live", g.get("t") ?? "", g.get("s") ?? "", g.get("i") ?? "play", g.get("f") === "p");
       return new Response(svg, { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
+    }
+    if (req.method === "GET" && u0.searchParams.get("a") === "bg") {
+      const g = u0.searchParams;
+      return new Response(faixaSvg(g.get("k") ?? "live", g.get("n") ?? "", g.get("i") ?? "play"), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
     }
     if (req.method === "POST") {
       const b = await req.json().catch(() => ({}));
