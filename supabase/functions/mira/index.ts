@@ -294,8 +294,8 @@ async function paginar(
   const ini = pg * POR_PAGINA;
   const itens = todos.slice(ini, ini + POR_PAGINA).map(montar) as unknown[];
   const total = Math.ceil(todos.length / POR_PAGINA);
-  if (ini + POR_PAGINA < todos.length) itens.push({ image: cartao(kind, "Próxima página", `${pg + 2} de ${total}`, "next", layout === "0,0,2,3"), imageFiller: "cover", action: proxima(pg + 1) });
-  if (pg > 0) itens.unshift({ image: cartao(kind, "Página anterior", `${pg} de ${total}`, "prev", layout === "0,0,2,3"), imageFiller: "cover", action: proxima(pg - 1) });
+  if (ini + POR_PAGINA < todos.length) itens.push({ title: "Próxima página", titleFooter: `${pg + 2} de ${total}`, icon: "navigate-next", color: COR.destaque, action: proxima(pg + 1) });
+  if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${total}`, icon: "navigate-before", color: COR.destaque, action: proxima(pg - 1) });
   if (!todos.length) itens.push({ title: "Nada encontrado", action: "none" });
   return lista(titulo, itens, layout, {}, ext ?? `${todos.length} itens`);
 }
@@ -361,9 +361,9 @@ async function tratar(url: URL) {
   if (a === "home") return await home(t, cred.u, d);
 
   const TIPOS = {
-    live: { nome: "TV ao vivo", cats: "get_live_categories", itens: "get_live_streams", cor: COR.tv, icone: "live" },
+    live: { nome: "TV ao vivo", cats: "get_live_categories", itens: "get_live_streams", cor: COR.tv, icone: "live-tv" },
     vod: { nome: "Filmes", cats: "get_vod_categories", itens: "get_vod_streams", cor: COR.vod, icone: "movie" },
-    series: { nome: "Séries", cats: "get_series_categories", itens: "get_series", cor: COR.series, icone: "series" },
+    series: { nome: "Séries", cats: "get_series_categories", itens: "get_series", cor: COR.series, icone: "video-library" },
   } as const;
   const tipoQ = url.searchParams.get("k") as keyof typeof TIPOS;
   const T = TIPOS[tipoQ];
@@ -372,14 +372,12 @@ async function tratar(url: URL) {
     if (!T) return aviso("Mira", "Seção desconhecida");
     const cats = await api(cred, `&action=${T.cats}`);
     const lst = Array.isArray(cats) ? cats : [];
+    const linha = (nome: string, ic: string, cid: string) => ({ title: nome, icon: ic, iconSize: "small", color: T.cor, action: go({ a: "itens", k: tipoQ, t, c: cid }) });
     const itens = [
-      { image: cartao(tipoQ, "Todos", T.nome, "apps"), imageFiller: "cover", action: go({ a: "itens", k: tipoQ, t, c: "" }) },
-      ...lst.map((x: any) => {
-        const nome = limparNome(String(x.category_name));
-        return { image: cartao(tipoQ, nome, T.nome, iconeDoNome(nome, T.icone)), imageFiller: "cover", action: go({ a: "itens", k: tipoQ, t, c: x.category_id }) };
-      }),
+      { ...linha("Todos", "apps", ""), focus: true },
+      ...lst.map((x: any) => linha(limparNome(String(x.category_name)), T.icone, x.category_id)),
     ];
-    return lista(T.nome, itens, "0,0,3,2", {}, `${lst.length} categorias`);
+    return lista(T.nome, itens, "0,0,6,1", {}, `${lst.length} categorias`);
   }
 
   if (a === "itens") {
@@ -391,7 +389,7 @@ async function tratar(url: URL) {
       return paginar("Canais", todos, pg, (x) => {
         const nome = limparNome(String(x.name));
         return {
-          image: x.stream_icon || cartao("live", nome, "Ao vivo", "live"), imageFiller: x.stream_icon ? "smart" : "cover", color: COR.vidro,
+          title: x.stream_icon ? undefined : nome, icon: x.stream_icon ? undefined : "live-tv", image: x.stream_icon || undefined, imageFiller: "smart", color: COR.vidro,
           action: `video:${urlFluxo("live", cred, x.stream_id, "ts")}`, playerLabel: nome,
         };
       }, prox, "0,0,3,2", tipoQ);
@@ -425,9 +423,9 @@ async function tratar(url: URL) {
     const numeros = Object.keys(eps).sort((x, y) => Number(x) - Number(y));
     if (temp === null) {
       return lista(limparNome(nome), numeros.map((n) => ({
-        image: cartao("series", `Temporada ${n}`, `${eps[n].length} episódios`, "series"), imageFiller: "cover",
+        title: `Temporada ${n}`, titleFooter: `${eps[n].length} episódios`, icon: "video-library", iconSize: "small", color: COR.series,
         action: go({ a: "serie", t, s, n }),
-      })), "0,0,3,2", {}, `${numeros.length} temporadas`);
+      })), "0,0,6,1", {}, `${numeros.length} temporadas`);
     }
     const lst = (eps[temp] ?? []) as any[];
     return lista(`${nome}`, lst.map((e) => ({
