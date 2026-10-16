@@ -15,6 +15,9 @@ const CORS = {
   "cache-control": "no-store",
 };
 
+const IMG = "https://mktdigital91.github.io/msx/msx/img/";
+const COR = { tv: "rgba(124,92,255,0.40)", vod: "rgba(244,63,142,0.38)", series: "rgba(34,211,238,0.32)", vidro: "rgba(255,255,255,0.08)", destaque: "#7C5CFF" };
+
 const BASE_PROV = `${PROVEDOR.protocolo}://${PROVEDOR.host}`;
 
 // ---------- token (AES-GCM), chave derivada de um segredo que o próprio Supabase injeta ----------
@@ -103,22 +106,42 @@ function inputAction(servico: string, titulo: string, dica: string) {
   return `content:request:interaction:${servico}|default|pt|${titulo}|||${dica}|@${INPUT}`;
 }
 
-function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Record<string, unknown> = {}) {
-  return { type: "list", headline, template: { type: "separate", layout, color: "msx-glass", ...extra }, items };
+function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Record<string, unknown> = {}, extensao?: string) {
+  return { type: "list", headline, extension: extensao, background: IMG + "fundo.jpg", template: { type: "separate", layout, color: COR.vidro, ...extra }, items };
 }
 function aviso(titulo: string, msg: string, voltar?: unknown[]) {
   return lista(titulo, [{ title: msg, action: "none" }, ...(voltar ?? [])], "0,0,12,1");
 }
-function telaEntrar(msg?: string, d?: string | null) {
-  return lista("Mira", [
-    ...(msg ? [{ title: msg, action: "none", color: "msx-red" }] : []),
-    {
-      title: "Entrar",
-      titleFooter: "Digite usuário e depois senha",
-      icon: "login",
-      action: inputAction(`${SELF()}?${q(d ? { a: "senha", d } : { a: "senha" })}&u={INPUT}`, "Usuário", "Digite o usuário e confirme"),
-    },
-  ], "0,0,6,2");
+function telaEntrar(msg?: string, d?: string | null, u = "", p = "", auto = false) {
+  const base = (o: Record<string, string>) => (d ? { ...o, d } : o);
+  const eu = u ? { u } : {};
+  const ep = p ? { p } : {};
+  const pronto = !!(u && p);
+  const campoUsuario = {
+    id: "usuario", type: "default", layout: "6,2,5,1", color: COR.vidro,
+    titleHeader: "USUÁRIO", title: u || "Toque para digitar",
+    focus: !u,
+    action: inputAction(`${SELF()}?${q(base({ a: "form", ...ep }))}&u={INPUT}`, "Usuário", "Digite o usuário e confirme"),
+  };
+  const campoSenha = {
+    id: "senha", type: "default", layout: "6,3,5,1", color: COR.vidro,
+    titleHeader: "SENHA", title: p ? "••••••••" : "Toque para digitar",
+    focus: !!u && !p, execute: auto && !!u && !p,
+    action: inputAction(`${SELF()}?${q(base({ a: "form", ...eu }))}&p={INPUT}`, "Senha", "Digite a senha e confirme"),
+  };
+  const botao = {
+    id: "entrar", type: "default", layout: "6,4,5,1", color: COR.destaque,
+    icon: "login", iconSize: "small", title: "Entrar", titleFooter: pronto ? "" : "Preencha usuário e senha",
+    focus: pronto, execute: auto && pronto,
+    action: pronto ? go(base({ a: "login", u, p })) : "warn:Preencha o usuário e a senha",
+  };
+  return {
+    type: "pages", background: IMG + "login.jpg",
+    pages: [{ items: [
+      { type: "space", layout: "6,1,5,1", headline: "Entrar", text: msg ?? "Use o usuário e a senha da sua lista" },
+      campoUsuario, campoSenha, botao,
+    ] }],
+  };
 }
 
 async function paginar(
@@ -128,14 +151,17 @@ async function paginar(
   montar: (x: any) => unknown,
   proxima: (n: number) => string,
   layout: string,
+  cor: string,
+  ext?: string,
 ) {
   const ini = pg * POR_PAGINA;
   const itens = todos.slice(ini, ini + POR_PAGINA).map(montar) as unknown[];
-  if (ini + POR_PAGINA < todos.length) itens.push({ title: `Próxima página (${pg + 2})`, icon: "navigate-next", action: proxima(pg + 1) });
-  if (pg > 0) itens.unshift({ title: "Página anterior", icon: "navigate-before", action: proxima(pg - 1) });
+  if (ini + POR_PAGINA < todos.length) itens.push({ title: `Próxima página`, titleFooter: `${pg + 2} de ${Math.ceil(todos.length / POR_PAGINA)}`, icon: "navigate-next", color: cor, action: proxima(pg + 1) });
+  if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${Math.ceil(todos.length / POR_PAGINA)}`, icon: "navigate-before", color: cor, action: proxima(pg - 1) });
   if (!todos.length) itens.push({ title: "Nada encontrado", action: "none" });
-  return lista(`${titulo} (${todos.length})`, itens, layout);
+  return lista(titulo, itens, layout, {}, ext ?? `${todos.length} itens`);
 }
+const nota = (v: unknown) => { const n = Number(v); return n > 0 ? n.toFixed(1) : undefined; };
 
 async function tratar(url: URL) {
   const a = url.searchParams.get("a") ?? "inicio";
@@ -155,23 +181,19 @@ async function tratar(url: URL) {
     return telaEntrar("Você saiu", d);
   }
 
-  if (a === "senha") {
+  if (a === "form") {
     const u = (url.searchParams.get("u") ?? "").trim();
-    if (!u) return telaEntrar("Usuário vazio", d);
-    return lista(`Usuário: ${u}`, [{
-      title: "Digitar senha",
-      icon: "vpn-key",
-      action: inputAction(`${SELF()}?${q(d ? { a: "login", u, d } : { a: "login", u })}&p={INPUT}`, "Senha", "Digite a senha e confirme"),
-    }, { title: "Trocar usuário", icon: "undo", action: go(d ? { a: "inicio", d } : { a: "inicio" }) }], "0,0,6,2");
+    const p = url.searchParams.get("p") ?? "";
+    return telaEntrar(undefined, d, u, p, true);
   }
 
   if (a === "login") {
     const u = (url.searchParams.get("u") ?? "").trim();
     const p = url.searchParams.get("p") ?? "";
-    if (!u || !p) return telaEntrar("Informe usuário e senha", d);
+    if (!u || !p) return telaEntrar("Informe usuário e senha", d, u, "");
     let info;
-    try { info = await api({ u, p }); } catch (e) { return telaEntrar("Provedor: " + String((e as Error).message ?? e).slice(0, 80), d); }
-    if (!info?.user_info || Number(info.user_info.auth) !== 1) return telaEntrar("Usuário ou senha incorretos", d);
+    try { info = await api({ u, p }); } catch (e) { return telaEntrar("Provedor: " + String((e as Error).message ?? e).slice(0, 80), d, u, ""); }
+    if (!info?.user_info || Number(info.user_info.auth) !== 1) return telaEntrar("Usuário ou senha incorretos", d, u, "");
     const exp = info.user_info.exp_date ? new Date(Number(info.user_info.exp_date) * 1000).toLocaleDateString("pt-BR") : "sem data";
     const tk = await criarToken(u, p);
     await salvarSessao(d, tk);
@@ -185,82 +207,90 @@ async function tratar(url: URL) {
 
   if (a === "home") return await home(t, cred.u, d);
 
-  const grupo = (nome: string, tipo: "live" | "vod" | "series") => ({
-    cats: `get_${tipo}_categories`,
-    itens: tipo === "series" ? "get_series" : `get_${tipo}_streams`,
-    nome,
-  });
+  const TIPOS = {
+    live: { nome: "TV ao vivo", cats: "get_live_categories", itens: "get_live_streams", cor: COR.tv, icone: "live-tv" },
+    vod: { nome: "Filmes", cats: "get_vod_categories", itens: "get_vod_streams", cor: COR.vod, icone: "movie" },
+    series: { nome: "Séries", cats: "get_series_categories", itens: "get_series", cor: COR.series, icone: "tv" },
+  } as const;
+  const tipoQ = url.searchParams.get("k") as keyof typeof TIPOS;
+  const T = TIPOS[tipoQ];
 
   if (a === "cats") {
-    const tipo = url.searchParams.get("k") as "live" | "vod" | "series";
-    const g = grupo({ live: "TV ao vivo", vod: "Filmes", series: "Séries" }[tipo] ?? "?", tipo);
-    const cats = await api(cred, `&action=${g.cats}`);
+    if (!T) return aviso("Mira", "Seção desconhecida");
+    const cats = await api(cred, `&action=${T.cats}`);
+    const lst = Array.isArray(cats) ? cats : [];
     const itens = [
-      { title: "Todos", icon: "apps", action: go({ a: "itens", k: tipo, t, c: "" }) },
-      ...(Array.isArray(cats) ? cats : []).map((x: any) => ({
-        title: String(x.category_name),
-        action: go({ a: "itens", k: tipo, t, c: x.category_id }),
-      })),
+      { title: "Todos", titleFooter: "Ver tudo", icon: "apps", color: T.cor, action: go({ a: "itens", k: tipoQ, t, c: "" }) },
+      ...lst.map((x: any) => ({ title: String(x.category_name), icon: T.icone, color: COR.vidro, action: go({ a: "itens", k: tipoQ, t, c: x.category_id }) })),
     ];
-    return lista(g.nome, itens, "0,0,4,1");
+    return lista(T.nome, itens, "0,0,3,2", { iconSize: "medium" }, `${lst.length} categorias`);
   }
 
   if (a === "itens") {
-    const tipo = url.searchParams.get("k") as "live" | "vod" | "series";
-    const g = grupo("", tipo);
-    const dados = await api(cred, `&action=${g.itens}${c ? "&category_id=" + encodeURIComponent(c) : ""}`);
+    if (!T) return aviso("Mira", "Seção desconhecida");
+    const dados = await api(cred, `&action=${T.itens}${c ? "&category_id=" + encodeURIComponent(c) : ""}`);
     const todos = Array.isArray(dados) ? dados : [];
-    const titulo = { live: "Canais", vod: "Filmes", series: "Séries" }[tipo] ?? "?";
-    const prox = (n: number) => go({ a: "itens", k: tipo, t, c, pg: n });
-    if (tipo === "live") {
-      return paginar(titulo, todos, pg, (x) => ({
-        title: String(x.name), image: x.stream_icon || undefined,
+    const prox = (n: number) => go({ a: "itens", k: tipoQ, t, c, pg: n });
+    if (tipoQ === "live") {
+      return paginar("Canais", todos, pg, (x) => ({
+        title: String(x.name), image: x.stream_icon || undefined, imageFiller: "smart",
+        icon: x.stream_icon ? undefined : "live-tv", color: COR.vidro,
         action: `video:${urlFluxo("live", cred, x.stream_id, "ts")}`, playerLabel: String(x.name),
-      }), prox, "0,0,4,1");
+      }), prox, "0,0,3,2", T.cor);
     }
-    if (tipo === "vod") {
-      return paginar(titulo, todos, pg, (x) => ({
-        title: String(x.name), image: x.stream_icon || undefined,
+    if (tipoQ === "vod") {
+      return paginar("Filmes", todos, pg, (x) => ({
+        title: String(x.name), image: x.stream_icon || undefined, imageFiller: "cover",
+        icon: x.stream_icon ? undefined : "movie", color: COR.vidro,
+        tag: nota(x.rating), tagColor: "rgba(0,0,0,0.65)",
         action: `video:${urlFluxo("movie", cred, x.stream_id, x.container_extension || "mp4")}`, playerLabel: String(x.name),
-      }), prox, "0,0,2,3");
+      }), prox, "0,0,2,3", T.cor);
     }
-    return paginar(titulo, todos, pg, (x) => ({
-      title: String(x.name), image: x.cover || undefined,
+    return paginar("Séries", todos, pg, (x) => ({
+      title: String(x.name), image: x.cover || undefined, imageFiller: "cover",
+      icon: x.cover ? undefined : "tv", color: COR.vidro,
+      tag: nota(x.rating), tagColor: "rgba(0,0,0,0.65)",
       action: go({ a: "serie", t, s: x.series_id }),
-    }), prox, "0,0,2,3");
+    }), prox, "0,0,2,3", T.cor);
   }
 
   if (a === "serie") {
     const s = url.searchParams.get("s") ?? "";
     const temp = url.searchParams.get("n");
     const info = await api(cred, `&action=get_series_info&series_id=${encodeURIComponent(s)}`);
-    const nome = info?.info?.name ?? "Série";
+    const nome = String(info?.info?.name ?? "Série");
     const eps = info?.episodes ?? {};
     const numeros = Object.keys(eps).sort((x, y) => Number(x) - Number(y));
     if (temp === null) {
-      return lista(String(nome), numeros.map((n) => ({
-        title: `Temporada ${n}`, titleFooter: `${eps[n].length} episódios`,
+      return lista(nome, numeros.map((n) => ({
+        title: `Temporada ${n}`, titleFooter: `${eps[n].length} episódios`, icon: "tv", color: COR.series,
         action: go({ a: "serie", t, s, n }),
-      })), "0,0,4,1");
+      })), "0,0,3,2", {}, `${numeros.length} temporadas`);
     }
     const lst = (eps[temp] ?? []) as any[];
-    return lista(`${nome} · Temporada ${temp}`, lst.map((e) => ({
-      title: `${e.episode_num}. ${e.title ?? ""}`,
+    return lista(`${nome}`, lst.map((e) => ({
+      titleHeader: `Episódio ${e.episode_num}`, title: String(e.title ?? ""), titleFooter: e.info?.duration ? String(e.info.duration) : "",
+      image: e.info?.movie_image || undefined, imageFiller: "cover", icon: e.info?.movie_image ? undefined : "play-arrow", color: COR.vidro,
       action: `video:${urlFluxo("series", cred, e.id, e.container_extension || "mp4")}`,
       playerLabel: `${nome} T${temp}E${e.episode_num}`,
-    })), "0,0,6,1");
+    })), "0,0,4,2", {}, `Temporada ${temp}`);
   }
 
   return aviso("Mira", "Tela não encontrada");
 }
 
 async function home(t: string, quem: string, d: string | null = null) {
-  return lista(`Mira · ${quem}`, [
-    { title: "TV ao vivo", icon: "live-tv", action: go({ a: "cats", k: "live", t }) },
-    { title: "Filmes", icon: "movie", action: go({ a: "cats", k: "vod", t }) },
-    { title: "Séries", icon: "tv", action: go({ a: "cats", k: "series", t }) },
-    { title: "Sair", icon: "logout", action: go(d ? { a: "sair", d } : { a: "inicio" }) },
-  ], "0,0,4,2");
+  const [usuario, venc] = quem.split(" · ");
+  return {
+    type: "pages", background: IMG + "fundo.jpg",
+    pages: [{ items: [
+      { type: "space", layout: "0,0,8,1", headline: `Olá, ${usuario}`, text: venc ?? "" },
+      { type: "default", layout: "10,0,2,1", color: "rgba(255,255,255,0.10)", icon: "logout", iconSize: "small", title: "Sair", action: go(d ? { a: "sair", d } : { a: "inicio" }) },
+      { id: "tv", type: "default", layout: "0,1,4,5", image: IMG + "card-tv.jpg", imageFiller: "cover", title: "TV ao vivo", titleFooter: "Canais por categoria", focus: true, action: go({ a: "cats", k: "live", t }) },
+      { type: "default", layout: "4,1,4,5", image: IMG + "card-filmes.jpg", imageFiller: "cover", title: "Filmes", titleFooter: "Catálogo completo", action: go({ a: "cats", k: "vod", t }) },
+      { type: "default", layout: "8,1,4,5", image: IMG + "card-series.jpg", imageFiller: "cover", title: "Séries", titleFooter: "Temporadas e episódios", action: go({ a: "cats", k: "series", t }) },
+    ] }],
+  };
 }
 
 Deno.serve(async (req: Request) => {
