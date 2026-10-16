@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Mira - teste no MSX</title>
+<style type="text/css">
+  body { background: #000; color: #fff; font-family: sans-serif; }
+</style>
+<script type="text/javascript" src="//msx.benzac.de/js/tvx-plugin.min.js"></script>
+<script type="text/javascript">
+/*
+ * Plugin de interação do teste Mira no Media Station X.
+ * ES5 de propósito: TVs antigas não entendem ES6.
+ * Faz 3 coisas: (1) mostra o que o MSX e a TV informam sobre o aparelho,
+ * (2) toca vídeos de teste (.m3u8, .ts, .mp4) pelo player nativo,
+ * (3) abre uma lista M3U que o usuário digita.
+ */
+(function () {
+  // Pasta deste arquivo (…/msx/), para achar os vídeos de teste sem digitar o endereço do site.
+  var BASE = location.href.split('#')[0].split('?')[0].replace(/[^\/]*$/, '');
+
+  function yes(v) { return v ? 'sim' : 'não'; }
+
+  function safe(fn, fallback) {
+    try { var r = fn(); return (r === undefined || r === null || r === '') ? fallback : r; }
+    catch (e) { return fallback; }
+  }
+
+  function collectInfo(done) {
+    var lines = [];
+    var finished = false;
+    function add(k, v) { lines.push(k + ': ' + v); }
+
+    function finish() {
+      if (finished) { return; }
+      finished = true;
+      add('Tela (janela do plugin)', window.innerWidth + 'x' + window.innerHeight);
+      add('webapis (Samsung) acessível', yes(typeof window.webapis !== 'undefined'));
+      add('tizen acessível', yes(typeof window.tizen !== 'undefined'));
+      add('webOSSystem (LG) acessível', yes(typeof window.webOSSystem !== 'undefined'));
+      add('MAC pelo webapis', safe(function () { return window.webapis.network.getMac(); }, 'indisponível'));
+      add('Navegador', navigator.userAgent);
+      done(lines);
+    }
+
+    function readSettings() {
+      add('Plataforma (MSX)', safe(function () { return TVXSettings.PLATFORM; }, 'indisponível'));
+      add('ID (MSX)', safe(function () { return TVXSettings.ID; }, 'indisponível'));
+      add('Versão do MSX', safe(function () { return TVXSettings.VERSION; }, 'indisponível'));
+      add('Tela (MSX)', safe(function () { return TVXSettings.SCREEN_WIDTH + 'x' + TVXSettings.SCREEN_HEIGHT; }, 'indisponível'));
+      try {
+        TVXInteractionPlugin.requestDeviceId(function (id) {
+          var txt;
+          try { txt = (typeof id === 'string') ? id : JSON.stringify(id); } catch (e) { txt = String(id); }
+          add('ID do aparelho (requestDeviceId)', txt);
+          finish();
+        });
+      } catch (e) {
+        add('ID do aparelho (requestDeviceId)', 'erro: ' + e);
+        finish();
+      }
+    }
+
+    // Se algo nunca responder, a tela abre assim mesmo depois de 4 s, com o que deu para coletar.
+    setTimeout(finish, 4000);
+    try { TVXInteractionPlugin.validateSettings(readSettings); } catch (e) { readSettings(); }
+  }
+
+  function button(label, action, extra) {
+    var it = { label: label };
+    if (action) { it.action = action; }
+    if (extra) { for (var k in extra) { if (extra.hasOwnProperty(k)) { it[k] = extra[k]; } } }
+    return it;
+  }
+
+  function listPage(headline, items) {
+    return {
+      type: 'list',
+      headline: headline,
+      template: { type: 'button', layout: '0,0,12,1', icon: 'blank', color: 'msx-glass' },
+      items: items
+    };
+  }
+
+  function buildMenu(infoLines) {
+    var infoItems = [];
+    for (var i = 0; i < infoLines.length; i++) { infoItems.push(button(infoLines[i])); }
+
+    var videoItems = [
+      button('Vídeo de teste HLS (.m3u8), do site', 'video:' + BASE + 'media/hls/index.m3u8', { playerLabel: 'Teste HLS' }),
+      button('Vídeo de teste TS (.ts), do site', 'video:' + BASE + 'media/teste.ts', { playerLabel: 'Teste TS' }),
+      button('Vídeo de teste MP4, do site', 'video:' + BASE + 'media/teste.mp4', { playerLabel: 'Teste MP4' }),
+      button('HLS público (Apple)', 'video:https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_4x3/bipbop_4x3_variant.m3u8', { playerLabel: 'HLS Apple' })
+    ];
+
+    var m3uAction = 'content:request:interaction:' +
+      'http://msx.benzac.de/services/m3u.php?type=video&headline=Minha%20lista&url={INPUT}' +
+      '|default|pt|Abrir minha lista M3U|||Digite o link da lista e confirme|http://' +
+      '@http://msx.benzac.de/interaction/input.html';
+
+    var listItems = [
+      button('Digitar o link de uma lista M3U', m3uAction),
+      button('Obs.: o link passa pelo servidor do MSX; use só com lista pública.')
+    ];
+
+    return {
+      headline: 'Mira - teste',
+      menu: [
+        { icon: 'blank', label: '1. Aparelho', data: listPage('Dados do aparelho', infoItems) },
+        { icon: 'blank', label: '2. Vídeos de teste', data: listPage('Vídeos de teste', videoItems) },
+        { icon: 'blank', label: '3. Minha lista M3U', data: listPage('Minha lista M3U', listItems) }
+      ]
+    };
+  }
+
+  function MiraHandler() {
+    this.init = function () { };
+    this.ready = function () { };
+    this.handleEvent = function () { };
+    this.handleData = function () { };
+    this.handleRequest = function (dataId, data, callback) {
+      if (dataId === 'init') {
+        collectInfo(function (lines) { callback(buildMenu(lines)); });
+      } else {
+        callback(null);
+      }
+    };
+  }
+
+  TVXPluginTools.onReady(function () {
+    TVXInteractionPlugin.setupHandler(new MiraHandler());
+    TVXInteractionPlugin.init();
+  });
+
+  // Exposto só para o teste automático fora da TV.
+  if (typeof window !== 'undefined') { window.__miraBuildMenu = buildMenu; window.__miraCollect = collectInfo; }
+})();
+</script>
+</head>
+<body>
+  <h1>Mira - teste no MSX</h1>
+</body>
+</html>

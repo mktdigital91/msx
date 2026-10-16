@@ -1,0 +1,6 @@
+{
+    "name": "Mira (teste)",
+    "version": "0.1.0",
+    "parameter": "menu:request:interaction:init@{PREFIX}{SERVER}/msx/plugin.html",
+    "welcome": "none"
+}
