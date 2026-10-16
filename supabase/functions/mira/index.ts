@@ -270,54 +270,51 @@ function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Re
 function aviso(titulo: string, msg: string, voltar?: unknown[]) {
   return lista(titulo, [{ title: msg, action: "none" }, ...(voltar ?? [])], "0,0,12,1");
 }
-function telaCelular(codigo: string | null, d: string | null, msg?: string) {
+// Tela única de login: à esquerda o QR code / código para entrar pelo celular, à direita usuário e senha na TV.
+function telaLogin(codigo: string | null, d: string | null, msg?: string, u = "", p = "", auto = false) {
   const link = codigo ? `${PAGINA_CELULAR}?c=${codigo}` : PAGINA_CELULAR;
   const qr = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=2&data=${encodeURIComponent(link)}`;
-  return {
-    type: "pages", transparent: 2, background: IMG + "bg-tv.jpg",
-    pages: [{ items: [
-      camadaFundo("bg-tv.jpg"),
-      { type: "space", layout: "0,0,12,1", headline: "Entre pelo celular", text: msg ?? "Aponte a câmera para o QR code e digite seu usuário e senha no celular." },
-      { id: "qr", type: "default", layout: "0,1,4,4", color: "#FFFFFF", image: qr, imageFiller: "fit", action: "none", focus: true },
-      { type: "default", layout: "4,1,8,1", color: COR.vidro, titleHeader: "OU ACESSE NO NAVEGADOR", title: PAGINA_CELULAR.replace("https://", ""), action: "none" },
-      { type: "default", layout: "4,2,8,2", color: COR.destaque, titleHeader: "CÓDIGO DA SUA TV", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Vale por 10 minutos. A TV entra sozinha.", action: "none" },
-      { type: "default", layout: "4,4,4,1", color: COR.vidro, icon: "refresh", iconSize: "small", title: "Novo código", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
-      { type: "default", layout: "8,4,4,1", color: COR.vidro, icon: "keyboard", iconSize: "small", title: "Digitar na TV", action: go(d ? { a: "form", d } : { a: "form" }) },
-    ] }],
-  };
-}
-
-function telaEntrar(msg?: string, d?: string | null, u = "", p = "", auto = false) {
   const base = (o: Record<string, string>) => (d ? { ...o, d } : o);
   const eu = u ? { u } : {};
   const ep = p ? { p } : {};
   const pronto = !!(u && p);
-  const campoUsuario = {
-    id: "usuario", type: "default", layout: "6,2,5,1", color: COR.vidro,
-    titleHeader: "USUÁRIO", title: u || "Toque para digitar",
-    focus: !u,
-    action: inputAction(`${SELF()}?${q(base({ a: "in", f: "u", ...ep }))}&v={INPUT}`, "Usuário", "Digite o usuário e confirme"),
-  };
-  const campoSenha = {
-    id: "senha", type: "default", layout: "6,3,5,1", color: COR.vidro,
-    titleHeader: "SENHA", title: p ? "••••••••" : "Toque para digitar",
-    focus: !!u && !p, execute: auto && !!u && !p,
-    action: inputAction(`${SELF()}?${q(base({ a: "in", f: "p", ...eu }))}&v={INPUT}`, "Senha", "Digite a senha e confirme"),
-  };
-  const botao = {
-    id: "entrar", type: "default", layout: "6,4,5,1", color: COR.destaque,
-    icon: "login", iconSize: "small", title: "Entrar", titleFooter: pronto ? "" : "Preencha usuário e senha",
-    focus: pronto, execute: auto && pronto,
-    action: pronto ? go(base({ a: "login", u, p })) : "warn:Preencha o usuário e a senha",
-  };
   return {
-    type: "pages", transparent: 2, background: IMG + "login.jpg",
+    type: "pages", transparent: 2, background: IMG + "bg-tv.jpg",
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
-      { type: "space", layout: "6,1,5,1", headline: "Entrar", text: msg ?? "Use o usuário e a senha da sua lista" },
-      campoUsuario, campoSenha, botao,
+      { type: "space", layout: "0,0,12,1", headline: "Entrar no Mira", text: msg ?? "Escaneie o QR code com o celular ou digite seu usuário e senha aqui na TV." },
+      // ---- lado esquerdo: pelo celular ----
+      { id: "qr", type: "default", layout: "0,1,3,4", color: "#FFFFFF", image: qr, imageFiller: "fit", action: "none" },
+      { type: "default", layout: "3,1,3,2", color: COR.destaque, titleHeader: "PELO CELULAR  ·  CÓDIGO", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Vale 10 min. A TV entra sozinha.", action: "none" },
+      { type: "default", layout: "3,3,3,1", color: COR.vidro, icon: "refresh", iconSize: "small", title: "Novo código", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
+      { type: "default", layout: "3,4,3,1", color: COR.vidro, titleHeader: "OU ACESSE", title: PAGINA_CELULAR.replace("https://", "").replace(/\/$/, ""), truncation: "title", action: "none" },
+      // ---- divisória ----
+      { type: "space", layout: "6,2,1,2", title: "ou", alignment: "center", centration: "title" },
+      // ---- lado direito: usuário e senha na TV ----
+      {
+        id: "usuario", type: "default", layout: "7,1,5,1", color: COR.vidro, icon: "person", iconSize: "small",
+        titleHeader: "USUÁRIO", title: u || "Toque para digitar", focus: !u && !p,
+        action: inputAction(`${SELF()}?${q(base({ a: "in", f: "u", ...ep }))}&v={INPUT}`, "Usuário", "Digite o usuário e confirme"),
+      },
+      {
+        id: "senha", type: "default", layout: "7,2,5,1", color: COR.vidro, icon: "lock", iconSize: "small",
+        titleHeader: "SENHA", title: p ? "••••••••" : "Toque para digitar",
+        focus: !!u && !p, execute: auto && !!u && !p,
+        action: inputAction(`${SELF()}?${q(base({ a: "in", f: "p", ...eu }))}&v={INPUT}`, "Senha", "Digite a senha e confirme"),
+      },
+      {
+        id: "entrar", type: "default", layout: "7,3,5,1", color: COR.destaque, icon: "login", iconSize: "small",
+        title: "Entrar", titleFooter: pronto ? "Tudo pronto" : "Preencha usuário e senha",
+        focus: pronto, execute: auto && pronto,
+        action: pronto ? go(base({ a: "login", u, p })) : "warn:Preencha o usuário e a senha",
+      },
+      { type: "space", layout: "7,4,5,1", text: "Seu login fica salvo nesta TV por 30 dias." },
     ] }],
   };
+}
+const telaCelular = (codigo: string | null, d: string | null, msg?: string) => telaLogin(codigo, d, msg);
+async function telaEntrar(msg?: string, d?: string | null, u = "", p = "", auto = false) {
+  return telaLogin(await codigoDoAparelho(d ?? null), d ?? null, msg, u, p, auto);
 }
 
 async function paginar(
