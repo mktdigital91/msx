@@ -26,6 +26,22 @@
     catch (e) { return fallback; }
   }
 
+  var extendedWaiter = null;
+
+  // Procura uma chave em qualquer nível de um objeto.
+  function findKey(obj, key, depth) {
+    if (depth === undefined) { depth = 6; }
+    if (!obj || typeof obj !== 'object' || depth < 0) { return null; }
+    if (obj.hasOwnProperty(key)) { return obj[key]; }
+    for (var k in obj) {
+      if (obj.hasOwnProperty(k) && typeof obj[k] === 'object') {
+        var r = findKey(obj[k], key, depth - 1);
+        if (r !== null && r !== undefined) { return r; }
+      }
+    }
+    return null;
+  }
+
   // Transforma um objeto em linhas "caminho: valor" (até a profundidade indicada).
   function flatten(prefix, obj, out, depth) {
     if (obj === null || obj === undefined) { out.push(prefix + ': (vazio)'); return; }
@@ -75,7 +91,24 @@
     // A documentação não descreve o formato, então listamos tudo que vier em "system".
     function readSystemInfo() {
       var done = false;
-      function once() { if (!done) { done = true; finish(); } }
+      function once() { if (!done) { done = true; readExtended(); } }
+
+      // O "Device ID" da tela Extended Information só vem na ação interaction:commit:info:extended.
+      function readExtended() {
+        var d2 = false;
+        function fin() { if (!d2) { d2 = true; extendedWaiter = null; finish(); } }
+        extendedWaiter = function (data) {
+          var sys = findKey(data, 'system');
+          var out = [];
+          if (sys) { flatten('extended.system', sys, out, 2); }
+          if (!out.length) { out.push('extended: sem campo system'); }
+          for (var i = 0; i < out.length && i < 8; i++) { lines.push(out[i]); }
+          fin();
+        };
+        try { TVXInteractionPlugin.executeAction('interaction:commit:info:extended'); }
+        catch (e) { add('extended', 'erro: ' + e); fin(); return; }
+        setTimeout(function () { if (!d2) { add('extended', 'sem resposta (use o botão "Ler Device ID real")'); fin(); } }, 2500);
+      }
       try {
         TVXInteractionPlugin.requestData('info', function (data) {
           if (done) { return; }
@@ -98,7 +131,7 @@
     }
 
     // Se algo nunca responder, a tela abre assim mesmo depois de 6 s, com o que deu para coletar.
-    setTimeout(finish, 6000);
+    setTimeout(finish, 9000);
     try { TVXInteractionPlugin.validateSettings(readSettings); } catch (e) { readSettings(); }
   }
 
@@ -120,6 +153,7 @@
 
   function buildMenu(infoLines) {
     var infoItems = [];
+    infoItems.push(button('>> Ler Device ID real (clique aqui)', 'interaction:commit:info:extended'));
     for (var i = 0; i < infoLines.length; i++) { infoItems.push(button(infoLines[i])); }
 
     var videoItems = [
@@ -153,7 +187,13 @@
     this.init = function () { };
     this.ready = function () { };
     this.handleEvent = function () { };
-    this.handleData = function () { };
+    this.handleData = function (data) {
+      if (extendedWaiter) { var w = extendedWaiter; extendedWaiter = null; w(data); return; }
+      // Botão "Ler Device ID real": mostra o resultado numa mensagem.
+      var sys = findKey(data, 'system');
+      var id = sys ? findKey(sys, 'deviceId') : null;
+      TVXInteractionPlugin.info('Device ID real: ' + (id === null ? 'não veio' : id), false, true);
+    };
     this.handleRequest = function (dataId, data, callback) {
       if (dataId === 'init') {
         collectInfo(function (lines) { callback(buildMenu(lines)); });
