@@ -1,4 +1,4 @@
-// Mira (MVP de uso próprio): ponte entre o Media Station X (TV) e o provedor Xtream.
+// Gold Play (MVP de uso próprio): ponte entre o Media Station X (TV) e o provedor Xtream.
 // A TV não consegue ler o provedor direto; esta função lê e devolve telas prontas para o MSX.
 // O endereço (DNS) do provedor fica AQUI, no Supabase, e não no GitHub público.
 // Usuário/senha vêm da TV, viram um token criptografado (30 dias) e não são guardados.
@@ -16,6 +16,7 @@ const CORS = {
 };
 
 const IMG = "https://mktdigital91.github.io/msx/msx/img/";
+const LOGO = IMG + "logo-goldplay.png";
 const COR = { tv: "rgba(124,92,255,0.40)", vod: "rgba(244,63,142,0.38)", series: "rgba(34,211,238,0.32)", vidro: "rgba(14,16,36,0.55)", destaque: "#7C5CFF" };
 
 const BASE_PROV = `${PROVEDOR.protocolo}://${PROVEDOR.host}`;
@@ -282,33 +283,33 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
     type: "pages", transparent: 2, background: IMG + "bg-tv.jpg",
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
-      { type: "space", layout: "0,0,12,1", headline: "Entrar no Mira", text: msg ?? "Escaneie o QR code com o celular ou digite seu usuário e senha aqui na TV." },
+      { type: "space", layout: "0,0,9,1", headline: "Entrar no Gold Play", text: msg ?? "Escaneie o QR code com o celular ou digite seu usuário e senha aqui na TV." },
+      { type: "space", layout: "10,0,2,1", image: LOGO, imageFiller: "fit" },
       // ---- lado esquerdo: pelo celular ----
-      { id: "qr", type: "default", layout: "0,1,3,4", color: "#FFFFFF", image: qr, imageFiller: "fit", action: "none" },
+      { id: "qr", type: "default", layout: "0,1,3,3", color: "#FFFFFF", image: qr, imageFiller: "fit", action: "none" },
       { type: "default", layout: "3,1,3,2", color: COR.destaque, titleHeader: "PELO CELULAR  ·  CÓDIGO", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Vale 10 min. A TV entra sozinha.", action: "none" },
-      { type: "default", layout: "3,3,3,1", color: COR.vidro, icon: "refresh", iconSize: "small", title: "Novo código", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
-      { type: "default", layout: "3,4,3,1", color: COR.vidro, titleHeader: "OU ACESSE", title: PAGINA_CELULAR.replace("https://", "").replace(/\/$/, ""), truncation: "title", action: "none" },
+      { type: "default", layout: "3,3,3,1", color: COR.vidro, title: "Novo código", titleFooter: "Gerar outro QR code", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
+      { type: "default", layout: "0,4,6,1", color: COR.vidro, titleHeader: "OU ACESSE NO NAVEGADOR DO CELULAR", title: PAGINA_CELULAR.replace("https://", "").replace(/\/$/, ""), action: "none" },
       // ---- divisória ----
       { type: "space", layout: "6,2,1,2", title: "ou", alignment: "center", centration: "title" },
       // ---- lado direito: usuário e senha na TV ----
       {
-        id: "usuario", type: "default", layout: "7,1,5,1", color: COR.vidro, icon: "person", iconSize: "small",
+        id: "usuario", type: "default", layout: "7,1,5,1", color: COR.vidro,
         titleHeader: "USUÁRIO", title: u || "Toque para digitar", focus: !u && !p,
         action: inputAction(`${SELF()}?${q(base({ a: "in", f: "u", ...ep }))}&v={INPUT}`, "Usuário", "Digite o usuário e confirme"),
       },
       {
-        id: "senha", type: "default", layout: "7,2,5,1", color: COR.vidro, icon: "lock", iconSize: "small",
+        id: "senha", type: "default", layout: "7,2,5,1", color: COR.vidro,
         titleHeader: "SENHA", title: p ? "••••••••" : "Toque para digitar",
         focus: !!u && !p, execute: auto && !!u && !p,
         action: inputAction(`${SELF()}?${q(base({ a: "in", f: "p", ...eu }))}&v={INPUT}`, "Senha", "Digite a senha e confirme"),
       },
       {
-        id: "entrar", type: "default", layout: "7,3,5,1", color: COR.destaque, icon: "login", iconSize: "small",
+        id: "entrar", type: "default", layout: "7,3,5,1", color: COR.destaque,
         title: "Entrar", titleFooter: pronto ? "Tudo pronto" : "Preencha usuário e senha",
         focus: pronto, execute: auto && pronto,
         action: pronto ? go(base({ a: "login", u, p })) : "warn:Preencha o usuário e a senha",
       },
-      { type: "space", layout: "7,4,5,1", text: "Seu login fica salvo nesta TV por 30 dias." },
     ] }],
   };
 }
@@ -491,7 +492,7 @@ async function tratar(url: URL) {
   const T = TIPOS[tipoQ];
 
   if (a === "cats") {
-    if (!T) return aviso("Mira", "Seção desconhecida");
+    if (!T) return aviso("Gold Play", "Seção desconhecida");
     const cats = await api(cred, `&action=${T.cats}`);
     const lst = Array.isArray(cats) ? cats : [];
     // visual transparente (o vídeo/fundo aparece por trás), como o usuário preferiu
@@ -504,7 +505,7 @@ async function tratar(url: URL) {
   }
 
   if (a === "itens") {
-    if (!T) return aviso("Mira", "Seção desconhecida");
+    if (!T) return aviso("Gold Play", "Seção desconhecida");
     const dados = await api(cred, `&action=${T.itens}${c ? "&category_id=" + encodeURIComponent(c) : ""}`);
     const todos = Array.isArray(dados) ? dados : [];
     const prox = (n: number) => go({ a: "itens", k: tipoQ, t, c, cn: url.searchParams.get("cn") ?? "", pg: n });
@@ -594,7 +595,7 @@ async function tratar(url: URL) {
     })), "0,0,4,2", {}, `Temporada ${temp}`, "series");
   }
 
-  return aviso("Mira", "Tela não encontrada");
+  return aviso("Gold Play", "Tela não encontrada");
 }
 
 async function home(t: string, quem: string, d: string | null = null) {
@@ -603,7 +604,8 @@ async function home(t: string, quem: string, d: string | null = null) {
     type: "pages", transparent: 2, background: IMG + "bg-tv.jpg",
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
-      { type: "space", layout: "0,0,8,1", headline: `Olá, ${usuario}`, text: venc ?? "" },
+      { type: "space", layout: "0,0,2,1", image: LOGO, imageFiller: "fit" },
+      { type: "space", layout: "2,0,6,1", headline: `Olá, ${usuario}`, text: venc ?? "" },
       { type: "default", layout: "10,0,2,1", color: "rgba(255,255,255,0.10)", icon: "logout", iconSize: "small", title: "Sair", action: d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" }) },
       { id: "tv", type: "default", layout: "0,1,4,5", image: IMG + "card-tv.jpg", imageFiller: "cover", title: "TV ao vivo", titleFooter: "Canais por categoria", focus: true, action: go({ a: "cats", k: "live", t }) },
       { type: "default", layout: "4,1,4,5", image: IMG + "card-filmes.jpg", imageFiller: "cover", title: "Filmes", titleFooter: "Catálogo completo", action: go({ a: "cats", k: "vod", t }) },
