@@ -32,7 +32,14 @@
     var m = new RegExp("[?&]" + nome + "=([^&]*)").exec(window.location.search);
     return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : "";
   }
-  var fontes = [param("u"), param("alt")].filter(function (x) { return !!x; });
+  function decodificar(s) {
+    try {
+      s = s.replace(/-/g, "+").replace(/_/g, "/");
+      while (s.length % 4) s += "=";
+      return atob(s).split("\n");
+    } catch (e) { return []; }
+  }
+  var fontes = (param("f") ? decodificar(param("f")) : [param("u"), param("alt")]).filter(function (x) { return !!x; });
   var tipo = param("m") || "o canal";
   var v = document.getElementById("v");
   var aviso = document.getElementById("aviso");

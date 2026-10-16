@@ -237,8 +237,11 @@ const go = (o: Record<string, string | number>) => `content:${SELF()}?${q(o)}`;
 const fluxo = (tipo: string, t: string, id: string | number, ext: string) => `${SELF()}/v/${tipo}/${t}/${encodeURIComponent(String(id))}.${ext.replace(/[^a-z0-9]/gi, "")}`;
 // toca pelo player próprio (msx/player.html): erro em português e sem mostrar nenhum link; canais tentam .ts e depois .m3u8
 const PLAYER = "https://mktdigital91.github.io/msx/msx/player.html";
-const tocar = (tipo: string, t: string, id: string | number, ext: string, oque: string) =>
-  `video:plugin:${PLAYER}?${q({ u: fluxo(tipo, t, id, ext), ...(tipo === "live" ? { alt: fluxo(tipo, t, id, "m3u8") } : {}), m: oque })}`;
+// o player recebe o endereço direto do provedor (codificado, nunca exibido): sem passar pelo servidor, abre mais rápido
+const tocar = (tipo: string, cred: { u: string; p: string }, id: string | number, ext: string, oque: string) => {
+  const fontes = [urlFluxo(tipo, cred, id, ext), ...(tipo === "live" ? [urlFluxo(tipo, cred, id, "m3u8")] : [])].join("\n");
+  return `video:plugin:${PLAYER}?${q({ f: b64(new TextEncoder().encode(fontes)), m: oque })}`;
+};
 
 function inputAction(servico: string, titulo: string, dica: string) {
   // {INPUT} fica sem codificar: o plugin do MSX o substitui pelo que foi digitado
@@ -338,7 +341,7 @@ async function epgDe(cred: { u: string; p: string }, id: string): Promise<Prog[]
   return v;
 }
 // busca a programação de vários canais em paralelo, sem passar do tempo-limite
-async function epgVarios(cred: { u: string; p: string }, ids: string[], limiteMs = 3500, paralelo = 16) {
+async function epgVarios(cred: { u: string; p: string }, ids: string[], limiteMs = 2500, paralelo = 20) {
   const out = new Map<string, Prog[]>();
   const fila = [...ids];
   const fim = Date.now() + limiteMs;
@@ -379,7 +382,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
     ...visual,
     focus: ativo ? true : undefined, enumerate: true,
     playerLabel: nome,
-    action: tocar("live", t, x.stream_id, "ts", "o canal"),
+    action: tocar("live", cred, x.stream_id, "ts", "o canal"),
     properties: {
       "control:type": "extended",
       "control:action": lista,
@@ -495,7 +498,7 @@ async function tratar(url: URL) {
         return {
           title: nome, image: x.stream_icon || cartao("vod", nome, "Filme", "movie", true), imageFiller: "cover", color: COR.vidro,
           tag: nota(x.rating), tagColor: COR.destaque,
-          action: tocar("movie", t, x.stream_id, x.container_extension || "mp4", "o filme"), playerLabel: nome,
+          action: tocar("movie", cred, x.stream_id, x.container_extension || "mp4", "o filme"), playerLabel: nome,
         };
       }, prox, "0,0,2,3", tipoQ);
     }
@@ -522,12 +525,13 @@ async function tratar(url: URL) {
       image: faixa("nav", "nav", "apps", true), imageFiller: "cover", color: "transparent",
       action: `panel:${SELF()}?${q({ a: "pcats", t, s })}`,
     };
-    const canais = todos.map((x: any, i: number) => ({ ...canalItem(x, cred, t, c, true, s, cn, i + 1, ep.get(String(x.stream_id))), focus: undefined }));
+    const canais = todos.map((x: any, i: number) => ({ x, i })).filter((o: any) => o.i !== idx)
+      .map((o: any) => ({ ...canalItem(o.x, cred, t, c, true, s, cn, o.i + 1, ep.get(String(o.x.stream_id))), focus: undefined }));
     const fixo = idx >= 0 ? [{ ...canalItem(todos[idx], cred, t, c, true, s, cn, idx + 1, ep.get(s)), focus: true }] : [];
     return {
       type: "list", headline: "Canais", extension: cn || `${todos.length}`,
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [...fixo, { ...navegar, focus: idx < 0 ? true : undefined }, ...canais],
+      items: [{ ...navegar, focus: idx < 0 ? true : undefined }, ...fixo, ...canais],
     };
   }
 
@@ -565,7 +569,7 @@ async function tratar(url: URL) {
     return lista(`${nome}`, lst.map((e) => ({
       titleHeader: `Episódio ${e.episode_num}`, title: String(e.title ?? ""), titleFooter: e.info?.duration ? String(e.info.duration) : "",
       image: e.info?.movie_image || undefined, imageFiller: "cover", icon: e.info?.movie_image ? undefined : "play-arrow", color: COR.vidro,
-      action: tocar("series", t, e.id, e.container_extension || "mp4", "o episódio"),
+      action: tocar("series", cred, e.id, e.container_extension || "mp4", "o episódio"),
       playerLabel: `${nome} T${temp}E${e.episode_num}`,
     })), "0,0,4,2", {}, `Temporada ${temp}`);
   }
