@@ -219,16 +219,38 @@ function cartaoSvg(k: string, titulo: string, sub: string, icone: string, retrat
 // URL da imagem de um cartão
 const cartao = (k: string, t: string, s = "", i = "play", retrato = false) => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "img", k, t: limparNome(t).slice(0, 70), s, i, ...(retrato ? { f: "p" } : {}) }).toString()}`;
 
-// fundo de bloco largo: degradê translúcido + ícone grande e suave à direita (o nome vem por cima, em texto do MSX)
-function faixaSvg(k: string, semente: string, icone: string, ativo = false) {
+// botão de vidro arredondado (mesmo estilo da tela inicial): base escura translúcida, brilho, sombra e um tom de cor à direita.
+// O nome vem por cima, em texto do MSX. Cada variante tem a proporção do bloco onde é usado, para os cantos não serem cortados.
+const VARIANTES: Record<string, { W: number; H: number; rx: number }> = {
+  c: { W: 1400, H: 200, rx: 56 },  // categorias (6x1)
+  w: { W: 1600, H: 190, rx: 54 },  // linhas largas (8x1)
+  p: { W: 1320, H: 140, rx: 44 },  // lista dentro do player
+  q: { W: 880, H: 200, rx: 56 },   // canais (4x1)
+  t: { W: 600, H: 900, rx: 54 },   // cartaz (2x3)
+};
+function faixaSvg(k: string, semente: string, icone: string, ativo = false, v = "c") {
+  const { W, H, rx } = VARIANTES[v] ?? VARIANTES.c;
   let h = 0; for (const ch of semente) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   const pal = PALETAS[k] ?? PALETAS.live;
   const [c1, c2] = pal[h % pal.length];
   const ic = ICONES[icone] ?? ICONES.play;
-  const W = 960, H = 160;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><clipPath id="c"><rect width="${W}" height="${H}" rx="22"/></clipPath><linearGradient id="g" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${c1}" stop-opacity="${ativo ? 1 : 0.92}"/><stop offset=".55" stop-color="${c2}" stop-opacity="${ativo ? 0.85 : 0.55}"/><stop offset="1" stop-color="${c2}" stop-opacity="${ativo ? 0.5 : 0.18}"/></linearGradient><linearGradient id="l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><g clip-path="url(#c)"><rect width="${W}" height="${H}" fill="#0B0B1A" fill-opacity=".55"/><rect width="${W}" height="${H}" fill="url(#g)"/><rect width="${W}" height="${H}" fill="url(#l)"/><circle cx="${W - 120}" cy="-50" r="150" fill="#fff" fill-opacity=".08"/><g transform="translate(${W - 200} 8) scale(6)" fill="#fff" fill-opacity=".16"><path d="${ic}"/></g></g><rect x="1.5" y="1.5" width="${W - 3}" height="${H - 3}" rx="21" fill="none" stroke="#fff" stroke-opacity="${ativo ? 0.7 : 0.22}" stroke-width="${ativo ? 5 : 3}"/></svg>`;
+  const m = 10, x = m, y = m - 2, w = W - 2 * m, hh = H - 2 * m - 4;
+  const lado = Math.min(hh, w * 0.6) * 0.8, sc = lado / 24;
+  const ix = x + w - lado - hh * 0.12, iy = y + (hh - lado) / 2;
+  const sombra = v === "p" ? 5 : 7;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs>`
+    + `<filter id="s" x="-6%" y="-30%" width="112%" height="175%"><feGaussianBlur stdDeviation="${sombra}"/></filter>`
+    + `<linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1B1F3B" stop-opacity=".88"/><stop offset="1" stop-color="#0B0D1E" stop-opacity=".76"/></linearGradient>`
+    + `<linearGradient id="t" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${c1}" stop-opacity="${ativo ? 0.95 : 0.2}"/><stop offset=".6" stop-color="${c2}" stop-opacity="${ativo ? 0.8 : 0.14}"/><stop offset="1" stop-color="${c2}" stop-opacity="${ativo ? 0.55 : 0.06}"/></linearGradient>`
+    + `<linearGradient id="l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".17"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>`
+    + `<clipPath id="c"><rect x="${x}" y="${y}" width="${w}" height="${hh}" rx="${rx}"/></clipPath></defs>`
+    + `<rect x="${x + 2}" y="${y + 7}" width="${w - 4}" height="${hh}" rx="${rx}" fill="#000" fill-opacity=".5" filter="url(#s)"/>`
+    + `<g clip-path="url(#c)"><rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="url(#b)"/><rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="url(#t)"/><rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="url(#l)"/>`
+    + `<circle cx="${x + w - hh * 0.2}" cy="${y - hh * 0.35}" r="${hh * 0.9}" fill="#fff" fill-opacity=".06"/>`
+    + `<g transform="translate(${ix} ${iy}) scale(${sc})" fill="#fff" fill-opacity="${ativo ? 0.28 : 0.14}"><path d="${ic}"/></g></g>`
+    + `<rect x="${x + 1}" y="${y + 1}" width="${w - 2}" height="${hh - 2}" rx="${rx - 1}" fill="none" stroke="#fff" stroke-opacity="${ativo ? 0.75 : 0.22}" stroke-width="${ativo ? 3 : 2}"/></svg>`;
 }
-const faixa = (k: string, semente: string, icone: string, ativo = false) => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "bg", k, n: semente.slice(0, 40), i: icone, ...(ativo ? { x: "1" } : {}) }).toString()}`;
+const faixa = (k: string, semente: string, icone: string, ativo = false, v = "c") => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "bg", k, n: semente.slice(0, 40), i: icone, ...(ativo ? { x: "1" } : {}), ...(v !== "c" ? { v } : {}) }).toString()}`;
 
 const SELF = () => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira`;
 const q = (o: Record<string, string | number>) =>
@@ -266,7 +288,7 @@ function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Re
     pages.push({ items: [fundo, ...fatia] });
     if (!items.length) break;
   }
-  return { type: "pages", headline, extension: extensao, transparent: 2, background: IMG + (FUNDO[kind] ?? "bg-tv.jpg"), pages };
+  return { type: "pages", headline, extension: extensao, transparent: 2, ready: { action: "quiet" }, background: IMG + (FUNDO[kind] ?? "bg-tv.jpg"), pages };
 }
 function aviso(titulo: string, msg: string, voltar?: unknown[]) {
   return lista(titulo, [{ title: msg, action: "none" }, ...(voltar ?? [])], "0,0,12,1");
@@ -280,7 +302,7 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
   const ep = p ? { p } : {};
   const pronto = !!(u && p);
   return {
-    type: "pages", transparent: 2, background: IMG + "bg-tv.jpg",
+    type: "pages", transparent: 2, ready: { action: "quiet" }, background: IMG + "bg-tv.jpg",
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,9,1", headline: "Entrar no Gold Play", text: msg ?? "Escaneie o QR code com o celular ou digite seu usuário e senha aqui na TV." },
@@ -332,11 +354,12 @@ async function paginar(
   const itens = todos.slice(ini, ini + POR_PAGINA).map(montar) as any[];
   if (itens.length) itens[0] = { ...itens[0], focus: true }; // foco no 1º item, não no botão de categorias
   const total = Math.ceil(todos.length / POR_PAGINA);
-  if (ini + POR_PAGINA < todos.length) itens.push({ title: "Próxima página", titleFooter: `${pg + 2} de ${total}`, icon: "navigate-next", color: COR.destaque, action: proxima(pg + 1) });
-  if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${total}`, icon: "navigate-before", color: COR.destaque, action: proxima(pg - 1) });
+  const vv = layout.startsWith("0,0,2,3") ? "t" : layout.startsWith("0,0,4,1") ? "q" : "c";
+  if (ini + POR_PAGINA < todos.length) itens.push({ title: "Próxima página", titleFooter: `${pg + 2} de ${total}`, image: faixa("nav", "proxima", "next", false, vv), imageFiller: "cover", color: "transparent", action: proxima(pg + 1) });
+  if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${total}`, image: faixa("nav", "anterior", "prev", false, vv), imageFiller: "cover", color: "transparent", action: proxima(pg - 1) });
   if (!todos.length) itens.push({ title: "Nada encontrado", action: "none" });
   // botão fixo no topo para voltar às categorias (volta para a tela anterior, sem recarregar)
-  itens.unshift({ title: "Categorias", titleFooter: "Voltar às categorias", icon: "apps", iconSize: "small", color: "rgba(245,158,11,0.85)", action: "back" });
+  itens.unshift({ title: "Categorias", titleFooter: "Voltar às categorias", image: faixa("nav", "categorias", "apps", true, vv), imageFiller: "cover", color: "transparent", action: "back" });
   return lista(titulo, itens, layout, {}, ext ?? `${todos.length} itens`, kind);
 }
 const nota = (v: unknown) => { const n = Number(v); return n > 0 ? n.toFixed(1) : undefined; };
@@ -394,7 +417,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
   const lista = `panel:${SELF()}?${q({ a: "painel", t, c, cn, s: x.stream_id })}`;
   const ativo = painel && String(x.stream_id) === atual;
   const visual = painel
-    ? { titleHeader: n ? `CANAL ${n}` : undefined, image: faixa("live", nome, ativo ? "play" : "live", ativo), imageFiller: "cover", color: "transparent" }
+    ? { titleHeader: n ? `CANAL ${n}` : undefined, image: faixa("live", nome, ativo ? "play" : "live", ativo, "p"), imageFiller: "cover", color: "transparent" }
     : { image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)", icon: logo ? undefined : "live-tv", iconSize: "small", color: COR.vidro };
   return {
     title: nome, titleFooter: (ativo ? "▶ " : "") + (guia.linha || (ativo ? "Assistindo agora" : "Ao vivo")), truncation: "title|titleFooter",
@@ -413,6 +436,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
       "button:content:focus": true,
       "trigger:ready": "player:button:content:focus",
       "trigger:start": "player:button:content:focus",
+      "trigger:back": "quiet",
       "control:retune": "retain",
       "button:forward:icon": "apps",
       "button:forward:action": `panel:${SELF()}?${q({ a: "pcats", t, s: x.stream_id })}`,
@@ -437,8 +461,6 @@ async function tratar(url: URL) {
     if (d && url.searchParams.get("r")) await fetch(`${REST_COD()}?aparelho=eq.${encodeURIComponent(d)}`, { method: "DELETE", headers: cab() }).catch(() => {});
     return telaCelular(await codigoDoAparelho(d), d);
   }
-
-  if (a === "jogos") return await telaJogos();
 
   if (a === "ver") {
     const tk = await lerSessao(d);
@@ -484,6 +506,8 @@ async function tratar(url: URL) {
   const c = url.searchParams.get("c") ?? "";
 
   if (a === "home") return await home(t, cred.u, d);
+  if (a === "jogos") return await telaJogos(t);
+  if (a === "jogo") return await telaJogo(cred, t, url.searchParams.get("n1") ?? "", url.searchParams.get("n2") ?? "");
 
   const TIPOS = {
     live: { nome: "TV ao vivo", cats: "get_live_categories", itens: "get_live_streams", cor: COR.tv, solido: "#5B3FD9", icone: "live-tv" },
@@ -498,7 +522,7 @@ async function tratar(url: URL) {
     const cats = await api(cred, `&action=${T.cats}`);
     const lst = Array.isArray(cats) ? cats : [];
     // visual transparente (o vídeo/fundo aparece por trás), como o usuário preferiu
-    const linha = (nome: string, _ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, color: COR.vidro, action: go({ a: "itens", k: tipoQ, t, c: cid, cn: cid ? nome : "" }) });
+    const linha = (nome: string, ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, image: faixa(cid ? tipoQ : "nav", nome, ic, !cid), imageFiller: "cover", color: "transparent", action: go({ a: "itens", k: tipoQ, t, c: cid, cn: cid ? nome : "" }) });
     const itens = [
       { ...linha("Todos", "apps", "", `Todo o catálogo de ${T.nome.toLowerCase()}`), focus: true },
       ...lst.map((x: any) => { const nome = limparNome(String(x.category_name)); return linha(nome, iconeDoNome(nome, "play"), x.category_id, T.nome); }),
@@ -522,6 +546,7 @@ async function tratar(url: URL) {
           title: nome, image: x.stream_icon || cartao("vod", nome, "Filme", "movie", true), imageFiller: "cover", color: COR.vidro,
           tag: nota(x.rating), tagColor: COR.destaque,
           action: tocar("movie", cred, x.stream_id, x.container_extension || "mp4", "o filme"), playerLabel: nome,
+          properties: { "trigger:back": "quiet" },
         };
       }, prox, "0,0,2,3", tipoQ);
     }
@@ -545,7 +570,7 @@ async function tratar(url: URL) {
     const ep = await epgVarios(cred, ids);
     const navegar = {
       titleHeader: "NAVEGAR  ·  BOTÃO VERMELHO", title: "Trocar categoria", titleFooter: `Atual: ${cn || "Todos os canais"}`, key: "red",
-      image: faixa("nav", "nav", "apps", true), imageFiller: "cover", color: "transparent",
+      image: faixa("nav", "nav", "apps", true, "p"), imageFiller: "cover", color: "transparent",
       action: `panel:${SELF()}?${q({ a: "pcats", t, s })}`,
     };
     const canais = todos.map((x: any, i: number) => ({ x, i })).filter((o: any) => o.i !== idx)
@@ -565,7 +590,7 @@ async function tratar(url: URL) {
     const lst = Array.isArray(cats) ? cats : [];
     const item = (nome: string, cid: string) => ({
       title: nome, titleFooter: "TV ao vivo", truncation: "title",
-      image: faixa("live", nome, iconeDoNome(nome, "live")), imageFiller: "cover", color: "transparent",
+      image: faixa("live", nome, iconeDoNome(nome, "live"), false, "p"), imageFiller: "cover", color: "transparent",
       action: `panel:${SELF()}?${q({ a: "painel", t, c: cid, cn: cid ? nome : "", s })}`,
     });
     return {
@@ -594,6 +619,7 @@ async function tratar(url: URL) {
       image: e.info?.movie_image || undefined, imageFiller: "cover", icon: e.info?.movie_image ? undefined : "play-arrow", color: COR.vidro,
       action: tocar("series", cred, e.id, e.container_extension || "mp4", "o episódio"),
       playerLabel: `${nome} T${temp}E${e.episode_num}`,
+      properties: { "trigger:back": "quiet" },
     })), "0,0,4,2", {}, `Temporada ${temp}`, "series");
   }
 
@@ -612,6 +638,7 @@ type Jogo = {
   casa: Time;
   fora: Time;
   transmissao: string;
+  canaisLista: string[];
 };
 type Time = { nome: string; sigla: string; cor: string; gols: string; venceu: boolean; logo: string };
 let cacheJogos: { em: number; dia: string; v: Jogo[] } | null = null;
@@ -689,9 +716,8 @@ async function jogosDoDia(limiteMs = 3500): Promise<Jogo[] | null> {
       const foraNome = textoJogo(x?.time2) || "Time 2";
       const estado = estadoJogo(x?.status, placar1, placar2);
       const quando = horaDoJogo(x?.horario);
-      const canais = Array.isArray(x?.canais)
-        ? x.canais.map((c: any) => textoJogo(c?.nome)).filter(Boolean).join(" · ")
-        : "";
+      const canaisLista: string[] = Array.isArray(x?.canais) ? x.canais.map((c: any) => textoJogo(c?.nome)).filter(Boolean) : [];
+      const canais = canaisLista.join(" · ");
       return {
         liga: textoJogo(x?.competicao) || "Futebol",
         ord,
@@ -701,6 +727,7 @@ async function jogosDoDia(limiteMs = 3500): Promise<Jogo[] | null> {
         casa: montarTimeJogo(casaNome, x?.img_time1_url, placar1, placar1 !== "" && placar2 !== "" && Number(placar1) > Number(placar2)),
         fora: montarTimeJogo(foraNome, x?.img_time2_url, placar2, placar1 !== "" && placar2 !== "" && Number(placar2) > Number(placar1)),
         transmissao: canais,
+        canaisLista,
       };
     }).filter(Boolean) as Jogo[];
     const peso: Record<string, number> = { in: 0, pre: 1, post: 2 };
@@ -810,14 +837,14 @@ async function home(t: string, quem: string, d: string | null = null) {
   const jogos = await jogosDoDia();
   const lst = jogos ?? [];
   const vivos = lst.filter((j) => j.estado === "in").length;
-  const todos = go({ a: "jogos" });
+  const todos = go({ a: "jogos", t });
   const card = (layout: string, img: string, acao: string, extra: Record<string, unknown> = {}) =>
     ({ type: "default", layout, image: IMG + img, imageFiller: "fit", color: "transparent", action: acao, ...extra });
   const destaques = lst.slice(0, 3).map((j, i) => ({
-    type: "default", layout: `${3 + i * 3},4,3,2`, image: jogoImg(j), imageFiller: "fit", color: "transparent", action: todos,
+    type: "default", layout: `${3 + i * 3},4,3,2`, image: jogoImg(j), imageFiller: "fit", color: "transparent", action: jogoAcao(j, t),
   }));
   return {
-    type: "pages", transparent: 2, background: IMG + "bg-tv.jpg",
+    type: "pages", transparent: 2, ready: { action: "quiet" }, background: IMG + "bg-tv.jpg",
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,2,1", image: LOGO, imageFiller: "fit" },
@@ -832,13 +859,123 @@ async function home(t: string, quem: string, d: string | null = null) {
   };
 }
 
-async function telaJogos() {
+const jogoAcao = (j: Jogo, t: string) => go({ a: "jogo", t, n1: j.casa.nome, n2: j.fora.nome });
+
+async function telaJogos(t: string) {
   const jogos = await jogosDoDia(5000);
   if (jogos === null) return aviso("Jogos de hoje", "Placar indisponível agora. Tente de novo em instantes.");
   if (!jogos.length) return aviso("Jogos de hoje", "Nenhuma partida programada para hoje.");
   const vivos = jogos.filter((j) => j.estado === "in").length;
-  return lista("Jogos de hoje", jogos.map((j) => ({ image: jogoImg(j), imageFiller: "fit", color: "transparent", action: "none" })),
+  return lista("Jogos de hoje", jogos.map((j) => ({ image: jogoImg(j), imageFiller: "fit", color: "transparent", action: jogoAcao(j, t) })),
     "0,0,3,2", {}, `${jogos.length} partidas${vivos ? ` · ${vivos} ao vivo` : ""}`, "live");
+}
+
+// ---------- ligar o jogo aos canais da lista do provedor ----------
+type CanalProv = { id: string; nome: string; cat: string; tokens: string[]; compacto: string; base: string; qual: number };
+type Catalogo = { em: number; canais: CanalProv[]; cats: Map<string, string>; evento: { id: string; nome: string } | null };
+const cacheCatalogo = new Map<string, Catalogo>();
+const tokensDe = (t: string) => semAcento(String(t ?? "")).match(/[a-z0-9+]+/g) ?? [];
+const RUIDO_QUALIDADE = new Set(["fhd", "hd", "sd", "4k", "uhd", "alt", "h265", "hevc", "fullhd", "raw", "backup"]);
+const qualidadeDe = (tk: string[]) => (tk.some((x) => ["fhd", "uhd", "4k", "fullhd"].includes(x)) ? 3 : tk.includes("hd") ? 2 : tk.includes("sd") ? 1 : 2) - (tk.includes("alt") ? 1 : 0);
+
+async function catalogoAoVivo(cred: { u: string; p: string }): Promise<Catalogo> {
+  const c = cacheCatalogo.get(cred.u);
+  if (c && Date.now() - c.em < 10 * 60 * 1000) return c;
+  const [cats, streams] = await Promise.all([api(cred, "&action=get_live_categories"), api(cred, "&action=get_live_streams")]);
+  const mapa = new Map<string, string>();
+  let evento: Catalogo["evento"] = null;
+  for (const x of (Array.isArray(cats) ? cats : []) as any[]) {
+    const nome = limparNome(String(x.category_name));
+    mapa.set(String(x.category_id), nome);
+    const n = semAcento(nome);
+    if (!evento && /evento/.test(n) && /destaque/.test(n)) evento = { id: String(x.category_id), nome };
+  }
+  if (!evento) for (const [id, nome] of mapa) if (/evento/.test(semAcento(nome))) { evento = { id, nome }; break; }
+  const canais: CanalProv[] = ((Array.isArray(streams) ? streams : []) as any[]).map((x) => {
+    const nome = limparNome(String(x.name));
+    const tokens = tokensDe(nome);
+    return { id: String(x.stream_id), nome, cat: String(x.category_id), tokens, compacto: tokens.join(""), base: tokens.filter((k) => !RUIDO_QUALIDADE.has(k)).join(" "), qual: qualidadeDe(tokens) };
+  });
+  const novo = { em: Date.now(), canais, cats: mapa, evento };
+  if (cacheCatalogo.size > 20) cacheCatalogo.clear();
+  cacheCatalogo.set(cred.u, novo);
+  return novo;
+}
+
+// "PPV ONEFOOTBALL" -> onefootball · "YOUTUBE (CANAL GOL BR)" -> canal gol br · "DISNEY+" -> disney+
+function chaveDoCanal(nome: string): string[] {
+  const sem = nome.replace(/^ppv\s+/i, "").trim();
+  const dentro = sem.match(/\(([^)]+)\)/);
+  return tokensDe(dentro ? dentro[1] : sem);
+}
+const contem = (tokens: string[], chave: string[]) => {
+  if (!chave.length) return false;
+  const a = " " + tokens.join(" ") + " ", b = " " + chave.join(" ") + " ";
+  if (a.includes(b)) return true;
+  const ck = chave.join(""), ct = tokens.join("");
+  return ck.length >= 6 && ct.includes(ck);
+};
+const PALAVRAS_FRACAS = new Set(["club", "clube", "futebol", "sport", "sporting", "team", "city", "united", "real", "atletico", "athletic"]);
+function pontosTime(c: CanalProv, nome: string) {
+  const tk = tokensDe(nome);
+  if (tk.length && c.compacto.includes(tk.join(""))) return 3;
+  const fortes = tk.filter((w) => w.length >= 4 && !PALAVRAS_FRACAS.has(w) && !/^sub\d*$/.test(w));
+  const achou = fortes.filter((w) => c.compacto.includes(w)).length;
+  return Math.min(2, achou);
+}
+
+async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n2: string) {
+  const jogos = await jogosDoDia(5000);
+  const j = (jogos ?? []).find((x) => x.casa.nome === n1 && x.fora.nome === n2);
+  if (!j) return aviso("Jogo", "Não encontramos mais este jogo na programação de hoje.");
+  const linhaVidro = (i: number, o: Record<string, unknown>) => ({ type: "default", layout: `4,${1 + i},8,1`, imageFiller: "cover", color: "transparent", ...o });
+  const topo = [
+    camadaFundo("bg-tv.jpg"),
+    { type: "space", layout: "0,0,12,1", headline: `${j.casa.nome} x ${j.fora.nome}`, text: `{col:msx-white-soft}${j.liga} · ${j.status}` },
+    { type: "default", layout: "0,1,4,3", image: jogoImg(j), imageFiller: "fit", color: "transparent", action: "none" },
+  ];
+  let cat: Catalogo | null = null;
+  try { cat = await catalogoAoVivo(cred); } catch { /* sem catálogo: mostra só o aviso */ }
+  const abrirEventos = cat?.evento ? [{ ...linhaVidro(0, {}), title: "Eventos em Destaque", titleFooter: "Ver todos os canais de jogos do dia", image: faixa("nav", "eventos", "star", false, "w"), action: go({ a: "itens", k: "live", t, c: cat.evento.id, cn: cat.evento.nome }) }] : [];
+
+  // candidatos: canais cujo nome cita os times (principalmente na categoria de eventos) ou que são os canais informados pela API
+  const chaves = j.canaisLista.map(chaveDoCanal).filter((k) => k.length);
+  const cands: { c: CanalProv; nota: number; evento: boolean }[] = [];
+  for (const c of cat?.canais ?? []) {
+    const evento = !!cat?.evento && c.cat === cat.evento.id;
+    const p1 = pontosTime(c, j.casa.nome), p2 = pontosTime(c, j.fora.nome);
+    const times = p1 + p2;
+    const porCanal = chaves.some((k) => contem(c.tokens, k));
+    const nomeaTimes = evento ? times > 0 : p1 > 0 && p2 > 0;
+    if (!nomeaTimes && !porCanal) continue;
+    cands.push({ c, evento, nota: (nomeaTimes ? times * 10 : 0) + (porCanal ? 6 : 0) + (evento ? 4 : 0) + c.qual });
+  }
+  cands.sort((a, b) => b.nota - a.nota);
+  const vistos = new Set<string>(), escolhidos: typeof cands = [];
+  for (const x of cands) { if (vistos.has(x.c.base)) continue; vistos.add(x.c.base); escolhidos.push(x); if (escolhidos.length >= 4) break; }
+
+  const assistir = escolhidos.map((x, i) => {
+    const nomeCat = cat?.cats.get(x.c.cat) ?? "TV ao vivo";
+    const item = canalItem({ name: x.c.nome, stream_id: x.c.id, stream_icon: undefined }, cred, t, x.c.cat, false, "", nomeCat, 0, undefined);
+    return {
+      ...item, ...linhaVidro(i, {}), enumerate: false, focus: i === 0 ? true : undefined,
+      imageWidth: undefined, wrapperColor: undefined, icon: undefined, iconSize: undefined,
+      titleHeader: x.evento ? "EVENTO EM DESTAQUE  ·  ASSISTIR" : "ASSISTIR",
+      title: x.c.nome, titleFooter: nomeCat, truncation: "title|titleFooter",
+      image: faixa("live", x.c.nome, "play", i === 0, "w"),
+    };
+  });
+  if (assistir.length) {
+    const extra = abrirEventos.map((e) => ({ ...e, layout: `4,${1 + assistir.length},8,1` }));
+    return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: IMG + "bg-tv.jpg", pages: [{ items: [...topo, ...assistir, ...extra] }] };
+  }
+  const onde = j.canaisLista.length ? `Este jogo passa em ${j.canaisLista.join(" · ")}` : "A programação não informou onde passa";
+  const aviso1 = { ...linhaVidro(0, {}), titleHeader: "CANAL NÃO ENCONTRADO", title: "Não achamos este jogo na sua lista", titleFooter: cat ? onde : "Não foi possível consultar seus canais agora", image: faixa("vod", "naoachou", "search", false, "w"), action: "none", truncation: "title|titleFooter" };
+  const opcoes = [
+    ...abrirEventos.map((e) => ({ ...e, layout: "4,2,8,1", focus: true })),
+    { ...linhaVidro(abrirEventos.length ? 2 : 1, {}), focus: !abrirEventos.length, title: "TV ao vivo", titleFooter: "Procurar o canal nas categorias", image: faixa("live", "tvaovivo", "live", false, "w"), action: go({ a: "cats", k: "live", t }) },
+  ];
+  return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: IMG + "bg-tv.jpg", pages: [{ items: [...topo, aviso1, ...opcoes] }] };
 }
 
 Deno.serve(async (req: Request) => {
@@ -858,7 +995,7 @@ Deno.serve(async (req: Request) => {
     }
     if (req.method === "GET" && u0.searchParams.get("a") === "bg") {
       const g = u0.searchParams;
-      return new Response(faixaSvg(g.get("k") ?? "live", g.get("n") ?? "", g.get("i") ?? "play", g.get("x") === "1"), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
+      return new Response(faixaSvg(g.get("k") ?? "live", g.get("n") ?? "", g.get("i") ?? "play", g.get("x") === "1", g.get("v") ?? "c"), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
     }
     if (req.method === "GET" && (u0.searchParams.get("a") === "jg" || u0.searchParams.get("a") === "jr")) {
       const g = u0.searchParams;
