@@ -312,6 +312,33 @@ async function paginar(
 }
 const nota = (v: unknown) => { const n = Number(v); return n > 0 ? n.toFixed(1) : undefined; };
 
+// ---------- TV ao vivo dentro do player: OK abre a lista de canais (com EPG) por cima do vídeo ----------
+function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string, painel = false, atual = "") {
+  const nome = limparNome(String(x.name));
+  const logo = x.stream_icon || undefined;
+  const lista = `panel:${SELF()}?${q({ a: "painel", t, c, s: x.stream_id })}`;
+  return {
+    title: painel || !logo ? nome : undefined,
+    titleFooter: painel && String(x.stream_id) === atual ? "Assistindo agora" : undefined,
+    image: logo, imageFiller: painel ? "fit" : "smart", ...(painel && logo ? { imageWidth: 1 } : {}),
+    icon: logo ? undefined : "live-tv", color: painel && String(x.stream_id) === atual ? COR.destaque : COR.vidro,
+    focus: painel && String(x.stream_id) === atual ? true : undefined,
+    playerLabel: nome,
+    action: `video:${urlFluxo("live", cred, x.stream_id, "ts")}`,
+    properties: {
+      "control:type": "extended",
+      "control:action": lista,
+      "info:headline": nome,
+      "info:text": "OK: lista de canais e programação",
+      ...(logo ? { "info:image": logo, "info:size": "small" } : {}),
+      "button:content:icon": "list",
+      "button:content:action": lista,
+    },
+  };
+}
+const b64txt = (v: unknown) => { try { return new TextDecoder().decode(Uint8Array.from(atob(String(v ?? "")), (ch) => ch.charCodeAt(0))); } catch { return String(v ?? ""); } };
+const hora = (v: unknown) => { const m = String(v ?? "").match(/(\d{2}):(\d{2})/); return m ? `${m[1]}:${m[2]}` : ""; };
+
 async function tratar(url: URL) {
   const a = url.searchParams.get("a") ?? "inicio";
   const pg = Math.max(0, parseInt(url.searchParams.get("pg") ?? "0", 10) || 0);
@@ -397,13 +424,7 @@ async function tratar(url: URL) {
     const todos = Array.isArray(dados) ? dados : [];
     const prox = (n: number) => go({ a: "itens", k: tipoQ, t, c, pg: n });
     if (tipoQ === "live") {
-      return paginar("Canais", todos, pg, (x) => {
-        const nome = limparNome(String(x.name));
-        return {
-          title: x.stream_icon ? undefined : nome, icon: x.stream_icon ? undefined : "live-tv", image: x.stream_icon || undefined, imageFiller: "smart", color: COR.vidro,
-          action: `video:${urlFluxo("live", cred, x.stream_id, "ts")}`, playerLabel: nome,
-        };
-      }, prox, "0,0,3,2", tipoQ);
+      return paginar("Canais", todos, pg, (x) => canalItem(x, cred, t, c), prox, "0,0,3,2", tipoQ);
     }
     if (tipoQ === "vod") {
       return paginar("Filmes", todos, pg, (x) => {
@@ -423,6 +444,27 @@ async function tratar(url: URL) {
         action: go({ a: "serie", t, s: x.series_id }),
       };
     }, prox, "0,0,2,3", tipoQ);
+  }
+
+  if (a === "painel") {
+    const s = url.searchParams.get("s") ?? "";
+    const [dados, epg] = await Promise.all([
+      api(cred, `&action=get_live_streams${c ? "&category_id=" + encodeURIComponent(c) : ""}`),
+      api(cred, `&action=get_short_epg&stream_id=${encodeURIComponent(s)}&limit=3`).catch(() => null),
+    ]);
+    const todos = (Array.isArray(dados) ? dados : []).slice(0, 400);
+    const prog = (Array.isArray(epg?.epg_listings) ? epg.epg_listings : []) as any[];
+    const topo: unknown[] = prog.length
+      ? prog.slice(0, 2).map((p, i) => ({
+          titleHeader: i === 0 ? "AGORA" : "A SEGUIR", title: b64txt(p.title), titleFooter: `${hora(p.start)} – ${hora(p.end ?? p.stop)}`,
+          color: i === 0 ? "rgba(124,92,255,0.35)" : COR.vidro, action: "none",
+        }))
+      : [{ titleHeader: "PROGRAMAÇÃO", title: "Sem guia para este canal", color: COR.vidro, action: "none" }];
+    return {
+      type: "list", headline: "Canais", extension: `${todos.length}`,
+      template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
+      items: [...topo, ...todos.map((x) => canalItem(x, cred, t, c, true, s))],
+    };
   }
 
   if (a === "serie") {
