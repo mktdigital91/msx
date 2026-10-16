@@ -248,8 +248,9 @@ function inputAction(servico: string, titulo: string, dica: string) {
   return `content:request:interaction:${servico}|default|pt|${titulo}|||${dica}|@${INPUT}`;
 }
 
-function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Record<string, unknown> = {}, extensao?: string) {
-  return { type: "list", headline, extension: extensao, background: IMG + "fundo.jpg", template: { type: "default", layout, color: COR.vidro, ...extra }, items };
+const FUNDO: Record<string, string> = { live: "bg-tv.jpg", vod: "bg-filmes.jpg", series: "bg-series.jpg" };
+function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Record<string, unknown> = {}, extensao?: string, kind = "") {
+  return { type: "list", headline, extension: extensao, background: IMG + (FUNDO[kind] ?? "fundo.jpg"), template: { type: "default", layout, color: COR.vidro, ...extra }, items };
 }
 function aviso(titulo: string, msg: string, voltar?: unknown[]) {
   return lista(titulo, [{ title: msg, action: "none" }, ...(voltar ?? [])], "0,0,12,1");
@@ -321,7 +322,7 @@ async function paginar(
   if (!todos.length) itens.push({ title: "Nada encontrado", action: "none" });
   // botão fixo no topo para voltar às categorias (volta para a tela anterior, sem recarregar)
   itens.unshift({ title: "Categorias", titleFooter: "Voltar às categorias", icon: "apps", iconSize: "small", color: "rgba(245,158,11,0.85)", action: "back" });
-  return lista(titulo, itens, layout, {}, ext ?? `${todos.length} itens`);
+  return lista(titulo, itens, layout, {}, ext ?? `${todos.length} itens`, kind);
 }
 const nota = (v: unknown) => { const n = Number(v); return n > 0 ? n.toFixed(1) : undefined; };
 
@@ -484,7 +485,7 @@ async function tratar(url: URL) {
       { ...linha("Todos", "apps", "", `Todo o catálogo de ${T.nome.toLowerCase()}`), focus: true },
       ...lst.map((x: any) => { const nome = limparNome(String(x.category_name)); return linha(nome, iconeDoNome(nome, "play"), x.category_id, T.nome); }),
     ];
-    return lista(T.nome, itens, "0,0,6,1", {}, `${lst.length} categorias`);
+    return lista(T.nome, itens, "0,0,6,1", {}, `${lst.length} categorias`, tipoQ);
   }
 
   if (a === "itens") {
@@ -567,7 +568,7 @@ async function tratar(url: URL) {
       return lista(limparNome(nome), numeros.map((n) => ({
         title: `Temporada ${n}`, titleFooter: `${eps[n].length} episódios`, image: faixa("series", "Temporada " + n, "series"), imageFiller: "cover", color: "transparent",
         action: go({ a: "serie", t, s, n }),
-      })), "0,0,6,1", {}, `${numeros.length} temporadas`);
+      })), "0,0,6,1", {}, `${numeros.length} temporadas`, "series");
     }
     const lst = (eps[temp] ?? []) as any[];
     return lista(`${nome}`, lst.map((e) => ({
@@ -575,7 +576,7 @@ async function tratar(url: URL) {
       image: e.info?.movie_image || undefined, imageFiller: "cover", icon: e.info?.movie_image ? undefined : "play-arrow", color: COR.vidro,
       action: tocar("series", cred, e.id, e.container_extension || "mp4", "o episódio"),
       playerLabel: `${nome} T${temp}E${e.episode_num}`,
-    })), "0,0,4,2", {}, `Temporada ${temp}`);
+    })), "0,0,4,2", {}, `Temporada ${temp}`, "series");
   }
 
   return aviso("Mira", "Tela não encontrada");
