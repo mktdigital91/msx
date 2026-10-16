@@ -1,6 +1,6 @@
 {
     "name": "Mira (teste)",
-    "version": "0.1.1",
-    "parameter": "menu:request:interaction:init@https://mktdigital91.github.io/tv/msx/plugin.html",
+    "version": "0.1.2",
+    "parameter": "menu:request:interaction:init@https://mktdigital91.github.io/msx/msx/plugin.html",
     "welcome": "none"
 }
