@@ -16,7 +16,7 @@ const CORS = {
 };
 
 const IMG = "https://mktdigital91.github.io/msx/msx/img/";
-const COR = { tv: "rgba(124,92,255,0.40)", vod: "rgba(244,63,142,0.38)", series: "rgba(34,211,238,0.32)", vidro: "rgba(255,255,255,0.08)", destaque: "#7C5CFF" };
+const COR = { tv: "rgba(124,92,255,0.40)", vod: "rgba(244,63,142,0.38)", series: "rgba(34,211,238,0.32)", vidro: "rgba(14,16,36,0.55)", destaque: "#7C5CFF" };
 
 const BASE_PROV = `${PROVEDOR.protocolo}://${PROVEDOR.host}`;
 
@@ -249,8 +249,23 @@ function inputAction(servico: string, titulo: string, dica: string) {
 }
 
 const FUNDO: Record<string, string> = { live: "bg-tv.jpg", vod: "bg-filmes.jpg", series: "bg-series.jpg" };
+// O MSX ignora o "background" da raiz nessas telas; então o fundo vira um item de tela cheia atrás dos blocos.
+const camadaFundo = (img: string) => ({ type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", image: IMG + img, imageFiller: "cover", enable: false });
+// Monta uma lista como páginas (grade 12x6) para poder ter o fundo em cada página.
 function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Record<string, unknown> = {}, extensao?: string, kind = "") {
-  return { type: "list", headline, extension: extensao, transparent: 2, background: IMG + (FUNDO[kind] ?? "fundo.jpg"), template: { type: "default", layout, color: COR.vidro, ...extra }, items };
+  const [, , w, h] = layout.split(",").map(Number);
+  const cols = Math.max(1, Math.floor(12 / w)), rows = Math.max(1, Math.floor(6 / h)), porPg = cols * rows;
+  const fundo = camadaFundo(FUNDO[kind] ?? "bg-tv.jpg");
+  const pages: unknown[] = [];
+  for (let i = 0; i < items.length || (i === 0 && !pages.length); i += porPg) {
+    const fatia = (items as any[]).slice(i, i + porPg).map((it, j) => ({
+      type: "default", color: COR.vidro, ...extra, ...it,
+      layout: `${(j % cols) * w},${Math.floor(j / cols) * h},${w},${h}`,
+    }));
+    pages.push({ items: [fundo, ...fatia] });
+    if (!items.length) break;
+  }
+  return { type: "pages", headline, extension: extensao, transparent: 2, background: IMG + (FUNDO[kind] ?? "bg-tv.jpg"), pages };
 }
 function aviso(titulo: string, msg: string, voltar?: unknown[]) {
   return lista(titulo, [{ title: msg, action: "none" }, ...(voltar ?? [])], "0,0,12,1");
@@ -261,6 +276,7 @@ function telaCelular(codigo: string | null, d: string | null, msg?: string) {
   return {
     type: "pages", transparent: 2, background: IMG + "bg-tv.jpg",
     pages: [{ items: [
+      camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,12,1", headline: "Entre pelo celular", text: msg ?? "Aponte a câmera para o QR code e digite seu usuário e senha no celular." },
       { id: "qr", type: "default", layout: "0,1,4,4", color: "#FFFFFF", image: qr, imageFiller: "fit", action: "none", focus: true },
       { type: "default", layout: "4,1,8,1", color: COR.vidro, titleHeader: "OU ACESSE NO NAVEGADOR", title: PAGINA_CELULAR.replace("https://", ""), action: "none" },
@@ -295,8 +311,9 @@ function telaEntrar(msg?: string, d?: string | null, u = "", p = "", auto = fals
     action: pronto ? go(base({ a: "login", u, p })) : "warn:Preencha o usuário e a senha",
   };
   return {
-    type: "pages", background: IMG + "login.jpg",
+    type: "pages", transparent: 2, background: IMG + "login.jpg",
     pages: [{ items: [
+      camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "6,1,5,1", headline: "Entrar", text: msg ?? "Use o usuário e a senha da sua lista" },
       campoUsuario, campoSenha, botao,
     ] }],
@@ -481,7 +498,7 @@ async function tratar(url: URL) {
     const cats = await api(cred, `&action=${T.cats}`);
     const lst = Array.isArray(cats) ? cats : [];
     // visual transparente (o vídeo/fundo aparece por trás), como o usuário preferiu
-    const linha = (nome: string, _ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, color: "rgba(255,255,255,0.06)", action: go({ a: "itens", k: tipoQ, t, c: cid, cn: cid ? nome : "" }) });
+    const linha = (nome: string, _ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, color: COR.vidro, action: go({ a: "itens", k: tipoQ, t, c: cid, cn: cid ? nome : "" }) });
     const itens = [
       { ...linha("Todos", "apps", "", `Todo o catálogo de ${T.nome.toLowerCase()}`), focus: true },
       ...lst.map((x: any) => { const nome = limparNome(String(x.category_name)); return linha(nome, iconeDoNome(nome, "play"), x.category_id, T.nome); }),
@@ -588,6 +605,7 @@ async function home(t: string, quem: string, d: string | null = null) {
   return {
     type: "pages", transparent: 2, background: IMG + "bg-tv.jpg",
     pages: [{ items: [
+      camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,8,1", headline: `Olá, ${usuario}`, text: venc ?? "" },
       { type: "default", layout: "10,0,2,1", color: "rgba(255,255,255,0.10)", icon: "logout", iconSize: "small", title: "Sair", action: d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" }) },
       { id: "tv", type: "default", layout: "0,1,4,5", image: IMG + "card-tv.jpg", imageFiller: "cover", title: "TV ao vivo", titleFooter: "Canais por categoria", focus: true, action: go({ a: "cats", k: "live", t }) },
