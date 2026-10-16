@@ -228,6 +228,17 @@ function faixaSvg(k: string, semente: string, icone: string) {
 }
 const faixa = (k: string, semente: string, icone: string) => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "bg", k, n: semente.slice(0, 40), i: icone }).toString()}`;
 
+// selo quadrado com gradiente e um número/letra (usado à esquerda das linhas da lista sobre o vídeo)
+function seloSvg(k: string, texto: string, ativo: boolean) {
+  let h = 0; for (const ch of texto) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  const pal = PALETAS[k] ?? PALETAS.live;
+  const [c1, c2] = ativo ? ["#7C5CFF", "#EC4899"] : pal[h % pal.length];
+  const t = xml(texto === "‹" ? "‹" : limparNome(texto).slice(0, 3) || "•");
+  const fs = t.length >= 3 ? 56 : 72;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}" stop-opacity="${ativo ? 1 : 0.75}"/><stop offset="1" stop-color="${c2}" stop-opacity="${ativo ? 1 : 0.45}"/></linearGradient></defs><rect x="22" y="22" width="156" height="156" rx="40" fill="url(#g)"/><rect x="23.5" y="23.5" width="153" height="153" rx="38.5" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="3"/><text x="100" y="${100 + fs * 0.36}" text-anchor="middle" font-size="${fs}" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">${t}</text></svg>`;
+}
+const selo = (k: string, texto: string, ativo = false) => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "selo", k, n: texto.slice(0, 3), ...(ativo ? { on: "1" } : {}) }).toString()}`;
+
 const SELF = () => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira`;
 const q = (o: Record<string, string | number>) =>
   Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join("&");
@@ -313,16 +324,17 @@ async function paginar(
 const nota = (v: unknown) => { const n = Number(v); return n > 0 ? n.toFixed(1) : undefined; };
 
 // ---------- TV ao vivo dentro do player: OK abre a lista de canais (com EPG) por cima do vídeo ----------
-function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string, painel = false, atual = "") {
+function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string, painel = false, atual = "", num = 0) {
   const nome = limparNome(String(x.name));
   const logo = x.stream_icon || undefined;
   const lista = `panel:${SELF()}?${q({ a: "painel", t, c, s: x.stream_id })}`;
   const ativo = painel && String(x.stream_id) === atual;
   return {
-    title: nome, titleFooter: ativo ? "Assistindo agora" : "Ao vivo", truncation: "title",
-    image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)",
-    icon: logo ? undefined : "live-tv", iconSize: "small",
-    color: ativo ? "rgba(124,92,255,0.45)" : COR.vidro,
+    title: nome, titleFooter: ativo ? "▶  Assistindo agora" : painel ? `Canal ${num}` : "Ao vivo", truncation: "title",
+    ...(painel
+      ? { image: selo("live", String(num), ativo), imageWidth: 1, imageFiller: "fit", wrapperColor: "transparent", centration: "title" }
+      : { image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)", icon: logo ? undefined : "live-tv", iconSize: "small" }),
+    color: ativo ? "rgba(124,92,255,0.55)" : painel ? "rgba(255,255,255,0.04)" : COR.vidro,
     focus: ativo ? true : undefined, enumerate: true,
     playerLabel: nome,
     action: `video:${urlFluxo("live", cred, x.stream_id, "ts")}`,
@@ -449,22 +461,47 @@ async function tratar(url: URL) {
 
   if (a === "painel") {
     const s = url.searchParams.get("s") ?? "";
-    const [dados, epg] = await Promise.all([
+    const [dados, epg, cats] = await Promise.all([
       api(cred, `&action=get_live_streams${c ? "&category_id=" + encodeURIComponent(c) : ""}`),
       api(cred, `&action=get_short_epg&stream_id=${encodeURIComponent(s)}&limit=3`).catch(() => null),
+      api(cred, `&action=get_live_categories`).catch(() => null),
     ]);
     const todos = (Array.isArray(dados) ? dados : []).slice(0, 400);
+    const cat = (Array.isArray(cats) ? cats : []).find((x: any) => String(x.category_id) === c);
+    const nomeCat = c ? limparNome(String(cat?.category_name ?? "Categoria")) : "Todos os canais";
     const prog = (Array.isArray(epg?.epg_listings) ? epg.epg_listings : []) as any[];
+    const voltar = {
+      title: "Categorias", titleFooter: nomeCat, truncation: "titleFooter",
+      image: selo("live", "‹", false), imageWidth: 1, imageFiller: "fit", wrapperColor: "transparent",
+      color: "rgba(255,255,255,0.10)", action: `panel:${SELF()}?${q({ a: "pcats", t, s, c })}`,
+    };
     const topo: unknown[] = prog.length
       ? prog.slice(0, 2).map((p, i) => ({
-          titleHeader: i === 0 ? "AGORA" : "A SEGUIR", title: b64txt(p.title), titleFooter: `${hora(p.start)} – ${hora(p.end ?? p.stop)}`,
-          color: i === 0 ? "rgba(124,92,255,0.35)" : COR.vidro, action: "none",
+          titleHeader: i === 0 ? "AGORA" : "A SEGUIR", title: b64txt(p.title), titleFooter: `${hora(p.start)} – ${hora(p.end ?? p.stop)}`, truncation: "title",
+          color: i === 0 ? "rgba(124,92,255,0.30)" : "rgba(255,255,255,0.04)", action: "none", enumerate: false,
         }))
-      : [{ titleHeader: "PROGRAMAÇÃO", title: "Sem guia para este canal", color: COR.vidro, action: "none" }];
+      : [];
     return {
-      type: "list", headline: "Canais", extension: `${todos.length}`,
-      template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [...topo, ...todos.map((x) => canalItem(x, cred, t, c, true, s))],
+      type: "list", headline: nomeCat, extension: `${todos.length} canais`, compress: true,
+      template: { type: "default", layout: "0,0,8,1", color: "rgba(255,255,255,0.04)" },
+      items: [voltar, ...topo, ...todos.map((x, i) => canalItem(x, cred, t, c, true, s, i + 1))],
+    };
+  }
+
+  if (a === "pcats") {
+    const s = url.searchParams.get("s") ?? "";
+    const cats = await api(cred, `&action=get_live_categories`);
+    const lst = Array.isArray(cats) ? cats : [];
+    const linha = (nome: string, cid: string, sub: string) => ({
+      title: nome, titleFooter: sub, truncation: "title",
+      image: selo("live", nome.slice(0, 1).toUpperCase(), cid === c), imageWidth: 1, imageFiller: "fit", wrapperColor: "transparent",
+      color: cid === c ? "rgba(124,92,255,0.55)" : "rgba(255,255,255,0.04)", focus: cid === c ? true : undefined,
+      action: `panel:${SELF()}?${q({ a: "painel", t, s, c: cid })}`,
+    });
+    return {
+      type: "list", headline: "Categorias", extension: `${lst.length}`, compress: true,
+      template: { type: "default", layout: "0,0,8,1", color: "rgba(255,255,255,0.04)" },
+      items: [linha("Todos os canais", "", "TV ao vivo"), ...lst.map((x: any) => linha(limparNome(String(x.category_name)), String(x.category_id), "Toque para ver os canais"))],
     };
   }
 
@@ -519,6 +556,10 @@ Deno.serve(async (req: Request) => {
     if (req.method === "GET" && u0.searchParams.get("a") === "bg") {
       const g = u0.searchParams;
       return new Response(faixaSvg(g.get("k") ?? "live", g.get("n") ?? "", g.get("i") ?? "play"), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
+    }
+    if (req.method === "GET" && u0.searchParams.get("a") === "selo") {
+      const g = u0.searchParams;
+      return new Response(seloSvg(g.get("k") ?? "live", g.get("n") ?? "", g.get("on") === "1"), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
     }
     if (req.method === "POST") {
       const b = await req.json().catch(() => ({}));
