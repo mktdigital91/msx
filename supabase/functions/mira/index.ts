@@ -438,6 +438,8 @@ async function tratar(url: URL) {
     return telaCelular(await codigoDoAparelho(d), d);
   }
 
+  if (a === "jogos") return await telaJogos();
+
   if (a === "ver") {
     const tk = await lerSessao(d);
     return { ok: !!(tk && (await lerToken(tk))) };
@@ -598,20 +600,152 @@ async function tratar(url: URL) {
   return aviso("Gold Play", "Tela não encontrada");
 }
 
+// ---------- Jogos do dia (placar público da ESPN, sem chave) ----------
+const LIGAS: [string, string][] = [
+  ["bra.1", "Brasileirão"], ["bra.copa_do_brazil", "Copa do Brasil"], ["conmebol.libertadores", "Libertadores"],
+  ["conmebol.sudamericana", "Sul-Americana"], ["uefa.champions", "Champions League"], ["uefa.europa", "Europa League"],
+  ["eng.1", "Premier League"], ["esp.1", "La Liga"], ["ita.1", "Serie A"], ["ger.1", "Bundesliga"], ["fra.1", "Ligue 1"],
+  ["por.1", "Liga Portugal"], ["arg.1", "Argentino"], ["bra.2", "Série B"], ["usa.1", "MLS"],
+  ["fifa.friendly", "Amistoso"], ["uefa.nations", "Nations League"], ["fifa.worldq.conmebol", "Eliminatórias"],
+];
+type Jogo = { liga: string; ord: number; quando: number; estado: string; status: string; casa: Time; fora: Time };
+type Time = { nome: string; sigla: string; cor: string; gols: string; venceu: boolean };
+let cacheJogos: { em: number; dia: string; v: Jogo[] } | null = null;
+const FUSO = -3 * 3600_000; // America/Fortaleza (sem horário de verão)
+const diaLocal = (ms = Date.now()) => new Date(ms + FUSO).toISOString().slice(0, 10);
+const horaLocal = (ms: number) => new Date(ms + FUSO).toISOString().slice(11, 16);
+
+async function jogosDoDia(limiteMs = 2500): Promise<Jogo[] | null> {
+  const dia = diaLocal();
+  if (cacheJogos && cacheJogos.dia === dia && Date.now() - cacheJogos.em < 90_000) return cacheJogos.v;
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), limiteMs);
+  const res = await Promise.all(LIGAS.map(async ([id, nome], ord) => {
+    try {
+      const r = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${id}/scoreboard?dates=${dia.replace(/-/g, "")}`, { signal: ctl.signal });
+      if (!r.ok) return null;
+      const j = await r.json();
+      return (j?.events ?? []).map((ev: any): Jogo | null => {
+        const comp = ev?.competitions?.[0];
+        const cs = comp?.competitors ?? [];
+        const time = (lado: string): Time => {
+          const c = cs.find((x: any) => x.homeAway === lado) ?? {};
+          return {
+            nome: limparNome(String(c.team?.shortDisplayName ?? c.team?.displayName ?? "?")),
+            sigla: String(c.team?.abbreviation ?? "").slice(0, 4).toUpperCase(),
+            cor: /^[0-9a-f]{6}$/i.test(String(c.team?.color ?? "")) ? c.team.color : "475569",
+            gols: c.score != null ? String(c.score) : "", venceu: !!c.winner,
+          };
+        };
+        const quando = Date.parse(ev.date);
+        if (!isFinite(quando) || diaLocal(quando) !== dia) return null;
+        const tipo = ev?.status?.type ?? {};
+        const estado = String(tipo.state ?? "pre");
+        let status = horaLocal(quando);
+        if (estado === "in") status = /half|HT|intervalo/i.test(String(tipo.shortDetail ?? tipo.name ?? "")) ? "INTERVALO" : `AO VIVO ${String(ev?.status?.displayClock ?? "").replace(/:00$/, "")}`.trim();
+        else if (estado === "post") status = /postp|adiad|cancel/i.test(String(tipo.name ?? "")) ? "ADIADO" : "ENCERRADO";
+        return { liga: nome, ord, quando, estado, status, casa: time("home"), fora: time("away") };
+      }).filter(Boolean);
+    } catch { return null; }
+  }));
+  clearTimeout(timer);
+  if (res.every((x) => x === null)) return cacheJogos?.v ?? null;
+  const peso: Record<string, number> = { in: 0, pre: 1, post: 2 };
+  const v = (res.flat().filter(Boolean) as Jogo[]).sort((a, b) => (peso[a.estado] ?? 1) - (peso[b.estado] ?? 1) || (a.estado === "post" ? b.quando - a.quando : a.quando - b.quando) || a.ord - b.ord);
+  cacheJogos = { em: Date.now(), dia, v };
+  return v;
+}
+
+// cartão SVG de um jogo (placar em duas linhas, estilo app esportivo)
+function jogoSvg(g: URLSearchParams) {
+  const W = 600, H = 380;
+  const k = g.get("k") ?? "pre";
+  const st = limparNome(g.get("s") ?? "").slice(0, 18);
+  const liga = limparNome(g.get("l") ?? "").slice(0, 22).toUpperCase();
+  const linha = (y: number, p: string) => {
+    const [nome = "", sigla = "", cor = "475569", gols = "", v = ""] = (g.get(p) ?? "").split("|");
+    const apaga = k === "post" && v !== "1";
+    const n = limparNome(nome); const nm = n.length > 15 ? n.slice(0, 14) + "…" : n;
+    const c = /^[0-9a-f]{6}$/i.test(cor) ? cor : "475569";
+    return `<circle cx="74" cy="${y}" r="38" fill="#${c}"/><circle cx="74" cy="${y}" r="38" fill="url(#bri)"/><circle cx="74" cy="${y}" r="37" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>`
+      + `<text x="74" y="${y + 9}" text-anchor="middle" font-size="${sigla.length > 3 ? 20 : 25}" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">${xml(sigla)}</text>`
+      + `<text x="132" y="${y + 13}" font-size="38" font-weight="700" fill="#fff" fill-opacity="${apaga ? 0.6 : 1}" font-family="Arial, Helvetica, sans-serif">${xml(nm)}</text>`
+      + (k !== "pre" ? `<text x="${W - 40}" y="${y + 17}" text-anchor="end" font-size="52" font-weight="800" fill="#fff" fill-opacity="${apaga ? 0.55 : 1}" font-family="Arial, Helvetica, sans-serif">${xml(gols.slice(0, 3))}</text>` : "");
+  };
+  const aoVivo = k === "in";
+  const pw = Math.max(110, st.length * 15 + (aoVivo ? 58 : 36));
+  const pill = `<rect x="${W - 32 - pw}" y="26" width="${pw}" height="46" rx="23" fill="${aoVivo ? "#EF4444" : k === "post" ? "#fff" : "#F5B400"}" fill-opacity="${aoVivo ? 1 : k === "post" ? 0.16 : 0.95}"/>`
+    + (aoVivo ? `<circle cx="${W - 32 - pw + 24}" cy="49" r="7" fill="#fff"/>` : "")
+    + `<text x="${W - 32 - pw / 2 + (aoVivo ? 12 : 0)}" y="58" text-anchor="middle" font-size="24" font-weight="800" fill="${k === "pre" ? "#1A1300" : "#fff"}" font-family="Arial, Helvetica, sans-serif">${xml(st)}</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs>`
+    + `<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1B1F3B" stop-opacity=".82"/><stop offset="1" stop-color="#0B0D1E" stop-opacity=".72"/></linearGradient>`
+    + `<linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".12"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient>`
+    + `<radialGradient id="bri" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity=".25"/></radialGradient>`
+    + `<clipPath id="c"><rect x="8" y="8" width="${W - 16}" height="${H - 16}" rx="34"/></clipPath></defs>`
+    + `<g clip-path="url(#c)"><rect width="${W}" height="${H}" fill="url(#bg)"/><rect width="${W}" height="${H}" fill="url(#sh)"/>`
+    + (aoVivo ? `<rect width="8" height="${H}" x="8" fill="#EF4444"/>` : "")
+    + `<circle cx="${W}" cy="${H}" r="170" fill="#F5B400" fill-opacity=".07"/>`
+    + `<text x="40" y="58" font-size="22" font-weight="700" letter-spacing="2" fill="#fff" fill-opacity=".7" font-family="Arial, Helvetica, sans-serif">${xml(liga)}</text>${pill}`
+    + `<line x1="40" x2="${W - 40}" y1="96" y2="96" stroke="#fff" stroke-opacity=".1" stroke-width="2"/>`
+    + linha(166, "h") + linha(278, "f") + `</g>`
+    + `<rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="33" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="2"/></svg>`;
+}
+const timeTxt = (t: Time) => [t.nome, t.sigla, t.cor, t.gols, t.venceu ? "1" : ""].join("|");
+const jogoImg = (j: Jogo) => `${SELF()}?${q({ a: "jg", k: j.estado, s: j.status, l: j.liga, h: timeTxt(j.casa), f: timeTxt(j.fora) })}`;
+
+// cartão de abertura da faixa de jogos
+function resumoSvg(total: number, vivos: number, falhou: boolean) {
+  const W = 600, H = 380;
+  const sub = falhou ? "Placar indisponível agora" : total ? `${total} partida${total > 1 ? "s" : ""}${vivos ? ` · ${vivos} ao vivo` : ""}` : "Nenhuma partida hoje";
+  const bola = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 3.3l1.35-.95c1.82.56 3.37 1.76 4.38 3.34l-.39 1.34-1.35.46L13 6.7V5.3zm-3.35-.95L11 5.3v1.4L7.01 9.49l-1.35-.47-.39-1.34c1.01-1.57 2.56-2.77 4.38-3.33zM7.08 17.11l-1.14.1C4.73 15.81 4 13.99 4 12c0-.12.01-.23.02-.35l1-.73 1.38.48 1.46 4.34-.78 1.37zm7.42 2.48c-.79.26-1.63.41-2.5.41s-1.71-.15-2.5-.41l-.69-1.49.64-1.1h5.11l.64 1.11-.7 1.48zM14.27 15H9.73l-1.35-4.02L12 8.44l3.63 2.54L14.27 15zm3.79 2.21l-1.14-.1-.79-1.37 1.46-4.34 1.39-.47 1 .73c.01.11.02.22.02.34 0 1.99-.73 3.81-1.94 5.21z";
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs>`
+    + `<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F5B400"/><stop offset=".6" stop-color="#FF7A00"/><stop offset="1" stop-color="#E11D48"/></linearGradient>`
+    + `<linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>`
+    + `<clipPath id="c"><rect x="8" y="8" width="${W - 16}" height="${H - 16}" rx="34"/></clipPath></defs>`
+    + `<g clip-path="url(#c)"><rect width="${W}" height="${H}" fill="url(#g)"/><rect width="${W}" height="${H}" fill="url(#sh)"/>`
+    + `<g transform="translate(400 170) scale(10)" fill="#fff" fill-opacity=".13"><path d="${bola}"/></g>`
+    + `<rect x="40" y="40" width="84" height="84" rx="24" fill="#fff" fill-opacity=".22"/><g transform="translate(58 58) scale(2)" fill="#fff"><path d="${bola}"/></g>`
+    + `<text x="40" y="226" font-size="46" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">Jogos de hoje</text>`
+    + `<text x="42" y="272" font-size="28" font-weight="600" fill="#fff" fill-opacity=".88" font-family="Arial, Helvetica, sans-serif">${xml(sub)}</text>`
+    + (total && !falhou ? `<text x="42" y="330" font-size="24" font-weight="700" fill="#fff" fill-opacity=".95" font-family="Arial, Helvetica, sans-serif">Ver todos  ›</text>` : "")
+    + `</g><rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="33" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/></svg>`;
+}
+const resumoImg = (total: number, vivos: number, falhou: boolean) => `${SELF()}?${q({ a: "jr", n: total, vv: vivos, x: falhou ? 1 : 0 })}`;
+
 async function home(t: string, quem: string, d: string | null = null) {
   const [usuario, venc] = quem.split(" · ");
+  const jogos = await jogosDoDia();
+  const lst = jogos ?? [];
+  const vivos = lst.filter((j) => j.estado === "in").length;
+  const todos = go({ a: "jogos" });
+  const card = (layout: string, img: string, acao: string, extra: Record<string, unknown> = {}) =>
+    ({ type: "default", layout, image: IMG + img, imageFiller: "fit", color: "transparent", action: acao, ...extra });
+  const destaques = lst.slice(0, 3).map((j, i) => ({
+    type: "default", layout: `${3 + i * 3},4,3,2`, image: jogoImg(j), imageFiller: "fit", color: "transparent", action: todos,
+  }));
   return {
     type: "pages", transparent: 2, background: IMG + "bg-tv.jpg",
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,2,1", image: LOGO, imageFiller: "fit" },
-      { type: "space", layout: "2,0,6,1", headline: `Olá, ${usuario}`, text: venc ?? "" },
-      { type: "default", layout: "10,0,2,1", color: "rgba(255,255,255,0.10)", icon: "logout", iconSize: "small", title: "Sair", action: d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" }) },
-      { id: "tv", type: "default", layout: "0,1,4,5", image: IMG + "card-tv.jpg", imageFiller: "cover", title: "TV ao vivo", titleFooter: "Canais por categoria", focus: true, action: go({ a: "cats", k: "live", t }) },
-      { type: "default", layout: "4,1,4,5", image: IMG + "card-filmes.jpg", imageFiller: "cover", title: "Filmes", titleFooter: "Catálogo completo", action: go({ a: "cats", k: "vod", t }) },
-      { type: "default", layout: "8,1,4,5", image: IMG + "card-series.jpg", imageFiller: "cover", title: "Séries", titleFooter: "Temporadas e episódios", action: go({ a: "cats", k: "series", t }) },
+      { type: "space", layout: "2,0,6,1", headline: `Olá, ${usuario}`, text: venc ? `{col:msx-white-soft}Plano ativo · ${venc}` : "{col:msx-white-soft}Bom te ver por aqui" },
+      card("10,0,2,1", "btn-sair.png", d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" })),
+      card("0,1,4,3", "card-tv.png", go({ a: "cats", k: "live", t }), { id: "tv", focus: true }),
+      card("4,1,4,3", "card-filmes.png", go({ a: "cats", k: "vod", t })),
+      card("8,1,4,3", "card-series.png", go({ a: "cats", k: "series", t })),
+      { type: "default", layout: "0,4,3,2", image: resumoImg(lst.length, vivos, jogos === null), imageFiller: "fit", color: "transparent", action: lst.length ? todos : "none" },
+      ...destaques,
     ] }],
   };
+}
+
+async function telaJogos() {
+  const jogos = await jogosDoDia(5000);
+  if (jogos === null) return aviso("Jogos de hoje", "Placar indisponível agora. Tente de novo em instantes.");
+  if (!jogos.length) return aviso("Jogos de hoje", "Nenhuma partida hoje nos principais campeonatos.");
+  const vivos = jogos.filter((j) => j.estado === "in").length;
+  return lista("Jogos de hoje", jogos.map((j) => ({ image: jogoImg(j), imageFiller: "fit", color: "transparent", action: "none" })),
+    "0,0,3,2", {}, `${jogos.length} partidas${vivos ? ` · ${vivos} ao vivo` : ""}`, "live");
 }
 
 Deno.serve(async (req: Request) => {
@@ -632,6 +766,11 @@ Deno.serve(async (req: Request) => {
     if (req.method === "GET" && u0.searchParams.get("a") === "bg") {
       const g = u0.searchParams;
       return new Response(faixaSvg(g.get("k") ?? "live", g.get("n") ?? "", g.get("i") ?? "play", g.get("x") === "1"), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
+    }
+    if (req.method === "GET" && (u0.searchParams.get("a") === "jg" || u0.searchParams.get("a") === "jr")) {
+      const g = u0.searchParams;
+      const svg = g.get("a") === "jg" ? jogoSvg(g) : resumoSvg(Number(g.get("n")) || 0, Number(g.get("vv")) || 0, g.get("x") === "1");
+      return new Response(svg, { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=600" } });
     }
     if (req.method === "POST") {
       const b = await req.json().catch(() => ({}));
