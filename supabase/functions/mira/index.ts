@@ -332,7 +332,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
   return {
     title: nome, titleFooter: ativo ? "▶  Assistindo agora" : painel ? `Canal ${num}` : "Ao vivo", truncation: "title",
     ...(painel
-      ? { image: selo("live", String(num), ativo), imageWidth: 1, imageFiller: "fit", wrapperColor: "transparent", centration: "title" }
+      ? { image: selo("live", String(num), ativo), imageWidth: 1, imageFiller: "fit", wrapperColor: "transparent" }
       : { image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)", icon: logo ? undefined : "live-tv", iconSize: "small" }),
     color: ativo ? "rgba(124,92,255,0.55)" : painel ? "rgba(255,255,255,0.04)" : COR.vidro,
     focus: ativo ? true : undefined, enumerate: true,
