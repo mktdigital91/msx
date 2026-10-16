@@ -228,7 +228,7 @@ function inputAction(servico: string, titulo: string, dica: string) {
 }
 
 function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Record<string, unknown> = {}, extensao?: string) {
-  return { type: "list", headline, extension: extensao, background: IMG + "fundo.jpg", template: { type: "separate", layout, color: COR.vidro, ...extra }, items };
+  return { type: "list", headline, extension: extensao, background: IMG + "fundo.jpg", template: { type: "default", layout, color: COR.vidro, ...extra }, items };
 }
 function aviso(titulo: string, msg: string, voltar?: unknown[]) {
   return lista(titulo, [{ title: msg, action: "none" }, ...(voltar ?? [])], "0,0,12,1");
@@ -361,9 +361,9 @@ async function tratar(url: URL) {
   if (a === "home") return await home(t, cred.u, d);
 
   const TIPOS = {
-    live: { nome: "TV ao vivo", cats: "get_live_categories", itens: "get_live_streams", cor: COR.tv, icone: "live-tv" },
-    vod: { nome: "Filmes", cats: "get_vod_categories", itens: "get_vod_streams", cor: COR.vod, icone: "movie" },
-    series: { nome: "Séries", cats: "get_series_categories", itens: "get_series", cor: COR.series, icone: "video-library" },
+    live: { nome: "TV ao vivo", cats: "get_live_categories", itens: "get_live_streams", cor: COR.tv, solido: "#5B3FD9", icone: "live-tv" },
+    vod: { nome: "Filmes", cats: "get_vod_categories", itens: "get_vod_streams", cor: COR.vod, solido: "#C02670", icone: "movie" },
+    series: { nome: "Séries", cats: "get_series_categories", itens: "get_series", cor: COR.series, solido: "#0B8F9C", icone: "video-library" },
   } as const;
   const tipoQ = url.searchParams.get("k") as keyof typeof TIPOS;
   const T = TIPOS[tipoQ];
@@ -372,7 +372,7 @@ async function tratar(url: URL) {
     if (!T) return aviso("Mira", "Seção desconhecida");
     const cats = await api(cred, `&action=${T.cats}`);
     const lst = Array.isArray(cats) ? cats : [];
-    const linha = (nome: string, ic: string, cid: string) => ({ title: nome, icon: ic, iconSize: "small", color: T.cor, action: go({ a: "itens", k: tipoQ, t, c: cid }) });
+    const linha = (nome: string, ic: string, cid: string) => ({ title: nome, icon: ic, iconSize: "small", color: T.solido, action: go({ a: "itens", k: tipoQ, t, c: cid }) });
     const itens = [
       { ...linha("Todos", "apps", ""), focus: true },
       ...lst.map((x: any) => linha(limparNome(String(x.category_name)), T.icone, x.category_id)),
@@ -423,7 +423,7 @@ async function tratar(url: URL) {
     const numeros = Object.keys(eps).sort((x, y) => Number(x) - Number(y));
     if (temp === null) {
       return lista(limparNome(nome), numeros.map((n) => ({
-        title: `Temporada ${n}`, titleFooter: `${eps[n].length} episódios`, icon: "video-library", iconSize: "small", color: COR.series,
+        title: `Temporada ${n}`, titleFooter: `${eps[n].length} episódios`, icon: "video-library", iconSize: "small", color: "#0B8F9C",
         action: go({ a: "serie", t, s, n }),
       })), "0,0,6,1", {}, `${numeros.length} temporadas`);
     }
