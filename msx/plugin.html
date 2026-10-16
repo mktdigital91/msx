@@ -26,6 +26,16 @@
     catch (e) { return fallback; }
   }
 
+  // Transforma um objeto em linhas "caminho: valor" (até a profundidade indicada).
+  function flatten(prefix, obj, out, depth) {
+    if (obj === null || obj === undefined) { out.push(prefix + ': (vazio)'); return; }
+    if (typeof obj !== 'object') { out.push(prefix + ': ' + obj); return; }
+    if (depth <= 0) { out.push(prefix + ': ' + JSON.stringify(obj).slice(0, 120)); return; }
+    for (var k in obj) {
+      if (obj.hasOwnProperty(k) && typeof obj[k] !== 'function') { flatten(prefix + '.' + k, obj[k], out, depth - 1); }
+    }
+  }
+
   function collectInfo(done) {
     var lines = [];
     var finished = false;
@@ -53,16 +63,42 @@
           var txt;
           try { txt = (typeof id === 'string') ? id : JSON.stringify(id); } catch (e) { txt = String(id); }
           add('ID do aparelho (requestDeviceId)', txt);
-          finish();
+          readSystemInfo();
         });
       } catch (e) {
         add('ID do aparelho (requestDeviceId)', 'erro: ' + e);
-        finish();
+        readSystemInfo();
       }
     }
 
-    // Se algo nunca responder, a tela abre assim mesmo depois de 4 s, com o que deu para coletar.
-    setTimeout(finish, 4000);
+    // Dados do sistema que o MSX conhece (o app mostra um "Device ID" em Extended Information).
+    // A documentação não descreve o formato, então listamos tudo que vier em "system".
+    function readSystemInfo() {
+      var done = false;
+      function once() { if (!done) { done = true; finish(); } }
+      try {
+        TVXInteractionPlugin.requestData('info', function (data) {
+          if (done) { return; }
+          try {
+            var out = [];
+            flatten('info', data, out, 4);
+            var keep = 0;
+            for (var i = 0; i < out.length; i++) {
+              if (/system|\.id$|platform|player|screen/i.test(out[i].split(':')[0]) && keep < 14) { lines.push(out[i]); keep++; }
+            }
+            if (!out.length) { add('info (requestData)', 'vazio'); }
+          } catch (e) { add('info (requestData)', 'erro ao ler: ' + e); }
+          once();
+        });
+        setTimeout(function () { if (!done) { add('info (requestData)', 'sem resposta'); once(); } }, 2500);
+      } catch (e) {
+        add('info (requestData)', 'erro: ' + e);
+        once();
+      }
+    }
+
+    // Se algo nunca responder, a tela abre assim mesmo depois de 6 s, com o que deu para coletar.
+    setTimeout(finish, 6000);
     try { TVXInteractionPlugin.validateSettings(readSettings); } catch (e) { readSettings(); }
   }
 
