@@ -228,27 +228,20 @@ const VARIANTES: Record<string, { W: number; H: number; rx: number }> = {
   q: { W: 880, H: 200, rx: 56 },   // canais (4x1)
   t: { W: 600, H: 900, rx: 54 },   // cartaz (2x3)
 };
-function faixaSvg(k: string, semente: string, icone: string, ativo = false, v = "c") {
+function faixaSvg(_k: string, _semente: string, icone: string, ativo = false, v = "c") {
+  // vidro sem cor e sem filtros (a TV desenha filtro de sombra como um retângulo): base escura translúcida, brilho no topo, borda fina e ícone discreto
   const { W, H, rx } = VARIANTES[v] ?? VARIANTES.c;
-  let h = 0; for (const ch of semente) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const pal = PALETAS[k] ?? PALETAS.live;
-  const [c1, c2] = pal[h % pal.length];
   const ic = ICONES[icone] ?? ICONES.play;
-  const m = 10, x = m, y = m - 2, w = W - 2 * m, hh = H - 2 * m - 4;
-  const lado = Math.min(hh, w * 0.6) * 0.8, sc = lado / 24;
-  const ix = x + w - lado - hh * 0.12, iy = y + (hh - lado) / 2;
-  const sombra = v === "p" ? 5 : 7;
+  const m = 6, x = m, y = m, w = W - 2 * m, hh = H - 2 * m;
+  const lado = Math.min(hh, w * 0.6) * 0.72, sc = lado / 24;
+  const ix = x + w - lado - hh * 0.18, iy = y + (hh - lado) / 2;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs>`
-    + `<filter id="s" x="-6%" y="-30%" width="112%" height="175%"><feGaussianBlur stdDeviation="${sombra}"/></filter>`
-    + `<linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1B1F3B" stop-opacity=".88"/><stop offset="1" stop-color="#0B0D1E" stop-opacity=".76"/></linearGradient>`
-    + `<linearGradient id="t" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${c1}" stop-opacity="${ativo ? 0.95 : 0.2}"/><stop offset=".6" stop-color="${c2}" stop-opacity="${ativo ? 0.8 : 0.14}"/><stop offset="1" stop-color="${c2}" stop-opacity="${ativo ? 0.55 : 0.06}"/></linearGradient>`
-    + `<linearGradient id="l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".17"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>`
+    + `<linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A2F55" stop-opacity="${ativo ? 0.62 : 0.46}"/><stop offset="1" stop-color="#0B0D1E" stop-opacity="${ativo ? 0.55 : 0.4}"/></linearGradient>`
+    + `<linearGradient id="l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="${ativo ? 0.22 : 0.14}"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient>`
     + `<clipPath id="c"><rect x="${x}" y="${y}" width="${w}" height="${hh}" rx="${rx}"/></clipPath></defs>`
-    + `<rect x="${x + 2}" y="${y + 7}" width="${w - 4}" height="${hh}" rx="${rx}" fill="#000" fill-opacity=".5" filter="url(#s)"/>`
-    + `<g clip-path="url(#c)"><rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="url(#b)"/><rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="url(#t)"/><rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="url(#l)"/>`
-    + `<circle cx="${x + w - hh * 0.2}" cy="${y - hh * 0.35}" r="${hh * 0.9}" fill="#fff" fill-opacity=".06"/>`
-    + `<g transform="translate(${ix} ${iy}) scale(${sc})" fill="#fff" fill-opacity="${ativo ? 0.28 : 0.14}"><path d="${ic}"/></g></g>`
-    + `<rect x="${x + 1}" y="${y + 1}" width="${w - 2}" height="${hh - 2}" rx="${rx - 1}" fill="none" stroke="#fff" stroke-opacity="${ativo ? 0.75 : 0.22}" stroke-width="${ativo ? 3 : 2}"/></svg>`;
+    + `<g clip-path="url(#c)"><rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="url(#b)"/><rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="url(#l)"/>`
+    + `<g transform="translate(${ix} ${iy}) scale(${sc})" fill="#fff" fill-opacity="${ativo ? 0.2 : 0.1}"><path d="${ic}"/></g></g>`
+    + `<rect x="${x + 1}" y="${y + 1}" width="${w - 2}" height="${hh - 2}" rx="${rx - 1}" fill="none" stroke="#fff" stroke-opacity="${ativo ? 0.55 : 0.28}" stroke-width="2"/></svg>`;
 }
 const faixa = (k: string, semente: string, icone: string, ativo = false, v = "c") => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "bg", k, n: semente.slice(0, 40), i: icone, ...(ativo ? { x: "1" } : {}), ...(v !== "c" ? { v } : {}) }).toString()}`;
 
