@@ -317,12 +317,13 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
   const nome = limparNome(String(x.name));
   const logo = x.stream_icon || undefined;
   const lista = `panel:${SELF()}?${q({ a: "painel", t, c, s: x.stream_id })}`;
+  const ativo = painel && String(x.stream_id) === atual;
   return {
-    title: painel || !logo ? nome : undefined,
-    titleFooter: painel && String(x.stream_id) === atual ? "Assistindo agora" : undefined,
-    image: logo, imageFiller: painel ? "fit" : "smart", ...(painel && logo ? { imageWidth: 1 } : {}),
-    icon: logo ? undefined : "live-tv", color: painel && String(x.stream_id) === atual ? COR.destaque : COR.vidro,
-    focus: painel && String(x.stream_id) === atual ? true : undefined,
+    title: nome, titleFooter: ativo ? "Assistindo agora" : "Ao vivo", truncation: "title",
+    image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)",
+    icon: logo ? undefined : "live-tv", iconSize: "small",
+    color: ativo ? "rgba(124,92,255,0.45)" : COR.vidro,
+    focus: ativo ? true : undefined, enumerate: true,
     playerLabel: nome,
     action: `video:${urlFluxo("live", cred, x.stream_id, "ts")}`,
     properties: {
@@ -424,7 +425,7 @@ async function tratar(url: URL) {
     const todos = Array.isArray(dados) ? dados : [];
     const prox = (n: number) => go({ a: "itens", k: tipoQ, t, c, pg: n });
     if (tipoQ === "live") {
-      return paginar("Canais", todos, pg, (x) => canalItem(x, cred, t, c), prox, "0,0,3,2", tipoQ);
+      return paginar("Canais", todos, pg, (x) => canalItem(x, cred, t, c), prox, "0,0,4,1", tipoQ);
     }
     if (tipoQ === "vod") {
       return paginar("Filmes", todos, pg, (x) => {
