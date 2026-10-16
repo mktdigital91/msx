@@ -1,6 +1,6 @@
 {
-    "name": "Mira (teste)",
-    "version": "0.1.2",
-    "parameter": "menu:request:interaction:init@https://mktdigital91.github.io/msx/msx/plugin.html",
+    "name": "Mira",
+    "version": "0.2.0",
+    "parameter": "content:https://tmaqxzqswtaejvxkqgfg.supabase.co/functions/v1/mira?a=inicio",
     "welcome": "none"
 }
