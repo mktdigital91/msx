@@ -107,7 +107,7 @@ function inputAction(servico: string, titulo: string, dica: string) {
 }
 
 function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Record<string, unknown> = {}, extensao?: string) {
-  return { type: "list", headline, extension: extensao, background: IMG + "fundo.jpg", template: { type: "separate", layout, color: COR.vidro, ...extra }, items };
+  return { type: "list", headline, extension: extensao, background: IMG + "fundo.jpg", transparent: true, template: { type: "separate", layout, color: COR.vidro, ...extra }, items };
 }
 function aviso(titulo: string, msg: string, voltar?: unknown[]) {
   return lista(titulo, [{ title: msg, action: "none" }, ...(voltar ?? [])], "0,0,12,1");
@@ -121,13 +121,13 @@ function telaEntrar(msg?: string, d?: string | null, u = "", p = "", auto = fals
     id: "usuario", type: "default", layout: "6,2,5,1", color: COR.vidro,
     titleHeader: "USUÁRIO", title: u || "Toque para digitar",
     focus: !u,
-    action: inputAction(`${SELF()}?${q(base({ a: "form", ...ep }))}&u={INPUT}`, "Usuário", "Digite o usuário e confirme"),
+    action: inputAction(`${SELF()}?${q(base({ a: "in", f: "u", ...ep }))}&v={INPUT}`, "Usuário", "Digite o usuário e confirme"),
   };
   const campoSenha = {
     id: "senha", type: "default", layout: "6,3,5,1", color: COR.vidro,
     titleHeader: "SENHA", title: p ? "••••••••" : "Toque para digitar",
     focus: !!u && !p, execute: auto && !!u && !p,
-    action: inputAction(`${SELF()}?${q(base({ a: "form", ...eu }))}&p={INPUT}`, "Senha", "Digite a senha e confirme"),
+    action: inputAction(`${SELF()}?${q(base({ a: "in", f: "p", ...eu }))}&v={INPUT}`, "Senha", "Digite a senha e confirme"),
   };
   const botao = {
     id: "entrar", type: "default", layout: "6,4,5,1", color: COR.destaque,
@@ -136,7 +136,7 @@ function telaEntrar(msg?: string, d?: string | null, u = "", p = "", auto = fals
     action: pronto ? go(base({ a: "login", u, p })) : "warn:Preencha o usuário e a senha",
   };
   return {
-    type: "pages", background: IMG + "login.jpg",
+    type: "pages", background: IMG + "login.jpg", transparent: true,
     pages: [{ items: [
       { type: "space", layout: "6,1,5,1", headline: "Entrar", text: msg ?? "Use o usuário e a senha da sua lista" },
       campoUsuario, campoSenha, botao,
@@ -179,6 +179,15 @@ async function tratar(url: URL) {
   if (a === "sair") {
     await apagarSessao(d);
     return telaEntrar("Você saiu", d);
+  }
+
+  // Resposta para o plugin de teclado do MSX: ele só aceita uma ação (ou lista simples).
+  if (a === "in") {
+    const v = (url.searchParams.get("v") ?? "").trim();
+    const f = url.searchParams.get("f");
+    const u = f === "u" ? v : (url.searchParams.get("u") ?? "").trim();
+    const p = f === "p" ? (url.searchParams.get("v") ?? "") : (url.searchParams.get("p") ?? "");
+    return { action: go(d ? { a: "form", u, p, d } : { a: "form", u, p }) };
   }
 
   if (a === "form") {
@@ -282,7 +291,7 @@ async function tratar(url: URL) {
 async function home(t: string, quem: string, d: string | null = null) {
   const [usuario, venc] = quem.split(" · ");
   return {
-    type: "pages", background: IMG + "fundo.jpg",
+    type: "pages", background: IMG + "fundo.jpg", transparent: true,
     pages: [{ items: [
       { type: "space", layout: "0,0,8,1", headline: `Olá, ${usuario}`, text: venc ?? "" },
       { type: "default", layout: "10,0,2,1", color: "rgba(255,255,255,0.10)", icon: "logout", iconSize: "small", title: "Sair", action: go(d ? { a: "sair", d } : { a: "inicio" }) },
