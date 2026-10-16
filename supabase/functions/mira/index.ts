@@ -235,6 +235,10 @@ const q = (o: Record<string, string | number>) =>
 const go = (o: Record<string, string | number>) => `content:${SELF()}?${q(o)}`;
 // endereço do vídeo passando pelo servidor: a TV (e qualquer mensagem de erro) não vê o DNS nem usuário/senha do provedor
 const fluxo = (tipo: string, t: string, id: string | number, ext: string) => `${SELF()}/v/${tipo}/${t}/${encodeURIComponent(String(id))}.${ext.replace(/[^a-z0-9]/gi, "")}`;
+// toca pelo player próprio (msx/player.html): erro em português e sem mostrar nenhum link; canais tentam .ts e depois .m3u8
+const PLAYER = "https://mktdigital91.github.io/msx/msx/player.html";
+const tocar = (tipo: string, t: string, id: string | number, ext: string, oque: string) =>
+  `video:plugin:${PLAYER}?${q({ u: fluxo(tipo, t, id, ext), ...(tipo === "live" ? { alt: fluxo(tipo, t, id, "m3u8") } : {}), m: oque })}`;
 
 function inputAction(servico: string, titulo: string, dica: string) {
   // {INPUT} fica sem codificar: o plugin do MSX o substitui pelo que foi digitado
@@ -375,7 +379,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
     ...visual,
     focus: ativo ? true : undefined, enumerate: true,
     playerLabel: nome,
-    action: `video:${fluxo("live", t, x.stream_id, "ts")}`,
+    action: tocar("live", t, x.stream_id, "ts", "o canal"),
     properties: {
       "control:type": "extended",
       "control:action": lista,
@@ -384,6 +388,9 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
       "button:content:icon": "list",
       "button:content:action": lista,
       "button:content:focus": true,
+      "trigger:ready": "player:button:content:focus",
+      "trigger:start": "player:button:content:focus",
+      "control:retune": "retain",
       "button:forward:icon": "apps",
       "button:forward:action": `panel:${SELF()}?${q({ a: "pcats", t, s: x.stream_id })}`,
       "button:rewind:display": false,
@@ -488,7 +495,7 @@ async function tratar(url: URL) {
         return {
           title: nome, image: x.stream_icon || cartao("vod", nome, "Filme", "movie", true), imageFiller: "cover", color: COR.vidro,
           tag: nota(x.rating), tagColor: COR.destaque,
-          action: `video:${fluxo("movie", t, x.stream_id, x.container_extension || "mp4")}`, playerLabel: nome,
+          action: tocar("movie", t, x.stream_id, x.container_extension || "mp4", "o filme"), playerLabel: nome,
         };
       }, prox, "0,0,2,3", tipoQ);
     }
@@ -511,7 +518,7 @@ async function tratar(url: URL) {
     const ids = [s, ...todos.slice(0, 120).map((x: any) => String(x.stream_id)).filter((i: string) => i !== s)];
     const ep = await epgVarios(cred, ids);
     const navegar = {
-      titleHeader: "NAVEGAR", title: "Trocar categoria", titleFooter: `Atual: ${cn || "Todos os canais"}`,
+      titleHeader: "NAVEGAR  ·  BOTÃO VERMELHO", title: "Trocar categoria", titleFooter: `Atual: ${cn || "Todos os canais"}`, key: "red",
       image: faixa("nav", "nav", "apps", true), imageFiller: "cover", color: "transparent",
       action: `panel:${SELF()}?${q({ a: "pcats", t, s })}`,
     };
@@ -558,7 +565,7 @@ async function tratar(url: URL) {
     return lista(`${nome}`, lst.map((e) => ({
       titleHeader: `Episódio ${e.episode_num}`, title: String(e.title ?? ""), titleFooter: e.info?.duration ? String(e.info.duration) : "",
       image: e.info?.movie_image || undefined, imageFiller: "cover", icon: e.info?.movie_image ? undefined : "play-arrow", color: COR.vidro,
-      action: `video:${fluxo("series", t, e.id, e.container_extension || "mp4")}`,
+      action: tocar("series", t, e.id, e.container_extension || "mp4", "o episódio"),
       playerLabel: `${nome} T${temp}E${e.episode_num}`,
     })), "0,0,4,2", {}, `Temporada ${temp}`);
   }

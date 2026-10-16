@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Mira Player</title>
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: "Segoe UI", Roboto, Arial, sans-serif; }
+  video { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #000; }
+  #aviso { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: none;
+    background: radial-gradient(circle at 30% 20%, rgba(124,92,255,.35), rgba(5,5,16,.92) 60%); }
+  #cartao { position: absolute; left: 50%; top: 50%; width: 760px; margin-left: -380px; margin-top: -130px; padding: 40px 48px;
+    box-sizing: border-box; border-radius: 28px; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.18); color: #fff; text-align: center; }
+  #cartao .ico { width: 72px; height: 72px; margin: 0 auto 18px; border-radius: 22px; background: linear-gradient(135deg,#F59E0B,#F43F5E);
+    font-size: 44px; line-height: 72px; font-weight: 800; }
+  #cartao h1 { margin: 0 0 10px; font-size: 34px; font-weight: 700; }
+  #cartao p { margin: 0; font-size: 24px; color: rgba(255,255,255,.75); }
+  #carregando { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%;
+    border: 6px solid rgba(255,255,255,.18); border-top-color: #7C5CFF; display: none; -webkit-animation: gira 1s linear infinite; animation: gira 1s linear infinite; }
+  @-webkit-keyframes gira { to { -webkit-transform: rotate(360deg); } }
+  @keyframes gira { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<video id="v" autoplay></video>
+<div id="carregando"></div>
+<div id="aviso"><div id="cartao"><div class="ico">!</div><h1 id="titulo">Não foi possível reproduzir</h1><p>Tente novamente em instantes.</p></div></div>
+<script src="//msx.benzac.de/js/tvx-plugin.min.js"></script>
+<script>
+// Player próprio do Mira (ES5): esconde o endereço do vídeo e mostra erros em português.
+(function () {
+  function param(nome) {
+    var m = new RegExp("[?&]" + nome + "=([^&]*)").exec(window.location.search);
+    return m ? decodeURIComponent(m[1].replace(/\+/g, " ")) : "";
+  }
+  var fontes = [param("u"), param("alt")].filter(function (x) { return !!x; });
+  var tipo = param("m") || "o canal";
+  var v = document.getElementById("v");
+  var aviso = document.getElementById("aviso");
+  var carregando = document.getElementById("carregando");
+  var atual = 0, vigia = null, falhou = false;
+
+  document.getElementById("titulo").innerHTML = "Não foi possível reproduzir " + tipo;
+
+  function mostrarCarregando(sim) { carregando.style.display = sim ? "block" : "none"; }
+  function erroFinal() {
+    falhou = true;
+    clearTimeout(vigia);
+    mostrarCarregando(false);
+    try { v.removeAttribute("src"); v.load(); } catch (e) {}
+    aviso.style.display = "block";
+  }
+  function tentar(i) {
+    clearTimeout(vigia);
+    if (i >= fontes.length) { erroFinal(); return; }
+    atual = i;
+    mostrarCarregando(true);
+    v.src = fontes[i];
+    try { v.load(); } catch (e) {}
+    var p = v.play();
+    if (p && p["catch"]) p["catch"](function () {});
+    // se em 20 s não começar a tocar, tenta a próxima fonte
+    vigia = setTimeout(function () { tentar(atual + 1); }, 20000);
+  }
+  v.addEventListener("playing", function () { clearTimeout(vigia); mostrarCarregando(false); });
+  v.addEventListener("waiting", function () { if (!falhou) mostrarCarregando(true); });
+  v.addEventListener("error", function () { if (!falhou) tentar(atual + 1); });
+
+  function Player() {
+    this.init = function () {};
+    this.ready = function () { TVXVideoPlugin.startPlayback(); };
+    this.play = function () {
+      if (falhou) return;
+      if (!v.src) { tentar(0); return; }
+      var p = v.play(); if (p && p["catch"]) p["catch"](function () {});
+    };
+    this.pause = function () { try { v.pause(); } catch (e) {} };
+    this.stop = function () { clearTimeout(vigia); try { v.pause(); v.removeAttribute("src"); v.load(); } catch (e) {} };
+    this.getDuration = function () { return isFinite(v.duration) ? v.duration : 0; };
+    this.getPosition = function () { return v.currentTime || 0; };
+    this.setPosition = function (s) { try { v.currentTime = s; } catch (e) {} };
+    this.setVolume = function (n) { v.volume = Math.max(0, Math.min(1, n / 100)); };
+    this.getVolume = function () { return Math.round(v.volume * 100); };
+    this.setMuted = function (m) { v.muted = !!m; };
+    this.isMuted = function () { return v.muted; };
+    this.getSpeed = function () { return v.playbackRate || 1; };
+    this.setSpeed = function (s) { try { v.playbackRate = s; } catch (e) {} };
+    this.getUpdateData = function () {
+      return { position: this.getPosition(), duration: this.getDuration(), speed: this.getSpeed() };
+    };
+  }
+
+  if (window.TVXPluginTools && window.TVXVideoPlugin) {
+    TVXPluginTools.onReady(function () {
+      TVXVideoPlugin.setupPlayer(new Player());
+      TVXVideoPlugin.init();
+    });
+  } else {
+    tentar(0); // fora do MSX (teste no navegador)
+  }
+})();
+</script>
+</body>
+</html>
