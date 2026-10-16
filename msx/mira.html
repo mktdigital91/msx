@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Mira</title>
+<style type="text/css">body { background: #000; color: #fff; font-family: sans-serif; }</style>
+<script type="text/javascript" src="//msx.benzac.de/js/tvx-plugin.min.js"></script>
+<script type="text/javascript">
+/* Plugin de início do Mira (ES5). Só descobre o ID do aparelho e pede a tela ao servidor. */
+(function () {
+  var SERVIDOR = 'https://tmaqxzqswtaejvxkqgfg.supabase.co/functions/v1/mira';
+
+  function falha(msg) {
+    return { type: 'list', headline: 'Mira', template: { type: 'separate', layout: '0,0,12,1', color: 'msx-glass' },
+      items: [{ title: msg, action: 'none', color: 'msx-red' }] };
+  }
+  function abrir(id, callback) {
+    var x = new XMLHttpRequest();
+    x.open('GET', SERVIDOR + '?a=inicio&d=' + encodeURIComponent(id), true);
+    x.timeout = 25000;
+    x.onload = function () {
+      try { callback(JSON.parse(x.responseText)); } catch (e) { callback(falha('Resposta inválida do servidor')); }
+    };
+    x.onerror = function () { callback(falha('Sem conexão com o servidor')); };
+    x.ontimeout = function () { callback(falha('Servidor demorou a responder')); };
+    x.send();
+  }
+
+  function MiraHandler() {
+    this.init = function () { };
+    this.ready = function () { };
+    this.handleEvent = function () { };
+    this.handleData = function () { };
+    this.handleRequest = function (dataId, data, callback) {
+      if (dataId !== 'init') { callback(null); return; }
+      var feito = false;
+      function seguir(id) { if (feito) return; feito = true; abrir(id || 'sem-id', callback); }
+      try {
+        TVXInteractionPlugin.requestDeviceId(function (id) {
+          seguir(typeof id === 'string' && id ? id : (TVXSettings.ID || ''));
+        });
+      } catch (e) { seguir(TVXSettings.ID || ''); }
+      setTimeout(function () { seguir(TVXSettings.ID || ''); }, 4000);
+    };
+  }
+
+  TVXPluginTools.onReady(function () {
+    TVXInteractionPlugin.setupHandler(new MiraHandler());
+    TVXInteractionPlugin.init();
+  });
+})();
+</script>
+</head>
+<body></body>
+</html>

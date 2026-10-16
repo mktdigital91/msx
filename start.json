@@ -1,6 +1,6 @@
 {
     "name": "Mira",
-    "version": "0.2.0",
-    "parameter": "content:https://tmaqxzqswtaejvxkqgfg.supabase.co/functions/v1/mira?a=inicio",
+    "version": "0.3.0",
+    "parameter": "content:request:interaction:init@https://mktdigital91.github.io/msx/msx/mira.html",
     "welcome": "none"
 }

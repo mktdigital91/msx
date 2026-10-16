@@ -62,6 +62,37 @@ const urlFluxo = (tipo: string, c: { u: string; p: string }, id: string | number
   `${BASE_PROV}/${tipo}/${encodeURIComponent(c.u)}/${encodeURIComponent(c.p)}/${id}${ext ? "." + ext : ""}`;
 
 // ---------- telas do MSX ----------
+// ---------- sessão guardada por aparelho (tabela "sessoes", só o servidor acessa) ----------
+const REST = () => `${Deno.env.get("SUPABASE_URL")}/rest/v1/sessoes`;
+const cab = () => {
+  const k = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  return { apikey: k, authorization: `Bearer ${k}`, "content-type": "application/json" };
+};
+const idOk = (d: string | null) => (d && /^[\w.:-]{6,80}$/.test(d) ? d : null);
+async function lerSessao(d: string | null) {
+  if (!d) return null;
+  try {
+    const r = await fetch(`${REST()}?aparelho=eq.${encodeURIComponent(d)}&select=token`, { headers: cab(), signal: AbortSignal.timeout(8000) });
+    const j = await r.json();
+    return Array.isArray(j) && j[0] ? (j[0].token as string) : null;
+  } catch { return null; }
+}
+async function salvarSessao(d: string | null, token: string) {
+  if (!d) return;
+  try {
+    await fetch(`${REST()}?on_conflict=aparelho`, {
+      method: "POST",
+      headers: { ...cab(), prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify({ aparelho: d, token, atualizado: new Date().toISOString() }),
+      signal: AbortSignal.timeout(8000),
+    });
+  } catch { /* sem sessão guardada: só pede login de novo */ }
+}
+async function apagarSessao(d: string | null) {
+  if (!d) return;
+  try { await fetch(`${REST()}?aparelho=eq.${encodeURIComponent(d)}`, { method: "DELETE", headers: cab(), signal: AbortSignal.timeout(8000) }); } catch { /* ignora */ }
+}
+
 const SELF = () => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira`;
 const q = (o: Record<string, string | number>) =>
   Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join("&");
@@ -78,14 +109,14 @@ function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Re
 function aviso(titulo: string, msg: string, voltar?: unknown[]) {
   return lista(titulo, [{ title: msg, action: "none" }, ...(voltar ?? [])], "0,0,12,1");
 }
-function telaEntrar(msg?: string) {
+function telaEntrar(msg?: string, d?: string | null) {
   return lista("Mira", [
     ...(msg ? [{ title: msg, action: "none", color: "msx-red" }] : []),
     {
       title: "Entrar",
       titleFooter: "Digite usuário e depois senha",
       icon: "login",
-      action: inputAction(`${SELF()}?${q({ a: "senha" })}&u={INPUT}`, "Usuário", "Digite o usuário e confirme"),
+      action: inputAction(`${SELF()}?${q(d ? { a: "senha", d } : { a: "senha" })}&u={INPUT}`, "Usuário", "Digite o usuário e confirme"),
     },
   ], "0,0,6,2");
 }
@@ -110,35 +141,49 @@ async function tratar(url: URL) {
   const a = url.searchParams.get("a") ?? "inicio";
   const pg = Math.max(0, parseInt(url.searchParams.get("pg") ?? "0", 10) || 0);
 
-  if (a === "inicio") return telaEntrar();
+  const d = idOk(url.searchParams.get("d"));
+
+  if (a === "inicio") {
+    const tk = await lerSessao(d);
+    const cr = await lerToken(tk);
+    if (tk && cr) return await home(tk, cr.u, d);
+    return telaEntrar(undefined, d);
+  }
+
+  if (a === "sair") {
+    await apagarSessao(d);
+    return telaEntrar("Você saiu", d);
+  }
 
   if (a === "senha") {
     const u = (url.searchParams.get("u") ?? "").trim();
-    if (!u) return telaEntrar("Usuário vazio");
+    if (!u) return telaEntrar("Usuário vazio", d);
     return lista(`Usuário: ${u}`, [{
       title: "Digitar senha",
       icon: "vpn-key",
-      action: inputAction(`${SELF()}?${q({ a: "login", u })}&p={INPUT}`, "Senha", "Digite a senha e confirme"),
-    }, { title: "Trocar usuário", icon: "undo", action: go({ a: "inicio" }) }], "0,0,6,2");
+      action: inputAction(`${SELF()}?${q(d ? { a: "login", u, d } : { a: "login", u })}&p={INPUT}`, "Senha", "Digite a senha e confirme"),
+    }, { title: "Trocar usuário", icon: "undo", action: go(d ? { a: "inicio", d } : { a: "inicio" }) }], "0,0,6,2");
   }
 
   if (a === "login") {
     const u = (url.searchParams.get("u") ?? "").trim();
     const p = url.searchParams.get("p") ?? "";
-    if (!u || !p) return telaEntrar("Informe usuário e senha");
+    if (!u || !p) return telaEntrar("Informe usuário e senha", d);
     let info;
-    try { info = await api({ u, p }); } catch (e) { return telaEntrar("Provedor: " + String((e as Error).message ?? e).slice(0, 80)); }
-    if (!info?.user_info || Number(info.user_info.auth) !== 1) return telaEntrar("Usuário ou senha incorretos");
+    try { info = await api({ u, p }); } catch (e) { return telaEntrar("Provedor: " + String((e as Error).message ?? e).slice(0, 80), d); }
+    if (!info?.user_info || Number(info.user_info.auth) !== 1) return telaEntrar("Usuário ou senha incorretos", d);
     const exp = info.user_info.exp_date ? new Date(Number(info.user_info.exp_date) * 1000).toLocaleDateString("pt-BR") : "sem data";
-    return await home(await criarToken(u, p), `${u} · vence ${exp}`);
+    const tk = await criarToken(u, p);
+    await salvarSessao(d, tk);
+    return await home(tk, `${u} · vence ${exp}`, d);
   }
 
   const cred = await lerToken(url.searchParams.get("t"));
-  if (!cred) return telaEntrar("Sessão expirada, entre de novo");
+  if (!cred) return telaEntrar("Sessão expirada, entre de novo", d);
   const t = url.searchParams.get("t")!;
   const c = url.searchParams.get("c") ?? "";
 
-  if (a === "home") return await home(t, cred.u);
+  if (a === "home") return await home(t, cred.u, d);
 
   const grupo = (nome: string, tipo: "live" | "vod" | "series") => ({
     cats: `get_${tipo}_categories`,
@@ -209,12 +254,12 @@ async function tratar(url: URL) {
   return aviso("Mira", "Tela não encontrada");
 }
 
-async function home(t: string, quem: string) {
+async function home(t: string, quem: string, d: string | null = null) {
   return lista(`Mira · ${quem}`, [
     { title: "TV ao vivo", icon: "live-tv", action: go({ a: "cats", k: "live", t }) },
     { title: "Filmes", icon: "movie", action: go({ a: "cats", k: "vod", t }) },
     { title: "Séries", icon: "tv", action: go({ a: "cats", k: "series", t }) },
-    { title: "Sair", icon: "logout", action: go({ a: "inicio" }) },
+    { title: "Sair", icon: "logout", action: go(d ? { a: "sair", d } : { a: "inicio" }) },
   ], "0,0,4,2");
 }
 
