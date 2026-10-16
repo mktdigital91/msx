@@ -346,6 +346,10 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
       ...(logo ? { "info:image": logo, "info:size": "small" } : {}),
       "button:content:icon": "list",
       "button:content:action": lista,
+      "button:forward:icon": "apps",
+      "button:forward:action": `panel:${SELF()}?${q({ a: "pcats", t, s: x.stream_id })}`,
+      "button:rewind:display": false,
+      "button:speed:display": false,
     },
   };
 }
@@ -469,7 +473,7 @@ async function tratar(url: URL) {
     const todos = (Array.isArray(dados) ? dados : []).slice(0, 400);
     const prog = (Array.isArray(epg?.epg_listings) ? epg.epg_listings : []) as any[];
     const voltar = {
-      titleHeader: "CATEGORIA", title: cn || "Todos os canais", titleFooter: "◀ Trocar categoria",
+      title: "☰  Trocar categoria", titleFooter: `Atual: ${cn || "Todos os canais"}`,
       image: faixa("live", "categorias", "apps"), imageFiller: "cover", color: "transparent",
       action: `panel:${SELF()}?${q({ a: "pcats", t, s })}`,
     };
@@ -479,10 +483,13 @@ async function tratar(url: URL) {
           truncation: "title", color: i === 0 ? "rgba(124,92,255,0.30)" : "rgba(255,255,255,0.06)", action: "none",
         }))
       : [];
+    const canais = todos.map((x, i) => ({ ...canalItem(x, cred, t, c, true, s, cn, i + 1), focus: undefined }));
+    const idx = todos.findIndex((x) => String(x.stream_id) === s);
+    const fixo = idx >= 0 ? [{ ...canalItem(todos[idx], cred, t, c, true, s, cn), titleFooter: "▶ Assistindo agora  ·  ▼ categorias logo abaixo", focus: true }] : [];
     return {
       type: "list", headline: "Canais", extension: cn || `${todos.length}`,
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [voltar, ...guia, ...todos.map((x, i) => canalItem(x, cred, t, c, true, s, cn, i + 1))],
+      items: [...fixo, { ...voltar, focus: idx < 0 ? true : undefined }, ...guia, ...canais],
     };
   }
 
