@@ -233,6 +233,8 @@ const SELF = () => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira`;
 const q = (o: Record<string, string | number>) =>
   Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join("&");
 const go = (o: Record<string, string | number>) => `content:${SELF()}?${q(o)}`;
+// endereço do vídeo passando pelo servidor: a TV (e qualquer mensagem de erro) não vê o DNS nem usuário/senha do provedor
+const fluxo = (tipo: string, t: string, id: string | number, ext: string) => `${SELF()}/v/${tipo}/${t}/${encodeURIComponent(String(id))}.${ext.replace(/[^a-z0-9]/gi, "")}`;
 
 function inputAction(servico: string, titulo: string, dica: string) {
   // {INPUT} fica sem codificar: o plugin do MSX o substitui pelo que foi digitado
@@ -373,13 +375,12 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
     ...visual,
     focus: ativo ? true : undefined, enumerate: true,
     playerLabel: nome,
-    action: `video:${urlFluxo("live", cred, x.stream_id, "ts")}`,
+    action: `video:${fluxo("live", t, x.stream_id, "ts")}`,
     properties: {
       "control:type": "extended",
       "control:action": lista,
       "info:headline": nome,
       "info:text": guia.player || (cn ? `${cn} · sem guia de programação` : "Sem guia de programação"),
-      ...(logo ? { "info:image": logo, "info:size": "small" } : {}),
       "button:content:icon": "list",
       "button:content:action": lista,
       "button:content:focus": true,
@@ -487,7 +488,7 @@ async function tratar(url: URL) {
         return {
           title: nome, image: x.stream_icon || cartao("vod", nome, "Filme", "movie", true), imageFiller: "cover", color: COR.vidro,
           tag: nota(x.rating), tagColor: COR.destaque,
-          action: `video:${urlFluxo("movie", cred, x.stream_id, x.container_extension || "mp4")}`, playerLabel: nome,
+          action: `video:${fluxo("movie", t, x.stream_id, x.container_extension || "mp4")}`, playerLabel: nome,
         };
       }, prox, "0,0,2,3", tipoQ);
     }
@@ -557,7 +558,7 @@ async function tratar(url: URL) {
     return lista(`${nome}`, lst.map((e) => ({
       titleHeader: `Episódio ${e.episode_num}`, title: String(e.title ?? ""), titleFooter: e.info?.duration ? String(e.info.duration) : "",
       image: e.info?.movie_image || undefined, imageFiller: "cover", icon: e.info?.movie_image ? undefined : "play-arrow", color: COR.vidro,
-      action: `video:${urlFluxo("series", cred, e.id, e.container_extension || "mp4")}`,
+      action: `video:${fluxo("series", t, e.id, e.container_extension || "mp4")}`,
       playerLabel: `${nome} T${temp}E${e.episode_num}`,
     })), "0,0,4,2", {}, `Temporada ${temp}`);
   }
@@ -583,6 +584,12 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   try {
     const u0 = new URL(req.url);
+    const mv = u0.pathname.match(/\/v\/(live|movie|series)\/([\w-]+)\/([^/]+)\.(\w+)$/);
+    if (mv) {
+      const cred = await lerToken(mv[2]);
+      if (!cred) return new Response("Sessão expirada", { status: 403 });
+      return new Response(null, { status: 302, headers: { location: urlFluxo(mv[1], cred, decodeURIComponent(mv[3]), mv[4]), "cache-control": "no-store", "access-control-allow-origin": "*" } });
+    }
     if (req.method === "GET" && u0.searchParams.get("a") === "img") {
       const g = u0.searchParams;
       const svg = cartaoSvg(g.get("k") ?? "live", g.get("t") ?? "", g.get("s") ?? "", g.get("i") ?? "play", g.get("f") === "p");
