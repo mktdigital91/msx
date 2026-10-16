@@ -613,7 +613,7 @@ type Jogo = {
   fora: Time;
   transmissao: string;
 };
-type Time = { nome: string; sigla: string; cor: string; gols: string; venceu: boolean };
+type Time = { nome: string; sigla: string; cor: string; gols: string; venceu: boolean; logo: string };
 let cacheJogos: { em: number; dia: string; v: Jogo[] } | null = null;
 const FUSO = -3 * 3600_000; // America/Fortaleza (sem horário de verão)
 const diaLocal = (ms = Date.now()) => new Date(ms + FUSO).toISOString().slice(0, 10);
@@ -638,35 +638,34 @@ const jogoHoje = (v: unknown, hoje: string) => {
   return s === hoje || s === dmy || s === hoje.split("-").reverse().join("/");
 };
 function estadoJogo(statusRaw: unknown, placar1: string, placar2: string) {
-  const s = semAcentoJogo(statusRaw);
-  if (/ao vivo|aovivo|live|andamento|em andamento|inplay/.test(s)) {
-    return { estado: "in", status: /intervalo|half|ht/.test(s) ? "INTERVALO" : "AO VIVO" };
-  }
-  if (/intervalo|half time|halftime/.test(s)) return { estado: "in", status: "INTERVALO" };
-  if (/adiad|cancel|postpon/.test(s)) return { estado: "post", status: "ADIADO" };
-  if (/encerr|finaliz|finished|fim de jogo|full time|ft/.test(s)) return { estado: "post", status: "ENCERRADO" };
-  // Alguns retornos só preenchem o placar após o término.
+  const bruto = String(statusRaw ?? "").trim();
+  const s = semAcentoJogo(bruto);
+  if (!s) return { estado: "pre", status: "" };
+  // minuto de jogo: 27' · 45'+2 · 90+3'
+  const min = bruto.match(/^(\d{1,3})\s*['’′]?\s*(?:\+\s*(\d{1,2}))?\s*['’′]?$/);
+  if (min && /['’′+]/.test(bruto)) return { estado: "in", status: `AO VIVO ${min[1]}${min[2] ? "+" + min[2] : ""}'` };
+  if (/^(int|ht|intervalo|half ?time)$/.test(s)) return { estado: "in", status: "INTERVALO" };
+  if (/adiad|cancel|postpon|suspens/.test(s)) return { estado: "post", status: "ADIADO" };
+  if (/encerr|finaliz|finished|fim|full time|^ft$|^fim$/.test(s)) return { estado: "post", status: "ENCERRADO" };
+  if (/ao vivo|aovivo|live|andamento|inplay|^[12]t$|^et$|prorrog|penalt/.test(s)) return { estado: "in", status: "AO VIVO" };
   if (placar1 !== "" && placar2 !== "" && /final|resultado/.test(s)) return { estado: "post", status: "ENCERRADO" };
   return { estado: "pre", status: "" };
 }
 function horaDoJogo(horario: unknown) {
-  const m = String(horario ?? "").match(/(\\d{1,2}):(\\d{2})/);
+  const m = String(horario ?? "").match(/(\d{1,2}):(\d{2})/);
   if (!m) return NaN;
   const h = Number(m[1]), min = Number(m[2]);
   if (h > 23 || min > 59) return NaN;
   const d = diaLocal();
   return Date.parse(`${d}T${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}:00-03:00`);
 }
-const montarTimeJogo = (nomeRaw: unknown, corRaw: unknown, gols: string, venceu = false): Time => {
+const CORES_TIME = ["2563EB", "DC2626", "059669", "D97706", "7C3AED", "DB2777", "0891B2", "65A30D", "EA580C", "4F46E5"];
+const corDoNome = (n: string) => { let h = 0; for (const ch of n) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return CORES_TIME[h % CORES_TIME.length]; };
+const HOST_IMG_JOGOS = "img.tropatech.com.br";
+const urlLogoOk = (v: unknown) => { try { const u = new URL(String(v ?? "")); return u.protocol === "https:" && u.hostname === HOST_IMG_JOGOS ? u.toString() : ""; } catch { return ""; } };
+const montarTimeJogo = (nomeRaw: unknown, logoRaw: unknown, gols: string, venceu = false): Time => {
   const nome = textoJogo(nomeRaw) || "?";
-  const cor = String(corRaw ?? "").replace("#", "");
-  return {
-    nome,
-    sigla: siglaTime(nome),
-    cor: /^[0-9a-f]{6}$/i.test(cor) ? cor : "475569",
-    gols,
-    venceu,
-  };
+  return { nome, sigla: siglaTime(nome), cor: corDoNome(nome), gols, venceu, logo: urlLogoOk(logoRaw) };
 };
 
 async function jogosDoDia(limiteMs = 3500): Promise<Jogo[] | null> {
@@ -698,14 +697,15 @@ async function jogosDoDia(limiteMs = 3500): Promise<Jogo[] | null> {
         ord,
         quando: Number.isFinite(quando) ? quando : Date.now() + ord,
         estado: estado.estado,
-        status: estado.status || (String(x?.horario ?? "").match(/\\d{1,2}:\\d{2}/)?.[0] ?? "A DEFINIR"),
-        casa: montarTimeJogo(casaNome, "", placar1, placar1 !== "" && placar2 !== "" && Number(placar1) > Number(placar2)),
-        fora: montarTimeJogo(foraNome, "", placar2, placar1 !== "" && placar2 !== "" && Number(placar2) > Number(placar1)),
+        status: estado.status || (String(x?.horario ?? "").match(/\d{1,2}:\d{2}/)?.[0] ?? "A DEFINIR"),
+        casa: montarTimeJogo(casaNome, x?.img_time1_url, placar1, placar1 !== "" && placar2 !== "" && Number(placar1) > Number(placar2)),
+        fora: montarTimeJogo(foraNome, x?.img_time2_url, placar2, placar1 !== "" && placar2 !== "" && Number(placar2) > Number(placar1)),
         transmissao: canais,
       };
     }).filter(Boolean) as Jogo[];
     const peso: Record<string, number> = { in: 0, pre: 1, post: 2 };
-    jogos.sort((a, b) => (peso[a.estado] ?? 1) - (peso[b.estado] ?? 1) || a.quando - b.quando || a.ord - b.ord);
+    // ao vivo e próximos: do mais cedo ao mais tarde; encerrados: o mais recente primeiro
+    jogos.sort((a, b) => (peso[a.estado] ?? 1) - (peso[b.estado] ?? 1) || (a.estado === "post" ? b.quando - a.quando : a.quando - b.quando) || a.ord - b.ord);
     cacheJogos = { em: Date.now(), dia, v: jogos };
     return jogos;
   } catch {
@@ -716,20 +716,45 @@ async function jogosDoDia(limiteMs = 3500): Promise<Jogo[] | null> {
   }
 }
 
+// logos dos times: baixados uma vez, só do domínio da API, e embutidos no SVG (a TV não carrega imagem externa dentro de SVG)
+const cacheLogos = new Map<string, string | null>();
+async function logoEmbutida(url: string): Promise<string | null> {
+  const ok = urlLogoOk(url);
+  if (!ok) return null;
+  if (cacheLogos.has(ok)) return cacheLogos.get(ok)!;
+  let out: string | null = null;
+  try {
+    const r = await fetch(ok, { signal: AbortSignal.timeout(2500), headers: { "user-agent": "GoldPlay-MSX/1.0" } });
+    const tipo = (r.headers.get("content-type") ?? "").split(";")[0].trim();
+    if (r.ok && /^image\/(png|jpeg|webp)$/.test(tipo)) {
+      const buf = new Uint8Array(await r.arrayBuffer());
+      if (buf.length > 0 && buf.length <= 120_000) out = `data:${tipo};base64,${btoa(Array.from(buf, (c) => String.fromCharCode(c)).join(""))}`;
+    }
+  } catch { /* sem logo: usa a bolinha com a sigla */ }
+  if (cacheLogos.size > 400) cacheLogos.clear();
+  cacheLogos.set(ok, out);
+  return out;
+}
+
 // cartão SVG de um jogo (placar em duas linhas, estilo app esportivo)
-function jogoSvg(g: URLSearchParams) {
+async function jogoSvg(g: URLSearchParams) {
   const W = 600, H = 380;
   const k = g.get("k") ?? "pre";
   const st = limparNome(g.get("s") ?? "").slice(0, 18);
-  const liga = limparNome(g.get("l") ?? "").slice(0, 22).toUpperCase();
-  const linha = (y: number, p: string) => {
+  const liga = limparNome(g.get("l") ?? "").slice(0, 24).toUpperCase();
+  const canais = (g.get("c") ?? "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 80);
+  const [logoH, logoF] = await Promise.all([logoEmbutida(g.get("lh") ?? ""), logoEmbutida(g.get("lf") ?? "")]);
+  const linha = (y: number, p: string, logo: string | null) => {
     const [nome = "", sigla = "", cor = "475569", gols = "", v = ""] = (g.get(p) ?? "").split("|");
     const apaga = k === "post" && v !== "1";
-    const n = limparNome(nome); const nm = n.length > 15 ? n.slice(0, 14) + "…" : n;
+    const n = limparNome(nome); const longo = n.length > 14; const nm = n.length > 23 ? n.slice(0, 22) + "…" : n;
     const c = /^[0-9a-f]{6}$/i.test(cor) ? cor : "475569";
-    return `<circle cx="74" cy="${y}" r="38" fill="#${c}"/><circle cx="74" cy="${y}" r="38" fill="url(#bri)"/><circle cx="74" cy="${y}" r="37" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>`
-      + `<text x="74" y="${y + 9}" text-anchor="middle" font-size="${sigla.length > 3 ? 20 : 25}" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">${xml(sigla)}</text>`
-      + `<text x="132" y="${y + 13}" font-size="38" font-weight="700" fill="#fff" fill-opacity="${apaga ? 0.6 : 1}" font-family="Arial, Helvetica, sans-serif">${xml(nm)}</text>`
+    const escudo = logo
+      ? `<circle cx="74" cy="${y}" r="38" fill="#fff" fill-opacity=".94"/><image href="${logo}" x="48" y="${y - 26}" width="52" height="52" preserveAspectRatio="xMidYMid meet"/><circle cx="74" cy="${y}" r="37" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2"/>`
+      : `<circle cx="74" cy="${y}" r="38" fill="#${c}"/><circle cx="74" cy="${y}" r="38" fill="url(#bri)"/><circle cx="74" cy="${y}" r="37" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>`
+        + `<text x="74" y="${y + 9}" text-anchor="middle" font-size="${sigla.length > 3 ? 20 : 25}" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">${xml(sigla)}</text>`;
+    return escudo
+      + `<text x="132" y="${y + 13}" font-size="${longo ? 30 : 36}" font-weight="700" fill="#fff" fill-opacity="${apaga ? 0.6 : 1}" font-family="Arial, Helvetica, sans-serif">${xml(nm)}</text>`
       + (k !== "pre" ? `<text x="${W - 40}" y="${y + 17}" text-anchor="end" font-size="52" font-weight="800" fill="#fff" fill-opacity="${apaga ? 0.55 : 1}" font-family="Arial, Helvetica, sans-serif">${xml(gols.slice(0, 3))}</text>` : "");
   };
   const aoVivo = k === "in";
@@ -737,6 +762,11 @@ function jogoSvg(g: URLSearchParams) {
   const pill = `<rect x="${W - 32 - pw}" y="26" width="${pw}" height="46" rx="23" fill="${aoVivo ? "#EF4444" : k === "post" ? "#fff" : "#F5B400"}" fill-opacity="${aoVivo ? 1 : k === "post" ? 0.16 : 0.95}"/>`
     + (aoVivo ? `<circle cx="${W - 32 - pw + 24}" cy="49" r="7" fill="#fff"/>` : "")
     + `<text x="${W - 32 - pw / 2 + (aoVivo ? 12 : 0)}" y="58" text-anchor="middle" font-size="24" font-weight="800" fill="${k === "pre" ? "#1A1300" : "#fff"}" font-family="Arial, Helvetica, sans-serif">${xml(st)}</text>`;
+  const rodape = canais
+    ? `<line x1="40" x2="${W - 40}" y1="300" y2="300" stroke="#fff" stroke-opacity=".1" stroke-width="2"/>`
+      + `<text x="40" y="342" font-size="22" font-weight="700" fill="#F5B400" font-family="Arial, Helvetica, sans-serif">ONDE ASSISTIR</text>`
+      + `<text x="${40 + 190}" y="342" font-size="22" font-weight="600" fill="#fff" fill-opacity=".85" font-family="Arial, Helvetica, sans-serif">${xml(canais.length > 27 ? canais.slice(0, 26) + "…" : canais)}</text>`
+    : "";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs>`
     + `<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1B1F3B" stop-opacity=".82"/><stop offset="1" stop-color="#0B0D1E" stop-opacity=".72"/></linearGradient>`
     + `<linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".12"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient>`
@@ -747,11 +777,14 @@ function jogoSvg(g: URLSearchParams) {
     + `<circle cx="${W}" cy="${H}" r="170" fill="#F5B400" fill-opacity=".07"/>`
     + `<text x="40" y="58" font-size="22" font-weight="700" letter-spacing="2" fill="#fff" fill-opacity=".7" font-family="Arial, Helvetica, sans-serif">${xml(liga)}</text>${pill}`
     + `<line x1="40" x2="${W - 40}" y1="96" y2="96" stroke="#fff" stroke-opacity=".1" stroke-width="2"/>`
-    + linha(166, "h") + linha(278, "f") + `</g>`
+    + linha(156, "h", logoH) + linha(246, "f", logoF) + rodape + `</g>`
     + `<rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="33" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="2"/></svg>`;
 }
 const timeTxt = (t: Time) => [t.nome, t.sigla, t.cor, t.gols, t.venceu ? "1" : ""].join("|");
-const jogoImg = (j: Jogo) => `${SELF()}?${q({ a: "jg", k: j.estado, s: j.status, l: j.liga, h: timeTxt(j.casa), f: timeTxt(j.fora) })}`;
+const jogoImg = (j: Jogo) => `${SELF()}?${q({
+  a: "jg", k: j.estado, s: j.status, l: j.liga, h: timeTxt(j.casa), f: timeTxt(j.fora), c: j.transmissao,
+  ...(j.casa.logo ? { lh: j.casa.logo } : {}), ...(j.fora.logo ? { lf: j.fora.logo } : {}),
+})}`;
 
 // cartão de abertura da faixa de jogos
 function resumoSvg(total: number, vivos: number, falhou: boolean) {
@@ -802,7 +835,7 @@ async function home(t: string, quem: string, d: string | null = null) {
 async function telaJogos() {
   const jogos = await jogosDoDia(5000);
   if (jogos === null) return aviso("Jogos de hoje", "Placar indisponível agora. Tente de novo em instantes.");
-  if (!jogos.length) return aviso("Jogos de hoje", "Nenhuma partida hoje nos principais campeonatos.");
+  if (!jogos.length) return aviso("Jogos de hoje", "Nenhuma partida programada para hoje.");
   const vivos = jogos.filter((j) => j.estado === "in").length;
   return lista("Jogos de hoje", jogos.map((j) => ({ image: jogoImg(j), imageFiller: "fit", color: "transparent", action: "none" })),
     "0,0,3,2", {}, `${jogos.length} partidas${vivos ? ` · ${vivos} ao vivo` : ""}`, "live");
@@ -829,8 +862,8 @@ Deno.serve(async (req: Request) => {
     }
     if (req.method === "GET" && (u0.searchParams.get("a") === "jg" || u0.searchParams.get("a") === "jr")) {
       const g = u0.searchParams;
-      const svg = g.get("a") === "jg" ? jogoSvg(g) : resumoSvg(Number(g.get("n")) || 0, Number(g.get("vv")) || 0, g.get("x") === "1");
-      return new Response(svg, { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=600" } });
+      const svg = g.get("a") === "jg" ? await jogoSvg(g) : resumoSvg(Number(g.get("n")) || 0, Number(g.get("vv")) || 0, g.get("x") === "1");
+      return new Response(svg, { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=60" } });
     }
     if (req.method === "POST") {
       const b = await req.json().catch(() => ({}));
