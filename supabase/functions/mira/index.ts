@@ -162,6 +162,34 @@ async function api(cred: Cred, extra = "") {
   const txt = await r.text();
   try { return JSON.parse(txt); } catch { return null; } // provedor devolve vazio/HTML com login inválido
 }
+// Confere usuário e senha. Tenta a DNS do usuário (ou a principal); se falhar, testa as outras DNS ativas
+// e devolve a que aceitou (dnsId), para o login ficar fixado nela.
+async function autenticar(u: string, p: string, baseInicial: string): Promise<{ ok: boolean; info?: any; b: string; dnsId?: string; erroProv?: boolean }> {
+  const valido = (i: any) => !!i?.user_info && Number(i.user_info.auth) === 1;
+  let erroProv = false;
+  try {
+    const i = await api({ u, p, b: baseInicial });
+    if (valido(i)) return { ok: true, info: i, b: baseInicial };
+  } catch { erroProv = true; }
+  try {
+    const r = await fetch(`${SB()}/rest/v1/dns?ativo=eq.true&select=id,host,protocolo,porta&order=prioridade`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+    const lista = await r.json();
+    if (Array.isArray(lista)) {
+      const outras = lista
+        .map((d) => ({ id: d.id as string, b: `${d.protocolo}://${d.host}${d.porta ? ":" + d.porta : ""}` }))
+        .filter((d) => d.b !== baseInicial);
+      const tent = await Promise.all(outras.map(async (d) => {
+        try {
+          const i = await Promise.race([api({ u, p, b: d.b }), new Promise<null>((res) => setTimeout(() => res(null), 8000))]);
+          return valido(i) ? { info: i, b: d.b, dnsId: d.id } : null;
+        } catch { return null; }
+      }));
+      const achou = tent.find((t) => t);
+      if (achou) return { ok: true, info: achou.info, b: achou.b, dnsId: achou.dnsId };
+    }
+  } catch { /* sem alternativas */ }
+  return { ok: false, b: baseInicial, erroProv };
+}
 const urlFluxo = (tipo: string, c: Cred, id: string | number, ext?: string) =>
   `${c.b ?? BASE_PROV}/${tipo}/${encodeURIComponent(c.u)}/${encodeURIComponent(c.p)}/${id}${ext ? "." + ext : ""}`;
 
@@ -297,9 +325,11 @@ async function parear(corpo: { c?: string; m?: string; u?: string; p?: string })
   let info;
   const x = await infoUsuario(u);
   if (x.bloq) return { ok: false, erro: "bloqueado" };
-  try { info = await api({ u, p, b: x.b }); } catch { return { ok: false, erro: "provedor" }; }
-  if (!info?.user_info || Number(info.user_info.auth) !== 1) return { ok: false, erro: "credenciais" };
+  const au = await autenticar(u, p, x.b);
+  if (!au.ok) return { ok: false, erro: au.erroProv ? "provedor" : "credenciais" };
+  info = au.info;
   await registrarAcesso(u, aparelho, "login", porMac ? "mac" : "codigo", porMac ? mac : null);
+  if (au.dnsId) await fixarDnsDoUsuario(u, au.dnsId);
   await salvarSessao(aparelho, await criarToken(u, p));
   if (!porMac) await apagarCodigo(codigo);
   return { ok: true, usuario: u };
@@ -672,10 +702,12 @@ async function tratar(url: URL) {
     let info;
     const x = await infoUsuario(u);
     if (x.bloq) return telaEntrar("Acesso bloqueado. Fale com o suporte.", d, u, "");
-    try { info = await api({ u, p, b: x.b }); } catch (e) { return telaEntrar("Provedor: " + String((e as Error).message ?? e).slice(0, 80), d, u, ""); }
-    if (!info?.user_info || Number(info.user_info.auth) !== 1) return telaEntrar("Usuário ou senha incorretos", d, u, "");
+    const au = await autenticar(u, p, x.b);
+    if (!au.ok) return telaEntrar(au.erroProv ? "Provedor indisponível. Tente de novo." : "Usuário ou senha incorretos", d, u, "");
+    info = au.info;
     const exp = info.user_info.exp_date ? new Date(Number(info.user_info.exp_date) * 1000).toLocaleDateString("pt-BR") : "sem data";
     await registrarAcesso(u, d, "login", "tv", (await tvDoAparelho(d))?.mac ?? null);
+    if (au.dnsId) await fixarDnsDoUsuario(u, au.dnsId);
     const tk = await criarToken(u, p);
     await salvarSessao(d, tk);
     return await home(tk, `${u} · vence ${exp}`, d);
