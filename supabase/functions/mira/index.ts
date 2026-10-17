@@ -540,7 +540,7 @@ async function tratar(url: URL) {
     const ids = [s, ...perto.map((x: any) => String(x.stream_id)).filter((i: string) => i !== s)];
     const ep = await epgVarios(cred, ids, 1200);
     const navegar = {
-      title: "‹   CATEGORIAS", titleFooter: `Atual: ${cn || "Todos os canais"}  ·  botão vermelho`, key: "red",
+      title: "‹   CATEGORIAS", titleFooter: `Atual: ${cn || "Todos os canais"}`, key: "red",
       color: VID.voltar,
       action: `panel:${SELF()}?${q({ a: "pcats", t, s })}`,
     };
@@ -548,7 +548,7 @@ async function tratar(url: URL) {
       .map((o: any) => ({ ...canalItem(o.x, cred, t, c, true, s, cn, o.i + 1, ep.get(String(o.x.stream_id))), focus: undefined }));
     const fixo = idx >= 0 ? [{ ...canalItem(todos[idx], cred, t, c, true, s, cn, idx + 1, ep.get(s)), focus: true }] : [];
     return {
-      type: "list", headline: "Canais", extension: cn || `${todos.length}`,
+      type: "list", headline: "Canais", extension: "{col:msx-red}●{col:msx-white-soft}  Categorias",
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
       items: [{ ...navegar, focus: idx < 0 ? true : undefined }, ...fixo, ...canais],
     };
