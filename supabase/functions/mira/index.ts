@@ -432,9 +432,9 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
         focus: !!u && !p, execute: auto && !!u && !p,
         action: inputAction(`${SELF()}?${q(base({ a: "in", f: "p", ...eu }))}&v={INPUT}`, "Senha", "Digite a senha e confirme"),
       },
-      { type: "space", layout: "7,3,5,1", offset: "1.3,0.4,-2.6,-0.1", image: IMG + "login-entrar.png", imageFiller: "fit" },
+      { type: "space", layout: "7,3,5,1", offset: "0.9,0.3,-1.8,0.1", image: IMG + "login-entrar.png", imageFiller: "fit" },
       {
-        id: "entrar", type: "default", layout: "7,3,5,1", offset: "1.3,0.4,-2.6,-0.1", color: "transparent", alignment: "center", centration: "title",
+        id: "entrar", type: "default", layout: "7,3,5,1", offset: "0.9,0.3,-1.8,0.1", color: "transparent", alignment: "center", centration: "title",
         title: "Entrar",
         focus: pronto, execute: auto && pronto,
         action: pronto ? go(base({ a: "login", u, p })) : "warn:Preencha o usuário e a senha",
