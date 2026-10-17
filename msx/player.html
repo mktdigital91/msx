@@ -40,6 +40,8 @@
     } catch (e) { return []; }
   }
   var fontes = (param("f") ? decodificar(param("f")) : [param("u"), param("alt")]).filter(function (x) { return !!x; });
+  // canais ao vivo: .m3u8 (HLS) primeiro, oscila menos; .ts fica de reserva
+  fontes.sort(function (a, b) { return (/\.m3u8/.test(b) ? 1 : 0) - (/\.m3u8/.test(a) ? 1 : 0); });
   var tipo = param("m") || "o canal";
   var v = document.getElementById("v");
   var aviso = document.getElementById("aviso");
@@ -59,7 +61,7 @@
   function tentar(i) {
     clearTimeout(vigia);
     if (i >= fontes.length) { erroFinal(); return; }
-    atual = i;
+    atual = i; ult = -1; parado = 0;
     mostrarCarregando(true);
     v.src = fontes[i];
     try { v.load(); } catch (e) {}
@@ -68,7 +70,25 @@
     // se em 20 s não começar a tocar, tenta a próxima fonte
     vigia = setTimeout(function () { tentar(atual + 1); }, 20000);
   }
+  // vigia de travamento: se o tempo do vídeo não andar por 8 s, reabre a mesma fonte; depois de 2 falhas seguidas, troca de formato
+  var ult = -1, parado = 0, refeitos = 0, pausado = false;
+  function reconectar() {
+    if (falhou || pausado || !v.src) return;
+    parado = 0; refeitos++;
+    if (refeitos > 2 && fontes.length > 1) { refeitos = 0; tentar((atual + 1) % fontes.length); return; }
+    tentar(atual);
+  }
+  setInterval(function () {
+    if (falhou || pausado || !v.src) return;
+    var t = v.currentTime || 0;
+    if (t !== ult) { ult = t; parado = 0; if (!v.paused) { refeitos = 0; } return; }
+    if (v.paused && !v.ended) { try { v.play(); } catch (e) {} }
+    parado += 2;
+    if (parado >= 8) { mostrarCarregando(true); reconectar(); }
+  }, 2000);
   v.addEventListener("playing", function () { clearTimeout(vigia); mostrarCarregando(false); });
+  v.addEventListener("stalled", function () { if (!falhou) mostrarCarregando(true); });
+  v.addEventListener("ended", function () { if (!falhou && fontes.length) reconectar(); });
   v.addEventListener("waiting", function () { if (!falhou) mostrarCarregando(true); });
   v.addEventListener("error", function () { if (!falhou) tentar(atual + 1); });
 
@@ -77,11 +97,12 @@
     this.ready = function () { TVXVideoPlugin.startPlayback(); };
     this.play = function () {
       if (falhou) return;
+      pausado = false; parado = 0;
       if (!v.src) { tentar(0); return; }
       var p = v.play(); if (p && p["catch"]) p["catch"](function () {});
     };
-    this.pause = function () { try { v.pause(); } catch (e) {} };
-    this.stop = function () { clearTimeout(vigia); try { v.pause(); v.removeAttribute("src"); v.load(); } catch (e) {} };
+    this.pause = function () { pausado = true; try { v.pause(); } catch (e) {} };
+    this.stop = function () { pausado = true; clearTimeout(vigia); try { v.pause(); v.removeAttribute("src"); v.load(); } catch (e) {} };
     this.getDuration = function () { return isFinite(v.duration) ? v.duration : 0; };
     this.getPosition = function () { return v.currentTime || 0; };
     this.setPosition = function (s) { try { v.currentTime = s; } catch (e) {} };
