@@ -406,29 +406,29 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "4,0,4,1", offset: "0,-0.3,0,-0.15", image: LOGO, imageFiller: "fit" },
-      { type: "space", layout: "0,0,12,1", offset: "0,0.68,0,-0.68", alignment: "center", centration: "text", text: msg ?? "Escaneie o QR code com o celular ou digite seu usuário e senha aqui na TV." },
+      { type: "space", layout: "0,0,12,1", offset: "0,0.6,0,-0.3", alignment: "center", centration: "text", text: msg ?? "Escaneie o QR code com o celular ou digite seu usuário e senha aqui na TV." },
       { id: "atualizar", type: "default", layout: "10,0,2,1", image: IMG + "btn-atualizar.png", imageFiller: "fit", color: "transparent", action: go(base({ a: "inicio", x: Date.now() })) },
       // ---- lado esquerdo: pelo celular ----
-      { id: "qr", type: "default", layout: "0,1,3,3", color: "#FFFFFF", image: qr, imageFiller: "fit", action: "none" },
-      { type: "default", layout: "3,1,3,2", color: COR.destaque, titleHeader: "PELO CELULAR  ·  CÓDIGO", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Vale 10 min. A TV entra sozinha.", action: "none" },
-      { type: "default", layout: "3,3,3,1", color: COR.vidro, title: "Novo código", titleFooter: "Gerar outro QR code", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
-      { type: "space", layout: "0,5,6,1", text: `{col:msx-white-soft}MAC desta TV · informe ao suporte para liberar{br}{col:msx-white}${mac || "indisponível"}` },
+      { id: "qr", type: "default", layout: "0,1,3,3", offset: "0,0.4,0,-0.15", color: "#FFFFFF", image: qr, imageFiller: "fit", action: "none" },
+      { type: "default", layout: "3,1,3,2", offset: "0,0.4,0,-0.15", color: COR.destaque, titleHeader: "PELO CELULAR  ·  CÓDIGO", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Vale 10 min. A TV entra sozinha.", action: "none" },
+      { type: "default", layout: "3,3,3,1", offset: "0,0.4,0,-0.1", color: COR.vidro, title: "Novo código", titleFooter: "Gerar outro QR code", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
+      { type: "space", layout: "0,5,6,1", text: `{col:msx-white-soft}Número do MAC: {col:msx-white}${mac || "indisponível"}` },
       // ---- divisória ----
-      { type: "space", layout: "6,2,1,2", title: "ou", alignment: "center", centration: "title" },
+      { type: "space", layout: "6,2,1,2", offset: "0,0.4,0,0", title: "ou", alignment: "center", centration: "title" },
       // ---- lado direito: usuário e senha na TV ----
       {
-        id: "usuario", type: "default", layout: "7,1,5,1", color: COR.vidro,
+        id: "usuario", type: "default", layout: "7,1,5,1", offset: "0,0.4,0,-0.1", color: COR.vidro,
         titleHeader: "USUÁRIO", title: u || "Toque para digitar", focus: !u && !p,
         action: inputAction(`${SELF()}?${q(base({ a: "in", f: "u", ...ep }))}&v={INPUT}`, "Usuário", "Digite o usuário e confirme"),
       },
       {
-        id: "senha", type: "default", layout: "7,2,5,1", color: COR.vidro,
+        id: "senha", type: "default", layout: "7,2,5,1", offset: "0,0.4,0,-0.1", color: COR.vidro,
         titleHeader: "SENHA", title: p ? "••••••••" : "Toque para digitar",
         focus: !!u && !p, execute: auto && !!u && !p,
         action: inputAction(`${SELF()}?${q(base({ a: "in", f: "p", ...eu }))}&v={INPUT}`, "Senha", "Digite a senha e confirme"),
       },
       {
-        id: "entrar", type: "default", layout: "7,3,5,1", color: COR.destaque,
+        id: "entrar", type: "default", layout: "7,3,5,1", offset: "0,0.4,0,-0.1", color: COR.destaque,
         title: "Entrar", titleFooter: pronto ? "Tudo pronto" : "Preencha usuário e senha",
         focus: pronto, execute: auto && pronto,
         action: pronto ? go(base({ a: "login", u, p })) : "warn:Preencha o usuário e a senha",
