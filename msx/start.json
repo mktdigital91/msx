@@ -1,6 +1,6 @@
 {
-    "name": "Gold Play",
+    "name": "Gold Play (teste)",
     "version": "0.3.0",
-    "parameter": "content:request:interaction:init@https://mktdigital91.github.io/msx/msx/mira.html",
+    "parameter": "content:request:interaction:init@https://mktdigital91.github.io/msx/msx/direto.html",
     "welcome": "none"
 }
