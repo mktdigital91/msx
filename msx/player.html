@@ -23,6 +23,7 @@
 <body>
 <video id="v" autoplay></video>
 <div id="carregando"></div>
+<div id="dbg" style="position:absolute;left:8px;bottom:8px;max-width:92%;z-index:9;display:none;padding:4px 8px;background:rgba(0,0,0,.6);color:#9f9;font:14px/18px monospace;white-space:pre-wrap"></div>
 <div id="aviso"><div id="cartao"><div class="ico">!</div><h1 id="titulo">Não foi possível reproduzir</h1><p>Tente novamente em instantes.</p><p id="det" style="margin-top:14px;font-size:18px;color:rgba(255,255,255,.45)"></p></div></div>
 <script src="//msx.benzac.de/js/tvx-plugin.min.js"></script>
 <script>
@@ -60,6 +61,18 @@
     document.getElementsByTagName("head")[0].appendChild(sc);
   }
   function soltarHls() { if (hls) { try { hls.destroy(); } catch (e) {} hls = null; } }
+  var dg = { frags: 0, anexos: 0, avisos: "", codecs: "" };
+  function dbgAtualizar() {
+    var el = document.getElementById("dbg");
+    if (!el || !usaHls) return;
+    var b = "-";
+    try { if (v.buffered && v.buffered.length) b = v.buffered.start(0).toFixed(1) + "-" + v.buffered.end(v.buffered.length - 1).toFixed(1); } catch (e) {}
+    el.style.display = "block";
+    el.innerHTML = (hls ? "hls" : "nativo") + " rs=" + v.readyState + " t=" + (v.currentTime || 0).toFixed(1) + " buf=" + b +
+      " frags=" + dg.frags + " anexos=" + dg.anexos + " vid=" + v.videoWidth + "x" + v.videoHeight + (v.error ? " err=" + v.error.code : "") +
+      "\n" + dg.codecs + (dg.avisos ? "\n" + dg.avisos : "");
+  }
+  setInterval(dbgAtualizar, 1000);
   function detalhe(t) { var d = document.getElementById("det"); if (d) d.innerHTML = t || ""; }
 
   document.getElementById("titulo").innerHTML = "Não foi possível reproduzir " + tipo;
@@ -82,7 +95,14 @@
     if (usaHls && window.Hls && Hls.isSupported() && /\.m3u8/.test(fontes[i])) {
       hlsTent = 0;
       hls = new Hls({ lowLatencyMode: false, maxBufferLength: 30, manifestLoadingMaxRetry: 2, levelLoadingMaxRetry: 2, fragLoadingMaxRetry: 3 });
+      dg.frags = 0; dg.anexos = 0; dg.avisos = ""; dg.codecs = "";
+      hls.on(Hls.Events.MANIFEST_PARSED, function (ev, d) {
+        try { var l = d.levels[0]; dg.codecs = "codec v=" + (l.videoCodec || "?") + " a=" + (l.audioCodec || "?") + " " + (l.width || 0) + "x" + (l.height || 0) + " niveis=" + d.levels.length; } catch (e) {}
+      });
+      hls.on(Hls.Events.FRAG_LOADED, function () { dg.frags++; });
+      hls.on(Hls.Events.BUFFER_APPENDED, function () { dg.anexos++; });
       hls.on(Hls.Events.ERROR, function (ev, d) {
+        if (d && !d.fatal) { dg.avisos = "aviso: " + d.details + (d.response && d.response.code !== undefined ? " " + d.response.code : ""); }
         if (!d || !d.fatal) return;
         detalhe("hls: " + d.type + " / " + d.details + (d.response && d.response.code !== undefined ? " / " + d.response.code : ""));
         if (d.type === Hls.ErrorTypes.NETWORK_ERROR && hlsTent < 2) { hlsTent++; try { hls.startLoad(); } catch (e) {} return; }
