@@ -405,8 +405,9 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
     type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-tv.jpg",
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
-      { type: "space", layout: "0,0,9,1", headline: "Entrar no Gold Play", text: msg ?? "Escaneie o QR code com o celular ou digite seu usuário e senha aqui na TV." },
-      { type: "space", layout: "10,0,2,1", image: LOGO, imageFiller: "fit" },
+      { type: "space", layout: "4,0,4,1", image: LOGO, imageFiller: "fit" },
+      { type: "space", layout: "0,5,12,1", headline: "Entrar no Gold Play", text: msg ?? "Escaneie o QR code com o celular ou digite seu usuário e senha aqui na TV." },
+      { id: "atualizar", type: "default", layout: "10,0,2,1", image: IMG + "btn-atualizar.png", imageFiller: "fit", color: "transparent", action: go(base({ a: "inicio", x: Date.now() })) },
       // ---- lado esquerdo: pelo celular ----
       { id: "qr", type: "default", layout: "0,1,3,3", color: "#FFFFFF", image: qr, imageFiller: "fit", action: "none" },
       { type: "default", layout: "3,1,3,2", color: COR.destaque, titleHeader: "PELO CELULAR  ·  CÓDIGO", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Vale 10 min. A TV entra sozinha.", action: "none" },
@@ -432,7 +433,6 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
         focus: pronto, execute: auto && pronto,
         action: pronto ? go(base({ a: "login", u, p })) : "warn:Preencha o usuário e a senha",
       },
-      { id: "atualizar", type: "default", layout: "7,4,5,1", color: COR.vidro, title: "Atualizar", titleFooter: "Buscar novidades do painel", action: go(base({ a: "inicio", x: Date.now() })) },
     ] }],
   };
 }
