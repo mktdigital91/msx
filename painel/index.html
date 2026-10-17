@@ -249,6 +249,7 @@
     <div class="marca-lateral"><img src="../entrar/logo-goldplay.png" alt=""><b>Gold Play</b></div>
     <a class="item" href="#/resumo" data-rota="resumo"><svg class="i" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>Visão geral</span></a>
     <a class="item" href="#/dns" data-rota="dns"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/></svg><span>DNS</span></a>
+    <a class="item" href="#/tvs" data-rota="tvs"><svg class="i" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="13" rx="2.5"/><path d="M8 21h8M12 17v4"/></svg><span>TVs</span></a>
     <a class="item" href="#/usuarios" data-rota="usuarios"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3.2-5.5 6.5-5.5s6 2 6.5 5.5M16 4.6a3.5 3.5 0 010 6.8M18 14.8c1.9.7 3.2 2.4 3.5 5.2"/></svg><span>Usuários</span></a>
     <a class="item" href="#/acessos" data-rota="acessos"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Acessos</span></a>
     <a class="item" href="#/trocas" data-rota="trocas"><svg class="i" viewBox="0 0 24 24"><path d="M17 3l4 4-4 4M21 7H8a4 4 0 00-4 4M7 21l-4-4 4-4M3 17h13a4 4 0 004-4"/></svg><span>Trocas de DNS</span></a>
@@ -606,7 +607,7 @@ var acoes = {
       '<label class="opcao"><input type="checkbox" name="auto_troca" checked>Trocar de DNS automaticamente quando uma cair</label>' +
       '<label class="campo">Falhas seguidas antes de trocar <small>cada checagem acontece a cada minuto</small><input type="number" name="falhas_para_trocar" min="1" max="20" value="3"></label>',
       { salvar: "Criar servidor", aoEnviar: async function (v) {
-        await q(sb.from("grupos").insert({ nome: v.nome.trim(), auto_troca: !!v.auto_troca, falhas_para_trocar: parseInt(v.falhas_para_trocar, 10) || 3 }));
+        await q(sb.from("grupos").insert({ owner_id: donoPadrao(), nome: v.nome.trim(), auto_troca: !!v.auto_troca, falhas_para_trocar: parseInt(v.falhas_para_trocar, 10) || 3 }));
         aviso("Servidor criado.", "ok"); await rotear(true);
       } });
   },
@@ -628,7 +629,7 @@ var acoes = {
   },
   novoDns: function (d) {
     janela("Adicionar DNS", formDns(), { salvar: "Adicionar", aoEnviar: async function (v) {
-      var dados = lerFormDns(v); dados.grupo_id = d.id;
+      var dados = lerFormDns(v); dados.grupo_id = d.id; dados.owner_id = donoPadrao();
       var novo = await q(sb.from("dns").insert(dados).select().single());
       var g = S.cache.grupos.filter(function (x) { return x.id === d.id; })[0];
       if (g && !g.dns_ativa_id) await q(sb.from("grupos").update({ dns_ativa_id: novo.id }).eq("id", d.id));
@@ -966,8 +967,89 @@ Object.assign(acoes, {
   }
 });
 
+
+// ---------- TVs (cadastro por MAC) ----------
+async function vTvs(el) {
+  var r = await Promise.all([
+    q(sb.from("tvs").select("*").order("ultimo_acesso", { ascending: false }).limit(1000)),
+    q(sb.from("dns").select("id,nome,host,grupo_id")),
+    q(sb.from("grupos").select("id,nome"))
+  ]);
+  S.cache.tvs = r[0]; S.cache.dnsLista = r[1]; S.cache.grupos = r[2];
+  var mapa = {}; r[1].forEach(function (d) { mapa[d.id] = d; });
+  var h = cab("TVs", "Cada TV mostra um MAC na tela inicial do app. Cadastre o MAC com o usuário e a senha da lista, escolha a DNS e a TV entra sozinha.",
+    '<button class="btn principal" data-acao="cadastrarTv">Cadastrar TV</button>');
+  h += '<section class="cartao"><div class="cartao-topo"><h2>' + r[0].length + ' TV(s)</h2>' +
+    '<input type="search" id="filtro-tvs" placeholder="Buscar MAC, usuário ou nome" autocomplete="off" style="max-width:300px;width:100%"></div><div class="tabela-rolagem" id="tab-tvs"></div></section>';
+  el.innerHTML = h;
+  var desenhar = function () {
+    var t = ($("#filtro-tvs").value || "").trim().toLowerCase();
+    var lista = S.cache.tvs.filter(function (x) { return !t || [x.mac, x.usuario, x.nome, x.observacao].join(" ").toLowerCase().indexOf(t) >= 0; });
+    $("#tab-tvs").innerHTML = !lista.length ? '<div class="vazio">Nenhuma TV ainda. O MAC aparece quando alguém abre o app na TV.</div>' :
+      '<table><thead><tr><th>MAC</th><th>Cliente</th><th>Lista</th><th>DNS</th><th>Último acesso</th><th>Situação</th><th></th></tr></thead><tbody>' +
+      lista.map(function (x) {
+        var sit = x.bloqueado ? '<span class="pilula erro">Bloqueada</span>' : (x.usuario ? '<span class="pilula ok">Liberada</span>' : '<span class="pilula aviso">Aguardando cadastro</span>');
+        return '<tr><td class="mono"><b>' + e(x.mac) + "</b></td><td>" + e(x.nome || "-") + (x.observacao ? '<br><span class="suave" style="font-size:12px">' + e(x.observacao) + "</span>" : "") + "</td>" +
+          "<td>" + e(x.usuario || "-") + '</td><td class="mono">' + e(mapa[x.dns_id] ? mapa[x.dns_id].host : (x.usuario ? "automática" : "-")) + '</td><td class="suave">' + e(tempo(x.ultimo_acesso)) + "</td><td>" + sit + "</td>" +
+          '<td class="acoes"><button class="btn pequeno" data-acao="editarTv" data-id="' + x.id + '">' + (x.usuario ? "Editar" : "Cadastrar") + "</button>" +
+          (x.usuario ? '<button class="btn pequeno" data-acao="bloquearTv" data-id="' + x.id + '">' + (x.bloqueado ? "Liberar" : "Bloquear") + "</button>" : "") +
+          '<button class="btn pequeno perigo" data-acao="excluirTv" data-id="' + x.id + '">Excluir</button></td></tr>';
+      }).join("") + "</tbody></table>";
+  };
+  $("#filtro-tvs").addEventListener("input", desenhar); desenhar();
+}
+function formTv(x) {
+  x = x || {};
+  var dns = S.cache.dnsLista || [], gr = {}; (S.cache.grupos || []).forEach(function (g) { gr[g.id] = g.nome; });
+  var opDns = '<option value="">Automática (DNS principal do servidor)</option>' + dns.map(function (d) {
+    return '<option value="' + d.id + '"' + (d.id === x.dns_id ? " selected" : "") + ">" + e((gr[d.grupo_id] || "") + " · " + (d.nome || d.host) + " (" + d.host + ")") + "</option>";
+  }).join("");
+  var opGr = (S.cache.grupos || []).map(function (g) { return '<option value="' + g.id + '">' + e(g.nome) + "</option>"; }).join("");
+  return '<label class="campo">MAC da TV <small>aparece na tela inicial do app</small><input type="text" name="mac" ' + (x.mac ? 'value="' + e(x.mac) + '" readonly' : 'placeholder="A4:1F:7C:09:E2" required autocapitalize="characters" spellcheck="false"') + ' class="mono"></label>' +
+    '<label class="campo">Nome do cliente <small>opcional</small><input type="text" name="nome" maxlength="80" value="' + e(x.nome || "") + '"></label>' +
+    '<div class="linha-campos"><label class="campo">Usuário da lista<input type="text" name="usuario" required maxlength="80" autocapitalize="none" spellcheck="false" autocomplete="off" value="' + e(x.usuario || "") + '"></label>' +
+    '<label class="campo">Senha da lista' + (x.usuario ? " <small>vazio = manter a atual</small>" : "") + '<input type="password" name="senha" ' + (x.usuario ? "" : "required ") + 'autocomplete="new-password" spellcheck="false"></label></div>' +
+    '<div class="campo">DNS<div class="envio" style="flex-wrap:nowrap"><select name="dns_id" style="flex:1;min-width:0">' + opDns + '</select>' +
+    '<button type="button" class="btn pequeno" id="mais-dns" title="Adicionar uma DNS nova" aria-label="Adicionar DNS nova" ' + (opGr ? "" : "disabled") + '>+</button></div></div>' +
+    '<div id="nova-dns" hidden class="nota info" style="display:grid;gap:10px"><b>Nova DNS</b>' +
+    '<label class="campo">Endereço<input type="text" name="nd_host" placeholder="exemplo.site" autocapitalize="none" spellcheck="false"></label>' +
+    '<label class="campo">Servidor<select name="nd_grupo">' + opGr + '</select></label>' +
+    '<span class="suave" style="font-size:13px">Ela é salva na lista de DNS do sistema e já fica selecionada.</span></div>' +
+    '<label class="campo">Observação <small>opcional</small><input type="text" name="observacao" maxlength="200" value="' + e(x.observacao || "") + '"></label>';
+}
+function janelaTv(x) {
+  janela(x.usuario ? "Editar TV" : "Cadastrar TV", formTv(x), { salvar: x.usuario ? "Salvar" : "Cadastrar", aoAbrir: function (f) {
+    var box = $("#nova-dns", f); box.hidden = true; box.style.display = "none";
+    $("#mais-dns", f).onclick = function () { var abrir = box.hidden; box.hidden = !abrir; box.style.display = abrir ? "grid" : "none"; if (abrir) f.nd_host.focus(); };
+  }, aoEnviar: async function (v, f) {
+    var dnsId = v.dns_id || null, box = $("#nova-dns", f);
+    if (!box.hidden && (v.nd_host || "").trim()) {
+      var n = normalizarHost(v.nd_host);
+      if (!/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(n.host)) throw new Error("Endereço da nova DNS inválido.");
+      var novo = await q(sb.from("dns").insert({ grupo_id: v.nd_grupo, host: n.host, protocolo: n.proto || "http", porta: n.porta, prioridade: 100, ativo: true, owner_id: donoPadrao() }).select().single());
+      dnsId = novo.id;
+    }
+    await chamarFn("painel", { acao: "tv_salvar", mac: v.mac, usuario: v.usuario, senha: v.senha, dns_id: dnsId, nome: v.nome, observacao: v.observacao });
+    aviso("TV salva. Ela entra sozinha na próxima abertura do app.", "ok"); await rotear(true);
+  } });
+}
+Object.assign(acoes, {
+  cadastrarTv: function () { janelaTv({}); },
+  editarTv: function (d) { var x = S.cache.tvs.filter(function (y) { return y.id === d.id; })[0]; if (x) janelaTv(x); },
+  bloquearTv: async function (d) {
+    var x = S.cache.tvs.filter(function (y) { return y.id === d.id; })[0]; if (!x) return;
+    try { await q(sb.from("tvs").update({ bloqueado: !x.bloqueado }).eq("id", x.id)); aviso(x.bloqueado ? "TV liberada." : "TV bloqueada.", "ok"); await rotear(true); }
+    catch (err) { aviso(msgErro(err), "erro"); }
+  },
+  excluirTv: function (d) {
+    var x = S.cache.tvs.filter(function (y) { return y.id === d.id; })[0]; if (!x) return;
+    confirmar("Excluir TV", "Excluir a TV <b>" + e(x.mac) + "</b>? O cadastro e a senha guardada somem. Se abrirem o app nela de novo, ela ganha um MAC novo.", "Excluir TV",
+      async function () { await q(sb.from("tvs").delete().eq("id", x.id)); aviso("TV excluída.", "ok"); await rotear(true); });
+  }
+});
+
 // ---------- roteador ----------
-var VISTAS = { resumo: vResumo, dns: vDns, usuarios: vUsuarios, acessos: vAcessos, trocas: vTrocas, app: vApp, telegram: vTelegram, equipe: vEquipe };
+var VISTAS = { resumo: vResumo, dns: vDns, tvs: vTvs, usuarios: vUsuarios, acessos: vAcessos, trocas: vTrocas, app: vApp, telegram: vTelegram, equipe: vEquipe };
 var seq = 0;
 async function rotear(silencioso) {
   if (!S.user) return;

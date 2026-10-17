@@ -41,6 +41,14 @@ async function decifrar(enc: string): Promise<string | null> {
     return new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: raw.slice(0, 12) }, await chave(), raw.slice(12)));
   } catch { return null; }
 }
+let _kt: CryptoKey | null = null;
+async function cifrarTv(txt: string) {
+  if (!_kt) _kt = await crypto.subtle.importKey("raw", await crypto.subtle.digest("SHA-256", new TextEncoder().encode("tv-senha:" + KEY)), "AES-GCM", false, ["encrypt", "decrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const c = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, _kt, new TextEncoder().encode(txt)));
+  const t = new Uint8Array(iv.length + c.length); t.set(iv); t.set(c, iv.length);
+  return b64(t);
+}
 const aleatorio = (n: number, alfabeto: string) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (x) => alfabeto[x % alfabeto.length]).join("");
 
 async function quem(req: Request): Promise<{ uid: string; papel: string } | null> {
@@ -105,6 +113,18 @@ Deno.serve(async (req) => {
       if (token) await tgApi(token, "deleteWebhook", { drop_pending_updates: true });
       await rest(`telegram_config?${filtro}`, { method: "DELETE" });
       return json({ ok: true });
+    }
+    if (c.acao === "tv_salvar") {
+      const senha = String(c.senha ?? "");
+      const corpo = {
+        p_mac: String(c.mac ?? ""), p_usuario: String(c.usuario ?? ""), p_senha_enc: senha ? await cifrarTv(senha) : null,
+        p_dns: c.dns_id || null, p_nome: String(c.nome ?? "").slice(0, 80), p_obs: String(c.observacao ?? "").slice(0, 200),
+      };
+      // chamado com o login de quem usa o painel, para valer as regras de dono/revendedor do banco
+      const r = await fetch(`${SB}/rest/v1/rpc/tv_salvar`, { method: "POST", headers: { apikey: KEY, authorization: req.headers.get("authorization") ?? "", "content-type": "application/json" }, body: JSON.stringify(corpo), signal: AbortSignal.timeout(12000) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) return json({ erro: String(j?.message ?? "Não foi possível salvar a TV.") }, r.status === 400 ? 400 : 403);
+      return json(j);
     }
     return json({ erro: "ação desconhecida" }, 400);
   } catch (e) {

@@ -69,6 +69,31 @@ async function registrarAcesso(u: string, aparelho: string | null, evento: "logi
     _usr.delete(u);
   } catch { /* o painel não pode derrubar o app */ }
 }
+// ---------- TVs: MAC gerado para o aparelho e cadastro feito no painel ----------
+type Tv = { mac: string; usuario: string | null; senha_enc: string | null; dns_id: string | null; bloqueado: boolean; atualizado: string };
+async function tvDoAparelho(d: string | null): Promise<Tv | null> {
+  if (!d) return null;
+  try {
+    const r = await fetch(`${SB()}/rest/v1/rpc/tv_do_aparelho`, { method: "POST", headers: sbh(), body: JSON.stringify({ p_aparelho: d }), signal: AbortSignal.timeout(5000) });
+    const j = await r.json();
+    return Array.isArray(j) && j[0] ? (j[0] as Tv) : null;
+  } catch { return null; }
+}
+let _kt: CryptoKey | null = null;
+async function senhaDaTv(enc: string): Promise<string | null> {
+  try {
+    if (!_kt) _kt = await crypto.subtle.importKey("raw", await crypto.subtle.digest("SHA-256", new TextEncoder().encode("tv-senha:" + SBK())), "AES-GCM", false, ["decrypt"]);
+    const raw = Uint8Array.from(atob(enc.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+    return new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: raw.slice(0, 12) }, _kt, raw.slice(12)));
+  } catch { return null; }
+}
+async function fixarDnsDoUsuario(u: string, dnsId: string | null) {
+  if (!dnsId) return;
+  try {
+    await fetch(`${SB()}/rest/v1/usuarios_app?usuario=eq.${encodeURIComponent(u)}`, { method: "PATCH", headers: sbh(), body: JSON.stringify({ dns_id: dnsId }), signal: AbortSignal.timeout(4000) });
+    _usr.delete(u);
+  } catch { /* segue com a DNS atual */ }
+}
 const rgba = (hex: string, a: number) => {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex ?? ""); if (!m) return null;
   const n = parseInt(m[1], 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
@@ -103,15 +128,15 @@ async function chave() {
   _chave = await crypto.subtle.importKey("raw", h, "AES-GCM", false, ["encrypt", "decrypt"]);
   return _chave;
 }
-async function criarToken(u: string, p: string) {
+async function criarToken(u: string, p: string, v?: number) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const dados = new TextEncoder().encode(JSON.stringify({ u, p, e: Date.now() + VALIDADE_MS }));
+  const dados = new TextEncoder().encode(JSON.stringify({ u, p, v, e: Date.now() + VALIDADE_MS }));
   const c = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await chave(), dados));
   const t = new Uint8Array(iv.length + c.length);
   t.set(iv); t.set(c, iv.length);
   return b64(t);
 }
-type Cred = { u: string; p: string; b?: string; bloq?: boolean };
+type Cred = { u: string; p: string; b?: string; bloq?: boolean; v?: number };
 async function lerToken(t: string | null): Promise<Cred | null> {
   if (!t) return null;
   try {
@@ -120,7 +145,7 @@ async function lerToken(t: string | null): Promise<Cred | null> {
     const o = JSON.parse(new TextDecoder().decode(d));
     if (!(o.e > Date.now())) return null;
     const x = await infoUsuario(o.u);
-    return { u: o.u, p: o.p, b: x.b, bloq: x.bloq };
+    return { u: o.u, p: o.p, v: o.v, b: x.b, bloq: x.bloq };
   } catch {
     return null;
   }
@@ -369,7 +394,7 @@ function aviso(titulo: string, msg: string, voltar?: unknown[]) {
   return lista(titulo, [{ title: msg, action: "none" }, ...(voltar ?? [])], "0,0,12,1");
 }
 // Tela única de login: à esquerda o QR code / código para entrar pelo celular, à direita usuário e senha na TV.
-function telaLogin(codigo: string | null, d: string | null, msg?: string, u = "", p = "", auto = false) {
+function telaLogin(codigo: string | null, d: string | null, msg?: string, u = "", p = "", auto = false, mac = "") {
   const link = codigo ? `${PAGINA_CELULAR}?c=${codigo}` : PAGINA_CELULAR;
   const qr = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=2&data=${encodeURIComponent(link)}`;
   const base = (o: Record<string, string>) => (d ? { ...o, d } : o);
@@ -386,7 +411,7 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
       { id: "qr", type: "default", layout: "0,1,3,3", color: "#FFFFFF", image: qr, imageFiller: "fit", action: "none" },
       { type: "default", layout: "3,1,3,2", color: COR.destaque, titleHeader: "PELO CELULAR  ·  CÓDIGO", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Vale 10 min. A TV entra sozinha.", action: "none" },
       { type: "default", layout: "3,3,3,1", color: COR.vidro, title: "Novo código", titleFooter: "Gerar outro QR code", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
-      { type: "default", layout: "0,4,6,1", color: COR.vidro, titleHeader: "OU ACESSE NO NAVEGADOR DO CELULAR", title: PAGINA_CELULAR.replace("https://", "").replace(/\/$/, ""), action: "none" },
+      { type: "default", layout: "0,4,6,1", color: COR.vidro, titleHeader: "MAC DESTA TV  ·  INFORME AO SUPORTE PARA LIBERAR", title: mac || "indisponível", action: "none" },
       // ---- divisória ----
       { type: "space", layout: "6,2,1,2", title: "ou", alignment: "center", centration: "title" },
       // ---- lado direito: usuário e senha na TV ----
@@ -407,12 +432,17 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
         focus: pronto, execute: auto && pronto,
         action: pronto ? go(base({ a: "login", u, p })) : "warn:Preencha o usuário e a senha",
       },
+      { id: "atualizar", type: "default", layout: "7,4,5,1", color: COR.vidro, title: "Atualizar", titleFooter: "Buscar novidades do painel", action: go(base({ a: "inicio", x: Date.now() })) },
     ] }],
   };
 }
-const telaCelular = (codigo: string | null, d: string | null, msg?: string) => telaLogin(codigo, d, msg);
+async function telaCelular(codigo: string | null, d: string | null, msg?: string, tv?: Tv | null) {
+  const mac = (tv ?? (await tvDoAparelho(d)))?.mac ?? "";
+  return telaLogin(codigo, d, msg, "", "", false, mac);
+}
 async function telaEntrar(msg?: string, d?: string | null, u = "", p = "", auto = false) {
-  return telaLogin(await codigoDoAparelho(d ?? null), d ?? null, msg, u, p, auto);
+  const mac = (await tvDoAparelho(d ?? null))?.mac ?? "";
+  return telaLogin(await codigoDoAparelho(d ?? null), d ?? null, msg, u, p, auto, mac);
 }
 
 async function paginar(
@@ -539,6 +569,34 @@ async function tratar(url: URL) {
   const d = idOk(url.searchParams.get("d"));
 
   if (a === "inicio") {
+    if (url.searchParams.get("x")) { _cfgT = 0; _usr.clear(); _base.clear(); await carregarConfig(); } // botão Atualizar
+    // TV cadastrada no painel (MAC + usuário + senha + DNS): entra sozinha; o painel manda no cadastro
+    const tv = await tvDoAparelho(d);
+    if (tv?.usuario && tv.senha_enc) {
+      if (tv.bloqueado) return telaCelular(await codigoDoAparelho(d), d, "Esta TV está bloqueada. Fale com o suporte.", tv);
+      const ver = Date.parse(tv.atualizado);
+      const tk0 = await lerSessao(d);
+      const cr0 = await lerToken(tk0);
+      if (tk0 && cr0 && cr0.v === ver && cr0.u === tv.usuario) {
+        if (cr0.bloq) return telaCelular(await codigoDoAparelho(d), d, "Acesso bloqueado. Fale com o suporte.", tv);
+        await registrarAcesso(cr0.u, d, "sessao");
+        return await home(tk0!, cr0.u, d);
+      }
+      const senha = await senhaDaTv(tv.senha_enc);
+      const x = await infoUsuario(tv.usuario);
+      if (x.bloq) return telaCelular(await codigoDoAparelho(d), d, "Acesso bloqueado. Fale com o suporte.", tv);
+      const base = (await baseDoDns(tv.dns_id)) ?? x.b;
+      let info;
+      try { info = senha ? await api({ u: tv.usuario, p: senha, b: base }) : null; }
+      catch { return telaCelular(await codigoDoAparelho(d), d, "Servidor indisponível agora. Toque em Atualizar para tentar de novo.", tv); }
+      if (!info?.user_info || Number(info.user_info.auth) !== 1) return telaCelular(await codigoDoAparelho(d), d, "O cadastro desta TV está com usuário ou senha inválidos. Fale com o suporte.", tv);
+      const exp = info.user_info.exp_date ? new Date(Number(info.user_info.exp_date) * 1000).toLocaleDateString("pt-BR") : "sem data";
+      await registrarAcesso(tv.usuario, d, "login");
+      await fixarDnsDoUsuario(tv.usuario, tv.dns_id);
+      const tk = await criarToken(tv.usuario, senha!, ver);
+      await salvarSessao(d, tk);
+      return await home(tk, `${tv.usuario} · vence ${exp}`, d);
+    }
     const tk = await lerSessao(d);
     const cr = await lerToken(tk);
     if (tk && cr) {
