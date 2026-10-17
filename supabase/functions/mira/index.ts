@@ -417,6 +417,9 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
   const logo = x.stream_icon || undefined;
   const lista = `panel:${SELF()}?${q({ a: "painel", t, c, cn, s: x.stream_id })}`;
   const ativo = painel && String(x.stream_id) === atual;
+  const ehFav = !!favs?.has(String(x.stream_id));
+  const favAcao = `panel:${SELF()}?${q({ a: "fav", t, c, cn, s: x.stream_id, n: nome, i: String(x.stream_icon ?? "") })}`;
+  const inicioAcao = `[quiet|${go({ a: "home", t })}]`;
   const visual = painel
     ? { color: ativo ? VID.ouro : VID.n }
     : { image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)", icon: logo ? undefined : "live-tv", iconSize: "small", color: VID.n };
@@ -439,10 +442,16 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
       "trigger:start": "player:button:content:focus",
       "trigger:back": "quiet",
       "control:retune": "retain",
+      "button:forward:key": "red",
+      "button:eject:icon": ehFav ? "favorite" : "favorite-border",
+      "button:eject:action": favAcao,
+      "button:eject:key": "green",
+      "button:speed:icon": "home",
+      "button:speed:action": inicioAcao,
+      "button:speed:key": "yellow",
       "button:forward:icon": "apps",
       "button:forward:action": `panel:${SELF()}?${q({ a: "pcats", t, s: x.stream_id })}`,
       "button:rewind:display": false,
-      "button:speed:display": false,
     },
   };
 }
@@ -586,18 +595,13 @@ async function tratar(url: URL) {
     const nParam = url.searchParams.get("n") ?? "", iParam = url.searchParams.get("i") ?? "";
     const atualCanal: any = todos.find((x: any) => String(x.stream_id) === s) ?? (a === "fav" && nParam ? { name: nParam, stream_id: s, stream_icon: iParam } : undefined);
     const alternar = atualCanal ? `panel:${SELF()}?${q({ a: "fav", t, c, cn, s, n: limparNome(String(atualCanal.name)), i: String(atualCanal.stream_icon ?? "") })}` : "none";
-    const inicioItem = {
-      title: "⌂  INÍCIO", titleFooter: "Parar e voltar para Canais, Filmes e Séries", key: "blue",
-      color: VID.voltar,
-      action: `[quiet|${go({ a: "home", t })}]`,
-    };
     const canais = todos.map((x: any, i: number) => ({ x, i })).filter((o: any) => o.i !== idx)
       .map((o: any) => ({ ...canalItem(o.x, cred, t, c, true, s, cn, o.i + 1, ep.get(String(o.x.stream_id)), favs), focus: undefined }));
     const fixo = atualCanal ? [{ ...canalItem(atualCanal, cred, t, c, true, s, cn, idx + 1, ep.get(s), favs), action: "back", focus: true, ...(avisoFav ? { titleFooter: "Canal " + avisoFav } : {}) }] : [];
     return {
-      type: "list", transparent: 2, headline: "Canais  {col:msx-red}●{col:msx-white-soft} Categorias  {col:msx-green}●{col:msx-white-soft} Favoritar  {col:msx-blue}●{col:msx-white-soft} Início ",
+      type: "list", transparent: 2, headline: "Canais  {col:msx-red}●{col:msx-white-soft} Categorias  {col:msx-green}●{col:msx-white-soft} Favoritar  {col:msx-yellow}●{col:msx-white-soft} Início ",
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [{ ...navegar, focus: !atualCanal ? true : undefined }, inicioItem, ...(atualCanal ? [{ title: "♥  FAVORITAR CANAL", titleFooter: avisoFav ? "Canal " + avisoFav : "Marca ou desmarca o canal que está tocando", key: "green", color: VID.voltar, action: alternar }] : []), ...fixo, ...canais],
+      items: [{ ...navegar, focus: !atualCanal ? true : undefined }, ...fixo, ...canais],
     };
   }
 
