@@ -423,7 +423,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
   return {
     title: (ativo ? "▶  " : "") + (favs?.has(String(x.stream_id)) ? CORACAO : "") + nome, titleFooter: guia.linha || "TV Ao Vivo", truncation: "title|titleFooter",
     ...visual,
-    focus: ativo ? true : undefined, enumerate: true,
+    focus: ativo ? true : undefined, enumerate: !painel,
     playerLabel: nome,
     action: tocar("live", cred, x.stream_id, "ts", "o canal"),
     properties: {
@@ -578,7 +578,7 @@ async function tratar(url: URL) {
     const ids = [s, ...perto.map((x: any) => String(x.stream_id)).filter((i: string) => i !== s)];
     const ep = await epgVarios(cred, ids, 1200);
     const navegar = {
-      title: "Categorias", key: "red", display: false,
+      title: "‹   CATEGORIAS", titleFooter: `Atual: ${cn || "Todos os canais"}`, key: "red",
       color: VID.voltar,
       action: `panel:${SELF()}?${q({ a: "pcats", t, s })}`,
     };
@@ -587,7 +587,7 @@ async function tratar(url: URL) {
     const atualCanal: any = todos.find((x: any) => String(x.stream_id) === s) ?? (a === "fav" && nParam ? { name: nParam, stream_id: s, stream_icon: iParam } : undefined);
     const alternar = atualCanal ? `panel:${SELF()}?${q({ a: "fav", t, c, cn, s, n: limparNome(String(atualCanal.name)), i: String(atualCanal.stream_icon ?? "") })}` : "none";
     const inicioItem = {
-      title: "Início", key: "blue", display: false,
+      title: "⌂  INÍCIO", titleFooter: "Parar e voltar para Canais, Filmes e Séries", key: "blue",
       color: VID.voltar,
       action: `[quiet|${go({ a: "home", t })}]`,
     };
@@ -595,9 +595,9 @@ async function tratar(url: URL) {
       .map((o: any) => ({ ...canalItem(o.x, cred, t, c, true, s, cn, o.i + 1, ep.get(String(o.x.stream_id)), favs), focus: undefined }));
     const fixo = atualCanal ? [{ ...canalItem(atualCanal, cred, t, c, true, s, cn, idx + 1, ep.get(s), favs), action: "back", focus: true, ...(avisoFav ? { titleFooter: "Canal " + avisoFav } : {}) }] : [];
     return {
-      type: "list", headline: "Canais  {col:msx-red}•{col:msx-white-soft}Categorias  {col:msx-green}•{col:msx-white-soft}Favoritar  {col:msx-blue}•{col:msx-white-soft}Início ",
+      type: "list", transparent: 2, headline: "Canais  {col:msx-red}●{col:msx-white-soft} Categorias  {col:msx-green}●{col:msx-white-soft} Favoritar  {col:msx-blue}●{col:msx-white-soft} Início ",
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [{ ...navegar, focus: !atualCanal ? true : undefined }, inicioItem, ...(atualCanal ? [{ title: "Favoritar", key: "green", display: false, color: VID.voltar, action: alternar }] : []), ...fixo, ...canais],
+      items: [{ ...navegar, focus: !atualCanal ? true : undefined }, inicioItem, ...(atualCanal ? [{ title: "♥  FAVORITAR CANAL", titleFooter: avisoFav ? "Canal " + avisoFav : "Marca ou desmarca o canal que está tocando", key: "green", color: VID.voltar, action: alternar }] : []), ...fixo, ...canais],
     };
   }
 
@@ -612,7 +612,7 @@ async function tratar(url: URL) {
       action: `panel:${SELF()}?${q({ a: "painel", t, c: cid, cn: cid ? nome : "", s })}`,
     });
     return {
-      type: "list", headline: "Categorias", extension: `${lst.length}`,
+      type: "list", transparent: 2, headline: "Categorias", extension: `${lst.length}`,
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
       items: [item("Todos os canais", ""), { ...item("FAVORITOS", "fav", CORACAO + "FAVORITOS"), titleFooter: "Seus canais favoritos" }, ...lst.map((x: any) => item(limparNome(String(x.category_name)), String(x.category_id)))],
     };
