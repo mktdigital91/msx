@@ -412,9 +412,9 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
       { type: "space", layout: "0,1,3,3", offset: "0,0.4,0,-0.15", image: IMG + "login-qr.png", imageFiller: "cover" },
       { id: "qr", type: "default", layout: "0,1,3,3", offset: "0.15,0.57,-0.3,-0.45", color: "transparent", image: qr, imageFiller: "fit", action: "none" },
       { type: "space", layout: "3,1,3,2", offset: "0,0.4,0,-0.15", image: IMG + "login-codigo.png", imageFiller: "cover" },
-      { type: "default", layout: "3,1,3,2", offset: "0,0.4,0,-0.15", color: "transparent", alignment: "center", centration: "title", title: codigo ? codigo.split("").join(" ") : "indisponível", action: "none" },
+      { type: "default", layout: "3,1,3,2", offset: "0,0.4,0,-0.55", color: "transparent", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Código · vale 10 min", action: "none" },
       { type: "space", layout: "3,3,3,1", offset: "-0.1,0.38,0.2,0.15", image: IMG + "login-novo.png", imageFiller: "fit" },
-      { type: "default", layout: "3,3,3,1", offset: "-0.1,0.38,0.2,0.15", color: "transparent", alignment: "center", title: "Novo código", titleFooter: "Gerar outro QR code", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
+      { type: "default", layout: "3,3,3,1", offset: "-0.1,0.27,0.2,0.15", color: "transparent", alignment: "center", title: "Novo código", titleFooter: "Gerar outro QR code", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
       { type: "space", layout: "0,5,6,1", text: `{col:msx-white-soft}Número do MAC: {col:msx-white}${mac || "indisponível"}` },
       // ---- divisória ----
       { type: "space", layout: "6,2,1,2", offset: "0,0.4,0,0", title: "ou", alignment: "center", centration: "title" },
