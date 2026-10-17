@@ -220,33 +220,8 @@ function cartaoSvg(k: string, titulo: string, sub: string, icone: string, retrat
 // URL da imagem de um cartão
 const cartao = (k: string, t: string, s = "", i = "play", retrato = false) => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "img", k, t: limparNome(t).slice(0, 70), s, i, ...(retrato ? { f: "p" } : {}) }).toString()}`;
 
-// botão de vidro arredondado (mesmo estilo da tela inicial): base escura translúcida, brilho, sombra e um tom de cor à direita.
-// O nome vem por cima, em texto do MSX. Cada variante tem a proporção do bloco onde é usado, para os cantos não serem cortados.
-const VARIANTES: Record<string, { W: number; H: number; rx: number }> = {
-  c: { W: 1400, H: 200, rx: 56 },  // categorias (6x1)
-  w: { W: 1600, H: 190, rx: 54 },  // linhas largas (8x1)
-  p: { W: 1320, H: 140, rx: 44 },  // lista dentro do player
-  q: { W: 880, H: 200, rx: 56 },   // canais (4x1)
-  t: { W: 600, H: 900, rx: 54 },   // cartaz (2x3)
-};
-function faixaSvg(_k: string, _semente: string, icone: string, ativo = false, v = "c") {
-  // vidro sem cor e sem filtros (a TV desenha filtro de sombra como um retângulo): base escura translúcida, brilho no topo, borda fina e ícone discreto
-  const { W, H, rx } = VARIANTES[v] ?? VARIANTES.c;
-  const ic = ICONES[icone] ?? ICONES.play;
-  const m = 6, x = m, y = m, w = W - 2 * m, hh = H - 2 * m;
-  const lado = Math.min(hh, w * 0.6) * 0.72, sc = lado / 24;
-  const ix = x + w - lado - hh * 0.18, iy = y + (hh - lado) / 2;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs>`
-    + `<linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A2F55" stop-opacity="${ativo ? 0.62 : 0.46}"/><stop offset="1" stop-color="#0B0D1E" stop-opacity="${ativo ? 0.55 : 0.4}"/></linearGradient>`
-    + `<linearGradient id="l" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="${ativo ? 0.22 : 0.14}"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/></linearGradient>`
-    + `<clipPath id="c"><rect x="${x}" y="${y}" width="${w}" height="${hh}" rx="${rx}"/></clipPath></defs>`
-    + `<g clip-path="url(#c)"><rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="url(#b)"/><rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="url(#l)"/>`
-    + `<g transform="translate(${ix} ${iy}) scale(${sc})" fill="#fff" fill-opacity="${ativo ? 0.2 : 0.1}"><path d="${ic}"/></g></g>`
-    + `<rect x="${x + 1}" y="${y + 1}" width="${w - 2}" height="${hh - 2}" rx="${rx - 1}" fill="none" stroke="#fff" stroke-opacity="${ativo ? 0.55 : 0.28}" stroke-width="2"/></svg>`;
-}
-// botões de vidro: PNGs estáticos (msx/img/tile-*.png), sem chamar a função a cada botão
+// botões de vidro retos: só cor do MSX (sem imagem), mais leve e sem cantos aparecendo atrás
 const VID = { n: "rgba(10,12,28,0.62)", ouro: "rgba(245,180,0,0.32)", voltar: "rgba(6,7,14,0.88)" };
-const _faixaAntiga = (_k: string, _semente: string, _icone: string, ativo = false, v = "c") => `${IMG}tile-${VARIANTES[v] ? v : "c"}${ativo ? "-a" : ""}.png`;
 
 const SELF = () => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira`;
 const q = (o: Record<string, string | number>) =>
@@ -350,7 +325,6 @@ async function paginar(
   const itens = todos.slice(ini, ini + POR_PAGINA).map(montar) as any[];
   if (itens.length) itens[0] = { ...itens[0], focus: true }; // foco no 1º item, não no botão de categorias
   const total = Math.ceil(todos.length / POR_PAGINA);
-  const vv = layout.startsWith("0,0,2,3") ? "t" : layout.startsWith("0,0,4,1") ? "q" : "c";
   if (ini + POR_PAGINA < todos.length) itens.push({ title: "Próxima página", titleFooter: `${pg + 2} de ${total}`, color: VID.n, action: proxima(pg + 1) });
   if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${total}`, color: VID.n, action: proxima(pg - 1) });
   if (!todos.length) itens.push({ title: "Nada encontrado", action: "none" });
@@ -787,7 +761,6 @@ async function jogoSvg(g: URLSearchParams) {
 const timeTxt = (t: Time) => [t.nome, t.sigla, t.cor, t.gols, t.venceu ? "1" : ""].join("|");
 const jogoImg = (j: Jogo) => `${SELF()}?${q({
   a: "jg", k: j.estado, s: j.status, l: j.liga, h: timeTxt(j.casa), f: timeTxt(j.fora), c: j.transmissao,
-  ...(j.casa.logo ? { lh: j.casa.logo } : {}), ...(j.fora.logo ? { lf: j.fora.logo } : {}),
 })}`;
 
 // cartão de abertura da faixa de jogos
@@ -969,10 +942,6 @@ Deno.serve(async (req: Request) => {
       const g = u0.searchParams;
       const svg = cartaoSvg(g.get("k") ?? "live", g.get("t") ?? "", g.get("s") ?? "", g.get("i") ?? "play", g.get("f") === "p");
       return new Response(svg, { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
-    }
-    if (req.method === "GET" && u0.searchParams.get("a") === "bg") {
-      const g = u0.searchParams;
-      return new Response(faixaSvg(g.get("k") ?? "live", g.get("n") ?? "", g.get("i") ?? "play", g.get("x") === "1", g.get("v") ?? "c"), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
     }
     if (req.method === "GET" && (u0.searchParams.get("a") === "jg" || u0.searchParams.get("a") === "jr")) {
       const g = u0.searchParams;
