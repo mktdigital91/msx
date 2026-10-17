@@ -194,9 +194,9 @@ async function apagarSessao(d: string | null) {
   try { await fetch(`${REST()}?aparelho=eq.${encodeURIComponent(d)}`, { method: "DELETE", headers: cab(), signal: AbortSignal.timeout(8000) }); } catch { /* ignora */ }
 }
 
-// ---------- pareamento pelo celular (código de 6 letras/números, vale 10 min) ----------
+// ---------- pareamento pelo celular (código de 6 letras/números, vale 24 h) ----------
 const REST_COD = () => `${Deno.env.get("SUPABASE_URL")}/rest/v1/pareamentos`;
-const VALIDADE_COD_MS = 10 * 60 * 1000;
+const VALIDADE_COD_MS = 24 * 3600 * 1000;
 const ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 function novoCodigo() {
   const b = crypto.getRandomValues(new Uint8Array(6));
@@ -412,7 +412,7 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
       { type: "space", layout: "0,1,3,3", offset: "0,0.4,0,-0.15", image: IMG + "login-qr.png", imageFiller: "cover" },
       { id: "qr", type: "default", layout: "0,1,3,3", offset: "0.15,0.57,-0.3,-0.45", color: "transparent", image: qr, imageFiller: "fit", action: "none" },
       { type: "space", layout: "3,1,3,2", offset: "0,0.4,0,-0.15", image: IMG + "login-codigo.png", imageFiller: "cover" },
-      { type: "default", layout: "3,1,3,2", offset: "0,0.4,0,-0.55", color: "transparent", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Código · vale 10 min", action: "none" },
+      { type: "default", layout: "3,1,3,2", offset: "0,0.45,0,-0.3", color: "transparent", titleHeader: "Código celular:", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Válido por: 24h", action: "none" },
       { type: "space", layout: "3,3,3,1", offset: "-0.1,0.38,0.2,0.15", image: IMG + "login-novo.png", imageFiller: "fit" },
       { type: "default", layout: "3,3,3,1", offset: "-0.1,0.27,0.2,0.15", color: "transparent", alignment: "center", title: "Novo código", titleFooter: "Gerar outro QR code", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
       { type: "space", layout: "0,5,6,1", text: `{col:msx-white-soft}Número do MAC: {col:msx-white}${mac || "indisponível"}` },
