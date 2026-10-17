@@ -410,7 +410,8 @@ function textoEpg(v: Prog[] | undefined) {
 }
 
 // ---------- TV ao vivo dentro do player: OK abre a lista de canais (com EPG) por cima do vídeo ----------
-function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string, painel = false, atual = "", cn = "", n = 0, epg?: Prog[]) {
+const CORACAO = "{col:msx-red}♥{col:msx-white}  ";
+function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string, painel = false, atual = "", cn = "", n = 0, epg?: Prog[], favs?: Set<string>) {
   const nome = limparNome(String(x.name));
   const guia = textoEpg(epg);
   const logo = x.stream_icon || undefined;
@@ -420,7 +421,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
     ? { color: ativo ? VID.ouro : VID.n }
     : { image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)", icon: logo ? undefined : "live-tv", iconSize: "small", color: VID.n };
   return {
-    title: ativo ? "▶  " + nome : nome, titleFooter: guia.linha || (ativo ? "Ao vivo agora" : "Ao vivo"), truncation: "title|titleFooter",
+    title: (ativo ? "▶  " : "") + (favs?.has(String(x.stream_id)) ? CORACAO : "") + nome, titleFooter: guia.linha || (ativo ? "Ao vivo agora" : "Ao vivo"), truncation: "title|titleFooter",
     ...visual,
     focus: ativo ? true : undefined, enumerate: true,
     playerLabel: nome,
@@ -525,7 +526,7 @@ async function tratar(url: URL) {
     const linha = (nome: string, ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, color: VID.n, action: go({ a: "itens", k: tipoQ, t, c: cid, cn: cid ? nome : "" }) });
     const itens: any[] = [
       { ...linha("Todos", "apps", "", `Todo o catálogo de ${T.nome.toLowerCase()}`), focus: true },
-      ...(tipoQ === "live" ? [{ ...linha("★  FAVORITOS", "star", "fav", "Seus canais favoritos"), title: "★  FAVORITOS", color: VID.ouro }] : []),
+      ...(tipoQ === "live" ? [{ ...linha("FAVORITOS", "star", "fav", "Seus canais favoritos"), title: CORACAO + "FAVORITOS" }] : []),
       ...lst.map((x: any) => { const nome = limparNome(String(x.category_name)); return linha(nome, iconeDoNome(nome, "play"), x.category_id, T.nome); }),
     ];
     return lista(T.nome, itens, "0,0,6,1", {}, `${lst.length} categorias`, tipoQ);
@@ -538,7 +539,8 @@ async function tratar(url: URL) {
     const prox = (n: number) => go({ a: "itens", k: tipoQ, t, c, cn: url.searchParams.get("cn") ?? "", pg: n });
     if (tipoQ === "live") {
       const ep = await epgVarios(cred, todos.slice(pg * POR_PAGINA, (pg + 1) * POR_PAGINA).map((x: any) => String(x.stream_id)));
-      return paginar("Canais", todos, pg, (x) => canalItem(x, cred, t, c, false, "", url.searchParams.get("cn") ?? "", 0, ep.get(String(x.stream_id))), prox, "0,0,4,1", tipoQ);
+      const favs = new Set((await favoritosDe(cred.u)).map((f) => f.stream_id));
+      return paginar("Canais", todos, pg, (x) => canalItem(x, cred, t, c, false, "", url.searchParams.get("cn") ?? "", 0, ep.get(String(x.stream_id)), favs), prox, "0,0,4,1", tipoQ);
     }
     if (tipoQ === "vod") {
       return paginar("Filmes", todos, pg, (x) => {
@@ -580,25 +582,22 @@ async function tratar(url: URL) {
       color: VID.voltar,
       action: `panel:${SELF()}?${q({ a: "pcats", t, s })}`,
     };
-    const atualCanal = todos.find((x: any) => String(x.stream_id) === s);
-    const eFav = (await favoritosDe(cred.u)).some((f) => f.stream_id === s);
-    const favItem = atualCanal ? {
-      title: eFav ? "★  REMOVER DOS FAVORITOS" : "☆  FAVORITAR ESTE CANAL", titleFooter: avisoFav ? `Canal ${avisoFav}` : limparNome(String(atualCanal.name)), key: "green",
-      color: eFav ? VID.ouro : VID.voltar,
-      action: `panel:${SELF()}?${q({ a: "fav", t, c, cn, s, n: limparNome(String(atualCanal.name)), i: String(atualCanal.stream_icon ?? "") })}`,
-    } : null;
+    const favs = new Set((await favoritosDe(cred.u)).map((f) => f.stream_id));
+    const nParam = url.searchParams.get("n") ?? "", iParam = url.searchParams.get("i") ?? "";
+    const atualCanal: any = todos.find((x: any) => String(x.stream_id) === s) ?? (a === "fav" && nParam ? { name: nParam, stream_id: s, stream_icon: iParam } : undefined);
+    const alternar = atualCanal ? `panel:${SELF()}?${q({ a: "fav", t, c, cn, s, n: limparNome(String(atualCanal.name)), i: String(atualCanal.stream_icon ?? "") })}` : "none";
     const inicioItem = {
       title: "⌂  INÍCIO", titleFooter: "Parar e voltar para Canais, Filmes e Séries", key: "blue",
       color: VID.voltar,
       action: `[quiet|${go({ a: "home", t })}]`,
     };
     const canais = todos.map((x: any, i: number) => ({ x, i })).filter((o: any) => o.i !== idx)
-      .map((o: any) => ({ ...canalItem(o.x, cred, t, c, true, s, cn, o.i + 1, ep.get(String(o.x.stream_id))), focus: undefined }));
-    const fixo = idx >= 0 ? [{ ...canalItem(todos[idx], cred, t, c, true, s, cn, idx + 1, ep.get(s)), focus: avisoFav ? undefined : true }] : [];
+      .map((o: any) => ({ ...canalItem(o.x, cred, t, c, true, s, cn, o.i + 1, ep.get(String(o.x.stream_id)), favs), focus: undefined }));
+    const fixo = atualCanal ? [{ ...canalItem(atualCanal, cred, t, c, true, s, cn, idx + 1, ep.get(s), favs), key: "green", action: alternar, focus: true, ...(avisoFav ? { titleFooter: "Canal " + avisoFav } : {}) }] : [];
     return {
-      type: "list", headline: "Canais", extension: "{col:msx-red}●{col:msx-white-soft} Categorias   {col:msx-green}●{col:msx-white-soft} Favoritar   {col:msx-blue}●{col:msx-white-soft} Início",
+      type: "list", headline: "Canais  {col:msx-red}●{col:msx-white-soft} Categorias  {col:msx-green}●{col:msx-white-soft} Favoritar  {col:msx-blue}●{col:msx-white-soft} Início ",
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [{ ...navegar, focus: idx < 0 && !avisoFav ? true : undefined }, ...(favItem ? [{ ...favItem, focus: avisoFav ? true : undefined }] : []), inicioItem, ...fixo, ...canais],
+      items: [{ ...navegar, focus: !atualCanal ? true : undefined }, inicioItem, ...fixo, ...canais],
     };
   }
 
@@ -607,15 +606,15 @@ async function tratar(url: URL) {
     const s = url.searchParams.get("s") ?? "";
     const cats = await api(cred, "&action=get_live_categories");
     const lst = Array.isArray(cats) ? cats : [];
-    const item = (nome: string, cid: string) => ({
-      title: nome, titleFooter: "TV ao vivo", truncation: "title",
+    const item = (nome: string, cid: string, titulo = nome) => ({
+      title: titulo, titleFooter: "TV ao vivo", truncation: "title",
       color: VID.n,
       action: `panel:${SELF()}?${q({ a: "painel", t, c: cid, cn: cid ? nome : "", s })}`,
     });
     return {
       type: "list", headline: "Categorias", extension: `${lst.length}`,
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [item("Todos os canais", ""), { ...item("★  FAVORITOS", "fav"), titleFooter: "Seus canais favoritos", color: VID.ouro }, ...lst.map((x: any) => item(limparNome(String(x.category_name)), String(x.category_id)))],
+      items: [item("Todos os canais", ""), { ...item("FAVORITOS", "fav", CORACAO + "FAVORITOS"), titleFooter: "Seus canais favoritos" }, ...lst.map((x: any) => item(limparNome(String(x.category_name)), String(x.category_id)))],
     };
   }
 
