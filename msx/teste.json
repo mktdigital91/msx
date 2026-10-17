@@ -1,0 +1,6 @@
+{
+    "name": "Gold Play (teste direto)",
+    "version": "0.0.1",
+    "parameter": "content:request:interaction:init@https://mktdigital91.github.io/msx/msx/direto.html",
+    "welcome": "none"
+}
