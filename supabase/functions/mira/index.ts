@@ -405,14 +405,14 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
     type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-tv.jpg",
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
-      { type: "space", layout: "4,0,4,1", image: LOGO, imageFiller: "fit" },
-      { type: "space", layout: "0,5,12,1", headline: "Entrar no Gold Play", text: msg ?? "Escaneie o QR code com o celular ou digite seu usuário e senha aqui na TV." },
+      { type: "space", layout: "4,0,4,1", offset: "0,-0.3,0,-0.15", image: LOGO, imageFiller: "fit" },
+      { type: "space", layout: "0,0,12,1", offset: "0,0.68,0,-0.68", alignment: "center", centration: "text", text: msg ?? "Escaneie o QR code com o celular ou digite seu usuário e senha aqui na TV." },
       { id: "atualizar", type: "default", layout: "10,0,2,1", image: IMG + "btn-atualizar.png", imageFiller: "fit", color: "transparent", action: go(base({ a: "inicio", x: Date.now() })) },
       // ---- lado esquerdo: pelo celular ----
       { id: "qr", type: "default", layout: "0,1,3,3", color: "#FFFFFF", image: qr, imageFiller: "fit", action: "none" },
       { type: "default", layout: "3,1,3,2", color: COR.destaque, titleHeader: "PELO CELULAR  ·  CÓDIGO", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Vale 10 min. A TV entra sozinha.", action: "none" },
       { type: "default", layout: "3,3,3,1", color: COR.vidro, title: "Novo código", titleFooter: "Gerar outro QR code", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
-      { type: "default", layout: "0,4,6,1", color: COR.vidro, titleHeader: "MAC DESTA TV  ·  INFORME AO SUPORTE PARA LIBERAR", title: mac || "indisponível", action: "none" },
+      { type: "space", layout: "0,5,6,1", text: `{col:msx-white-soft}MAC desta TV · informe ao suporte para liberar{br}{col:msx-white}${mac || "indisponível"}` },
       // ---- divisória ----
       { type: "space", layout: "6,2,1,2", title: "ou", alignment: "center", centration: "title" },
       // ---- lado direito: usuário e senha na TV ----
