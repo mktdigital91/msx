@@ -130,6 +130,36 @@ async function aparelhoDoCodigo(codigo: string): Promise<string | null> {
 async function apagarCodigo(codigo: string) {
   try { await fetch(`${REST_COD()}?codigo=eq.${encodeURIComponent(codigo)}`, { method: "DELETE", headers: cab(), signal: AbortSignal.timeout(8000) }); } catch { /* ignora */ }
 }
+// ---------- favoritos (por usuário do provedor) ----------
+const REST_FAV = () => `${Deno.env.get("SUPABASE_URL")}/rest/v1/favoritos`;
+type Fav = { stream_id: string; name: string; stream_icon?: string };
+async function favoritosDe(u: string): Promise<Fav[]> {
+  try {
+    const r = await fetch(`${REST_FAV()}?usuario=eq.${encodeURIComponent(u)}&select=stream_id,nome,icone&order=criado.desc&limit=400`, { headers: cab(), signal: AbortSignal.timeout(6000) });
+    const j = await r.json();
+    return Array.isArray(j) ? j.map((x: any) => ({ stream_id: String(x.stream_id), name: String(x.nome), stream_icon: x.icone || undefined })) : [];
+  } catch { return []; }
+}
+// liga/desliga o favorito; devolve true se agora é favorito
+async function alternarFavorito(u: string, id: string, nome: string, icone: string): Promise<boolean> {
+  try {
+    const ja = (await favoritosDe(u)).some((f) => f.stream_id === id);
+    if (ja) {
+      await fetch(`${REST_FAV()}?usuario=eq.${encodeURIComponent(u)}&stream_id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: cab(), signal: AbortSignal.timeout(6000) });
+      return false;
+    }
+    await fetch(`${REST_FAV()}?on_conflict=usuario,stream_id`, { method: "POST", headers: { ...cab(), prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ usuario: u, stream_id: id, nome: nome.slice(0, 120), icone: icone.slice(0, 400) }), signal: AbortSignal.timeout(6000) });
+    return true;
+  } catch { return false; }
+}
+// o painel só conhece o token; o aparelho (para o botão Sair) é achado pela sessão guardada
+async function aparelhoDoToken(t: string): Promise<string | null> {
+  try {
+    const r = await fetch(`${REST()}?token=eq.${encodeURIComponent(t)}&select=aparelho&limit=1`, { headers: cab(), signal: AbortSignal.timeout(6000) });
+    const j = await r.json();
+    return Array.isArray(j) && j[0] ? (j[0].aparelho as string) : null;
+  } catch { return null; }
+}
 const PLUGIN = "https://mktdigital91.github.io/msx/msx/mira.html";
 const PAGINA_CELULAR = "https://mktdigital91.github.io/msx/entrar/";
 
@@ -475,7 +505,7 @@ async function tratar(url: URL) {
   const t = url.searchParams.get("t")!;
   const c = url.searchParams.get("c") ?? "";
 
-  if (a === "home") return await home(t, cred.u, d);
+  if (a === "home") return await home(t, cred.u, d ?? (await aparelhoDoToken(t)));
   if (a === "jogos") return await telaJogos(t);
   if (a === "jogo") return await telaJogo(cred, t, url.searchParams.get("n1") ?? "", url.searchParams.get("n2") ?? "");
 
@@ -493,8 +523,9 @@ async function tratar(url: URL) {
     const lst = Array.isArray(cats) ? cats : [];
     // visual transparente (o vídeo/fundo aparece por trás), como o usuário preferiu
     const linha = (nome: string, ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, color: VID.n, action: go({ a: "itens", k: tipoQ, t, c: cid, cn: cid ? nome : "" }) });
-    const itens = [
+    const itens: any[] = [
       { ...linha("Todos", "apps", "", `Todo o catálogo de ${T.nome.toLowerCase()}`), focus: true },
+      ...(tipoQ === "live" ? [{ ...linha("★  FAVORITOS", "star", "fav", "Seus canais favoritos"), title: "★  FAVORITOS", color: VID.ouro }] : []),
       ...lst.map((x: any) => { const nome = limparNome(String(x.category_name)); return linha(nome, iconeDoNome(nome, "play"), x.category_id, T.nome); }),
     ];
     return lista(T.nome, itens, "0,0,6,1", {}, `${lst.length} categorias`, tipoQ);
@@ -502,7 +533,7 @@ async function tratar(url: URL) {
 
   if (a === "itens") {
     if (!T) return aviso("Gold Play", "Seção desconhecida");
-    const dados = await api(cred, `&action=${T.itens}${c ? "&category_id=" + encodeURIComponent(c) : ""}`);
+    const dados = c === "fav" && tipoQ === "live" ? await favoritosDe(cred.u) : await api(cred, `&action=${T.itens}${c && c !== "fav" ? "&category_id=" + encodeURIComponent(c) : ""}`);
     const todos = Array.isArray(dados) ? dados : [];
     const prox = (n: number) => go({ a: "itens", k: tipoQ, t, c, cn: url.searchParams.get("cn") ?? "", pg: n });
     if (tipoQ === "live") {
@@ -530,10 +561,15 @@ async function tratar(url: URL) {
     }, prox, "0,0,2,3", tipoQ);
   }
 
-  if (a === "painel") {
+  if (a === "painel" || a === "fav") {
     const s = url.searchParams.get("s") ?? "";
     const cn = url.searchParams.get("cn") ?? "";
-    const dados = await api(cred, `&action=get_live_streams${c ? "&category_id=" + encodeURIComponent(c) : ""}`);
+    let avisoFav = "";
+    if (a === "fav") {
+      const agoraFav = await alternarFavorito(cred.u, s, url.searchParams.get("n") ?? "Canal", url.searchParams.get("i") ?? "");
+      avisoFav = agoraFav ? "adicionado aos favoritos" : "removido dos favoritos";
+    }
+    const dados = c === "fav" ? await favoritosDe(cred.u) : await api(cred, `&action=get_live_streams${c ? "&category_id=" + encodeURIComponent(c) : ""}`);
     const todos = (Array.isArray(dados) ? dados : []).slice(0, 400);
     const idx = todos.findIndex((x: any) => String(x.stream_id) === s);
     const perto = idx >= 0 ? todos.slice(Math.max(0, idx - 4), idx + 20) : todos.slice(0, 24);
@@ -544,13 +580,25 @@ async function tratar(url: URL) {
       color: VID.voltar,
       action: `panel:${SELF()}?${q({ a: "pcats", t, s })}`,
     };
+    const atualCanal = todos.find((x: any) => String(x.stream_id) === s);
+    const eFav = (await favoritosDe(cred.u)).some((f) => f.stream_id === s);
+    const favItem = atualCanal ? {
+      title: eFav ? "★  REMOVER DOS FAVORITOS" : "☆  FAVORITAR ESTE CANAL", titleFooter: avisoFav ? `Canal ${avisoFav}` : limparNome(String(atualCanal.name)), key: "green",
+      color: eFav ? VID.ouro : VID.voltar,
+      action: `panel:${SELF()}?${q({ a: "fav", t, c, cn, s, n: limparNome(String(atualCanal.name)), i: String(atualCanal.stream_icon ?? "") })}`,
+    } : null;
+    const inicioItem = {
+      title: "⌂  INÍCIO", titleFooter: "Parar e voltar para Canais, Filmes e Séries", key: "blue",
+      color: VID.voltar,
+      action: `[quiet|${go({ a: "home", t })}]`,
+    };
     const canais = todos.map((x: any, i: number) => ({ x, i })).filter((o: any) => o.i !== idx)
       .map((o: any) => ({ ...canalItem(o.x, cred, t, c, true, s, cn, o.i + 1, ep.get(String(o.x.stream_id))), focus: undefined }));
-    const fixo = idx >= 0 ? [{ ...canalItem(todos[idx], cred, t, c, true, s, cn, idx + 1, ep.get(s)), focus: true }] : [];
+    const fixo = idx >= 0 ? [{ ...canalItem(todos[idx], cred, t, c, true, s, cn, idx + 1, ep.get(s)), focus: avisoFav ? undefined : true }] : [];
     return {
-      type: "list", headline: "Canais", extension: "{col:msx-red}●{col:msx-white-soft}  Categorias",
+      type: "list", headline: "Canais", extension: "{col:msx-red}●{col:msx-white-soft} Categorias   {col:msx-green}●{col:msx-white-soft} Favoritar   {col:msx-blue}●{col:msx-white-soft} Início",
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [{ ...navegar, focus: idx < 0 ? true : undefined }, ...fixo, ...canais],
+      items: [{ ...navegar, focus: idx < 0 && !avisoFav ? true : undefined }, ...(favItem ? [{ ...favItem, focus: avisoFav ? true : undefined }] : []), inicioItem, ...fixo, ...canais],
     };
   }
 
@@ -567,7 +615,7 @@ async function tratar(url: URL) {
     return {
       type: "list", headline: "Categorias", extension: `${lst.length}`,
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [item("Todos os canais", ""), ...lst.map((x: any) => item(limparNome(String(x.category_name)), String(x.category_id)))],
+      items: [item("Todos os canais", ""), { ...item("★  FAVORITOS", "fav"), titleFooter: "Seus canais favoritos", color: VID.ouro }, ...lst.map((x: any) => item(limparNome(String(x.category_name)), String(x.category_id)))],
     };
   }
 
