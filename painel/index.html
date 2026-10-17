@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-tema="escuro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0B0D1A">
+<title>Painel Gold Play</title>
+<link rel="icon" type="image/png" href="../entrar/logo-goldplay.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ===== temas: cada um é um conjunto de variáveis. Para criar outro, copie um bloco, troque o nome e os valores ===== */
+  :root, :root[data-tema="escuro"] {
+    --fundo: #090B18;
+    --fundo-brilho: radial-gradient(700px 520px at 12% -5%, rgba(124,92,255,.38), transparent 62%), radial-gradient(640px 520px at 100% 105%, rgba(34,211,238,.22), transparent 60%), linear-gradient(160deg, #090B18, #14103A 60%, #0B1226);
+    --vidro: rgba(255,255,255,.06); --vidro-forte: rgba(255,255,255,.10); --vidro-linha: rgba(255,255,255,.10);
+    --texto: #F5F6FF; --suave: rgba(245,246,255,.62); --apagado: rgba(245,246,255,.38);
+    --campo: rgba(255,255,255,.07); --campo-linha: rgba(255,255,255,.14);
+    --marca: #7C5CFF; --marca2: #22D3EE; --marca-clara: #B9A8FF; --sobre-marca: #FFFFFF;
+    --gradiente: linear-gradient(135deg, #7C5CFF, #5B8CFF 55%, #22D3EE);
+    --ok: #34D399; --erro: #FB7185; --aviso: #FBBF24;
+    --ok-fundo: rgba(52,211,153,.14); --erro-fundo: rgba(251,113,133,.14); --aviso-fundo: rgba(251,191,36,.14);
+    --sombra: 0 30px 80px rgba(0,0,0,.35); --sombra-botao: 0 14px 34px rgba(124,92,255,.45);
+    --foco: rgba(124,92,255,.28); --lateral: rgba(255,255,255,.04);
+    color-scheme: dark;
+  }
+  :root[data-tema="claro"] {
+    --fundo: #F4F3FF;
+    --fundo-brilho: radial-gradient(700px 520px at 12% -5%, rgba(124,92,255,.20), transparent 62%), radial-gradient(640px 520px at 100% 105%, rgba(34,211,238,.18), transparent 60%), linear-gradient(160deg, #F7F6FF, #EEF0FF 60%, #EAF6FB);
+    --vidro: rgba(255,255,255,.72); --vidro-forte: rgba(255,255,255,.95); --vidro-linha: rgba(40,30,110,.10);
+    --texto: #181538; --suave: rgba(24,21,56,.64); --apagado: rgba(24,21,56,.40);
+    --campo: rgba(255,255,255,.9); --campo-linha: rgba(40,30,110,.18);
+    --marca: #6A48F2; --marca2: #0AA9C9; --marca-clara: #5B3FE0; --sobre-marca: #FFFFFF;
+    --gradiente: linear-gradient(135deg, #6A48F2, #4F7CF0 55%, #0AA9C9);
+    --ok: #0E9F6E; --erro: #E0314B; --aviso: #B26A00;
+    --ok-fundo: rgba(14,159,110,.12); --erro-fundo: rgba(224,49,75,.10); --aviso-fundo: rgba(178,106,0,.12);
+    --sombra: 0 24px 60px rgba(50,40,120,.16); --sombra-botao: 0 12px 28px rgba(106,72,242,.35);
+    --foco: rgba(106,72,242,.22); --lateral: rgba(255,255,255,.6);
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; min-height: 100%; }
+  body { min-height: 100vh; min-height: 100dvh; background: var(--fundo-brilho) fixed; background-color: var(--fundo); color: var(--texto);
+    font: 15px/1.5 "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { margin: 0; line-height: 1.15; text-wrap: balance; letter-spacing: -.02em; }
+  h1 { font-size: 26px; font-weight: 800; }
+  h2 { font-size: 18px; font-weight: 700; }
+  h3 { font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
+  p { margin: 0; }
+  a { color: var(--marca-clara); }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  .mono { font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: .92em; }
+  .suave { color: var(--suave); }
+  :focus-visible { outline: 2px solid var(--marca); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  svg.i { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ===== estrutura ===== */
+  #app { display: grid; grid-template-columns: 252px minmax(0, 1fr); min-height: 100vh; }
+  nav.lateral { position: sticky; top: 0; height: 100vh; padding: 22px 16px; display: flex; flex-direction: column; gap: 4px;
+    background: var(--lateral); border-right: 1px solid var(--vidro-linha); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+  .marca-lateral { display: flex; align-items: center; gap: 12px; padding: 2px 10px 20px; font-weight: 800; font-size: 17px; letter-spacing: -.02em; }
+  .marca-lateral img { width: 44px; height: 44px; object-fit: contain; filter: drop-shadow(0 6px 16px rgba(124,92,255,.5)); }
+  nav.lateral a.item { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 14px; color: var(--suave); text-decoration: none; font-weight: 600; position: relative; }
+  nav.lateral a.item:hover { background: var(--vidro); color: var(--texto); }
+  nav.lateral a.item[aria-current="page"] { background: var(--vidro-forte); color: var(--texto); box-shadow: inset 0 0 0 1px var(--vidro-linha); }
+  nav.lateral a.item[aria-current="page"] svg { color: var(--marca-clara); }
+  nav.lateral a.item[aria-current="page"]::before { content: ""; position: absolute; left: -16px; top: 10px; bottom: 10px; width: 4px; border-radius: 0 4px 4px 0; background: var(--gradiente); }
+  .rodape-nav { margin-top: auto; display: grid; gap: 10px; padding: 14px 4px 0; border-top: 1px solid var(--vidro-linha); }
+  main { padding: 30px clamp(16px, 3.2vw, 44px) 70px; min-width: 0; max-width: 1220px; width: 100%; }
+  .topo { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .topo p { margin-top: 6px; max-width: 60ch; }
+  .topo .acoes { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  /* ===== componentes ===== */
+  .cartao { background: var(--vidro); border: 1px solid var(--vidro-linha); border-radius: 24px; padding: 22px; min-width: 0;
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: var(--sombra); }
+  .cartao + .cartao { margin-top: 18px; }
+  .cartao-topo { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .cartao-topo .acoes { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .grade { display: grid; gap: 16px; margin-bottom: 18px; align-items: start; }
+  #conteudo > .cartao { margin-bottom: 18px; }
+  #form-app .campo { margin-bottom: 14px; }
+  .grade.n4 { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-bottom: 18px; }
+  .grade.n2 { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
+  .numero { display: flex; gap: 14px; align-items: center; background: var(--vidro); border: 1px solid var(--vidro-linha); border-radius: 22px; padding: 18px;
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: var(--sombra); }
+  .numero .ico { width: 46px; height: 46px; border-radius: 15px; background: var(--gradiente); color: #fff; display: grid; place-items: center; flex: none; box-shadow: var(--sombra-botao); }
+  .numero b { display: block; font-size: 28px; font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
+  .numero span { color: var(--suave); font-size: 13px; font-weight: 500; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--vidro-linha); background: var(--vidro-forte); border-radius: 14px; padding: 10px 16px; font-weight: 600; cursor: pointer; text-decoration: none; }
+  .btn:hover { border-color: var(--marca-clara); }
+  .btn:active { transform: scale(.985); }
+  .btn.principal { border: 0; background: var(--gradiente); color: var(--sobre-marca); box-shadow: var(--sombra-botao); font-weight: 700; }
+  .btn.principal:hover { filter: brightness(1.08); }
+  .btn.perigo { color: var(--erro); }
+  .btn.pequeno { padding: 6px 12px; font-size: 13px; border-radius: 11px; }
+  .btn.largo { width: 100%; height: 54px; border-radius: 18px; font-size: 16.5px; }
+  .btn[disabled] { opacity: .55; cursor: default; box-shadow: none; }
+  .pilula { display: inline-flex; align-items: center; gap: 6px; padding: 3px 11px; border-radius: 99px; font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+  .pilula::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .pilula.ok { color: var(--ok); background: var(--ok-fundo); }
+  .pilula.erro { color: var(--erro); background: var(--erro-fundo); }
+  .pilula.aviso { color: var(--aviso); background: var(--aviso-fundo); }
+  .pilula.neutra { color: var(--suave); background: var(--vidro-forte); }
+  .selo { display: inline-block; padding: 2px 9px; border-radius: 8px; font-size: 12px; font-weight: 700; background: var(--gradiente); color: #fff; }
+  .tabela-rolagem { overflow-x: auto; margin: 0 -6px; padding: 0 6px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 12.5px; font-weight: 600; color: var(--suave); padding: 8px 12px; border-bottom: 1px solid var(--vidro-linha); white-space: nowrap; }
+  td { padding: 13px 12px; border-bottom: 1px solid var(--vidro-linha); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  td.acoes { text-align: right; white-space: nowrap; }
+  td.acoes .btn + .btn { margin-left: 4px; }
+  .vazio { padding: 30px 10px; text-align: center; color: var(--suave); }
+  label.campo { display: grid; gap: 7px; font-weight: 600; font-size: 13.5px; color: var(--suave); }
+  label.campo small { color: var(--apagado); font-weight: 400; }
+  input[type=text], input[type=password], input[type=email], input[type=number], input[type=search], input[type=url], select, textarea {
+    width: 100%; min-height: 48px; background: var(--campo); border: 1.5px solid var(--campo-linha); border-radius: 14px; padding: 10px 14px; color: var(--texto); transition: border-color .15s, box-shadow .15s, background .15s; }
+  select option { color: #181538; background: #fff; }
+  input::placeholder { color: var(--apagado); }
+  input[type=color] { width: 58px; height: 48px; padding: 3px; background: var(--campo); border: 1.5px solid var(--campo-linha); border-radius: 14px; cursor: pointer; }
+  input:focus, select:focus, textarea:focus { border-color: var(--marca); outline: none; box-shadow: 0 0 0 4px var(--foco); }
+  .linha-campos { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .opcao { display: flex; gap: 12px; align-items: center; font-weight: 600; color: var(--texto); }
+  .opcao input { width: 20px; height: 20px; accent-color: var(--marca); flex: none; }
+  .campo-icone { position: relative; }
+  .campo-icone > svg { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: var(--suave); pointer-events: none; }
+  .campo-icone input { padding-left: 48px; height: 56px; border-radius: 16px; font-size: 16.5px; font-weight: 500; }
+
+  /* batimentos: uma barra por checagem; a altura segue o tempo de resposta; falha vira barra cheia vermelha */
+  .batidas { display: flex; align-items: flex-end; gap: 2px; height: 28px; }
+  .batidas i { flex: 1 1 0; min-width: 3px; max-width: 7px; border-radius: 3px; background: var(--ok); opacity: .9; }
+  .batidas i.falha { background: var(--erro); opacity: 1; height: 100% !important; }
+  .batidas i.vaz { background: var(--vidro-linha); height: 4px !important; }
+  .dns-linha { display: grid; grid-template-columns: minmax(160px, 1.3fr) minmax(130px, 1fr) 90px 120px; gap: 16px; align-items: center; padding: 14px 0; border-top: 1px solid var(--vidro-linha); }
+  .dns-linha:first-of-type { border-top: 0; }
+  .dns-nome { min-width: 0; overflow-wrap: anywhere; }
+  .dns-nome b { display: block; }
+
+  /* modal e aviso */
+  dialog { border: 1px solid var(--vidro-linha); border-radius: 26px; background: var(--fundo-brilho) fixed, var(--fundo); background-color: var(--fundo); color: var(--texto); padding: 0; width: min(580px, calc(100vw - 24px)); box-shadow: var(--sombra); }
+  :root[data-tema="claro"] dialog { background: #fff; }
+  dialog::backdrop { background: rgba(5,8,18,.62); backdrop-filter: blur(4px); }
+  dialog form { display: grid; gap: 16px; padding: 24px; }
+  dialog .rodape { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; flex-wrap: wrap; }
+  #avisos { position: fixed; right: 16px; bottom: 16px; display: grid; gap: 8px; z-index: 50; max-width: min(380px, calc(100vw - 32px)); }
+  .aviso-flutuante { background: var(--vidro-forte); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border: 1px solid var(--vidro-linha); border-left: 4px solid var(--marca); border-radius: 14px; padding: 12px 16px; box-shadow: var(--sombra); font-weight: 600; }
+  :root[data-tema="claro"] .aviso-flutuante { background: #fff; }
+  .aviso-flutuante.erro { border-left-color: var(--erro); }
+  .aviso-flutuante.ok { border-left-color: var(--ok); }
+  .nota { padding: 14px 16px; border-radius: 16px; background: var(--aviso-fundo); border: 1px solid color-mix(in srgb, var(--aviso) 35%, transparent); }
+  .nota.info { background: color-mix(in srgb, var(--marca) 14%, transparent); border-color: color-mix(in srgb, var(--marca) 40%, transparent); }
+  .codigo-grande { font: 600 26px/1.2 "JetBrains Mono", monospace; letter-spacing: .14em; padding: 16px; text-align: center; border-radius: 16px; background: var(--campo); border: 1.5px dashed var(--marca-clara); user-select: all; overflow-wrap: anywhere; }
+
+  /* entrar: mesmo desenho da tela que o celular abre depois do QR Code */
+  #entrar { min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center;
+    padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  #entrar .caixa { width: 100%; max-width: 430px; }
+  #entrar .logo-grande { display: block; height: 96px; width: auto; margin: 0 auto 22px; filter: drop-shadow(0 10px 30px rgba(124,92,255,.45)); }
+  #entrar .cartao { border-radius: 28px; padding: 30px 24px 26px; display: grid; gap: 14px; }
+  #entrar .cartao + .cartao { margin-top: 0; }
+  #entrar h1 { font-size: 27px; }
+  #entrar .sub { color: var(--suave); font-size: 15px; margin-top: -4px; }
+  #entrar .rodape-seguro { text-align: center; color: var(--suave); font-size: 12.5px; margin-top: 18px; display: flex; gap: 6px; justify-content: center; align-items: center; }
+  #entrar .rodape-seguro svg { width: 14px; height: 14px; }
+  .erro-form { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; padding: 12px 14px; border-radius: 14px; background: var(--erro-fundo); border: 1px solid color-mix(in srgb, var(--erro) 40%, transparent); }
+  .erro-form svg { color: var(--erro); width: 18px; height: 18px; margin-top: 1px; }
+  .girando { width: 20px; height: 20px; border-radius: 50%; border: 3px solid rgba(255,255,255,.35); border-top-color: #fff; animation: g .8s linear infinite; }
+  @keyframes g { to { transform: rotate(360deg); } }
+
+  /* personalização do app */
+  .previa { border-radius: 22px; overflow: hidden; border: 1px solid var(--vidro-linha); background: #0A0B16 center / cover; padding: 20px; display: grid; gap: 14px; min-height: 190px; }
+  .previa .logo { height: 40px; width: auto; max-width: 180px; object-fit: contain; object-position: left; }
+  .previa .nome-app { color: #fff; font-weight: 800; font-size: 20px; letter-spacing: -.02em; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
+  .previa .cartoes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .previa .cartoes div { border-radius: 16px; padding: 22px 8px; font-weight: 800; color: #fff; text-align: center; font-size: 13.5px; backdrop-filter: blur(6px); }
+  .envio { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .envio input[type=file] { display: none; }
+
+  @media (max-width: 860px) {
+    #app { grid-template-columns: 1fr; }
+    nav.lateral { position: static; height: auto; flex-direction: row; overflow-x: auto; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--vidro-linha); align-items: center; gap: 4px; }
+    .marca-lateral { padding: 0 8px 0 2px; flex: none; }
+    .marca-lateral b { display: none; }
+    nav.lateral a.item { flex: none; padding: 9px 12px; }
+    nav.lateral a.item span { display: none; }
+    nav.lateral a.item[aria-current="page"] span { display: inline; }
+    nav.lateral a.item[aria-current="page"]::before { display: none; }
+    .rodape-nav { margin: 0 0 0 auto; border: 0; padding: 0; display: flex; align-items: center; flex: none; }
+    .rodape-nav .suave, .rodape-nav label span { display: none; }
+    .dns-linha { grid-template-columns: 1fr 1fr; }
+    main { padding-top: 22px; }
+  }
+  @media (prefers-reduced-motion: no-preference) { .btn { transition: border-color .15s, filter .15s, transform .1s; } }
+</style>
+</head>
+<body>
+<div id="avisos" role="status" aria-live="polite"></div>
+<dialog id="modal"><form method="dialog" id="modal-form"></form></dialog>
+
+<!-- entrar / primeiro acesso -->
+<section id="entrar" hidden>
+  <div class="caixa">
+    <img class="logo-grande" src="../entrar/logo-goldplay.png" alt="Gold Play">
+    <form class="cartao" id="form-entrar" novalidate>
+      <h1>Painel de controle</h1>
+      <p class="sub">Entre com seu e-mail e sua senha para gerenciar o app.</p>
+      <label class="campo">E-mail
+        <span class="campo-icone"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 8l9 6 9-6"/></svg>
+        <input type="email" name="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="voce@exemplo.com" required></span></label>
+      <label class="campo">Senha
+        <span class="campo-icone"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+        <input type="password" name="senha" autocomplete="current-password" placeholder="Sua senha" required></span></label>
+      <div class="erro-form" data-erro hidden><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><span></span></div>
+      <button class="btn principal largo" type="submit"><span class="girando" hidden></span><span class="rotulo">Entrar</span></button>
+      <button class="btn" type="button" data-acao="irAtivar" style="width:100%">Tenho um código de convite</button>
+    </form>
+    <form class="cartao" id="form-ativar" hidden novalidate>
+      <h1>Primeiro acesso</h1>
+      <p class="sub">Digite o código de convite e crie seu e-mail e senha. A senha vai direto para o login seguro, sem passar por conversa.</p>
+      <label class="campo">Código de convite
+        <span class="campo-icone"><svg class="i" viewBox="0 0 24 24"><path d="M3 8a2 2 0 012-2h14a2 2 0 012 2v2a2 2 0 000 4v2a2 2 0 01-2 2H5a2 2 0 01-2-2v-2a2 2 0 000-4z"/><path d="M13 6v12" stroke-dasharray="2 3"/></svg>
+        <input type="text" name="codigo" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" required style="letter-spacing:.14em;font-weight:700"></span></label>
+      <label class="campo">Seu nome
+        <span class="campo-icone"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c.7-4 4-6 8-6s7.3 2 8 6"/></svg>
+        <input type="text" name="nome" autocomplete="name" placeholder="Como quer ser chamado"></span></label>
+      <label class="campo">E-mail
+        <span class="campo-icone"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 8l9 6 9-6"/></svg>
+        <input type="email" name="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="voce@exemplo.com" required></span></label>
+      <label class="campo">Senha <small>mínimo de 10 caracteres</small>
+        <span class="campo-icone"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+        <input type="password" name="senha" autocomplete="new-password" minlength="10" placeholder="Crie uma senha forte" required></span></label>
+      <label class="campo">Repita a senha
+        <span class="campo-icone"><svg class="i" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+        <input type="password" name="senha2" autocomplete="new-password" minlength="10" placeholder="Digite de novo" required></span></label>
+      <div class="erro-form" data-erro hidden><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg><span></span></div>
+      <button class="btn principal largo" type="submit"><span class="girando" hidden></span><span class="rotulo">Criar meu acesso</span></button>
+      <button class="btn" type="button" data-acao="irEntrar" style="width:100%">Voltar</button>
+    </form>
+    <p class="rodape-seguro"><svg class="i" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z"/></svg>Acesso restrito e protegido</p>
+  </div>
+</section>
+
+<!-- painel -->
+<div id="app" hidden>
+  <nav class="lateral" aria-label="Seções">
+    <div class="marca-lateral"><img src="../entrar/logo-goldplay.png" alt=""><b>Gold Play</b></div>
+    <a class="item" href="#/resumo" data-rota="resumo"><svg class="i" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span>Visão geral</span></a>
+    <a class="item" href="#/dns" data-rota="dns"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/></svg><span>DNS</span></a>
+    <a class="item" href="#/usuarios" data-rota="usuarios"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3.2-5.5 6.5-5.5s6 2 6.5 5.5M16 4.6a3.5 3.5 0 010 6.8M18 14.8c1.9.7 3.2 2.4 3.5 5.2"/></svg><span>Usuários</span></a>
+    <a class="item" href="#/acessos" data-rota="acessos"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Acessos</span></a>
+    <a class="item" href="#/trocas" data-rota="trocas"><svg class="i" viewBox="0 0 24 24"><path d="M17 3l4 4-4 4M21 7H8a4 4 0 00-4 4M7 21l-4-4 4-4M3 17h13a4 4 0 004-4"/></svg><span>Trocas de DNS</span></a>
+    <a class="item" href="#/app" data-rota="app"><svg class="i" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="11.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 22a10 10 0 110-20c5.5 0 10 3.6 10 8 0 3-2.5 4-5 4h-2a2 2 0 00-1 3.7c.7.5.5 2.3-2 4.3z"/></svg><span>Personalizar app</span></a>
+    <a class="item" href="#/telegram" data-rota="telegram"><svg class="i" viewBox="0 0 24 24"><path d="M22 3L2 11l7 2.5L11.5 21l3-5.5L20 20z"/></svg><span>Avisos no Telegram</span></a>
+    <a class="item" href="#/equipe" data-rota="equipe" id="nav-equipe"><svg class="i" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/></svg><span>Quem acessa</span></a>
+    <div class="rodape-nav">
+      <label class="campo" style="font-size:12.5px"><span>Aparência</span>
+        <select id="seletor-tema" aria-label="Aparência do painel" style="min-height:40px;padding:6px 10px"></select>
+      </label>
+      <div class="suave mono" id="quem" style="font-size:12px;overflow-wrap:anywhere"></div>
+      <button class="btn pequeno" data-acao="sair">Sair</button>
+    </div>
+  </nav>
+  <main id="conteudo" tabindex="-1"></main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+(function () {
+"use strict";
+var SUPABASE_URL = "https://tmaqxzqswtaejvxkqgfg.supabase.co";
+var SUPABASE_KEY = "sb_publishable_WkIeeCm56y2F-1IoxV30Jw_SCQblBHb"; // chave pública (publishable); quem protege os dados são as regras do banco
+var FN = SUPABASE_URL + "/functions/v1/";
+var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
+
+// ---------- utilidades ----------
+var $ = function (s, r) { return (r || document).querySelector(s); };
+var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+var e = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+function tempo(iso) {
+  if (!iso) return "nunca";
+  var s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return "agora";
+  if (s < 3600) return Math.floor(s / 60) + " min atrás";
+  if (s < 86400) return Math.floor(s / 3600) + " h atrás";
+  return Math.floor(s / 86400) + " d atrás";
+}
+function dataHora(iso) { return iso ? new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "-"; }
+async function q(p) { var r = await p; if (r.error) throw r.error; return r.data; }
+async function cont(p) { var r = await p; if (r.error) throw r.error; return r.count || 0; }
+function msgErro(err) {
+  var m = String((err && (err.message || err.erro)) || err || "");
+  if (/row-level security|permission denied/i.test(m)) return "Sem permissão para esta ação.";
+  if (/duplicate key|unique/i.test(m)) return "Já existe um registro igual.";
+  if (/Invalid login/i.test(m)) return "E-mail ou senha incorretos.";
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return "Sem conexão com o servidor. Tente de novo.";
+  return m || "Algo deu errado.";
+}
+function aviso(msg, tipo) {
+  var d = document.createElement("div");
+  d.className = "aviso-flutuante " + (tipo || "");
+  d.textContent = msg;
+  $("#avisos").appendChild(d);
+  setTimeout(function () { d.remove(); }, tipo === "erro" ? 7000 : 4200);
+}
+async function copiar(txt) {
+  try { await navigator.clipboard.writeText(txt); aviso("Copiado.", "ok"); }
+  catch (_) { aviso("Selecione o texto e copie manualmente.", "erro"); }
+}
+
+// ---------- aparência do painel ----------
+var TEMAS = { escuro: "Escuro Gold Play", claro: "Claro" };
+function aplicarTema(t) {
+  if (!TEMAS[t]) t = "escuro";
+  document.documentElement.setAttribute("data-tema", t);
+  try { localStorage.setItem("gp-tema", t); } catch (_) {}
+  var sel = $("#seletor-tema"); if (sel) sel.value = t;
+  var m = $('meta[name="theme-color"]'); if (m) m.setAttribute("content", t === "claro" ? "#F4F3FF" : "#0B0D1A");
+}
+function iniciarTema() {
+  var sel = $("#seletor-tema");
+  sel.innerHTML = Object.keys(TEMAS).map(function (k) { return '<option value="' + k + '">' + e(TEMAS[k]) + "</option>"; }).join("");
+  sel.addEventListener("change", function () { aplicarTema(sel.value); });
+  var t = "escuro"; try { t = localStorage.getItem("gp-tema") || "escuro"; } catch (_) {}
+  aplicarTema(t);
+}
+
+// ---------- janelas ----------
+function janela(titulo, corpo, opc) {
+  opc = opc || {};
+  var f = $("#modal-form");
+  f.innerHTML = "<h2>" + e(titulo) + "</h2>" + corpo +
+    '<div class="rodape"><button class="btn" type="button" data-fechar>' + (opc.semSalvar ? "Fechar" : "Cancelar") + "</button>" +
+    (opc.semSalvar ? "" : '<button class="btn ' + (opc.perigo ? "perigo" : "principal") + '" type="submit">' + e(opc.salvar || "Salvar") + "</button>") + "</div>";
+  f.onsubmit = async function (ev) {
+    ev.preventDefault();
+    var b = f.querySelector('button[type="submit"]'); if (b) b.disabled = true;
+    try {
+      var dados = {}; new FormData(f).forEach(function (v, k) { dados[k] = v; });
+      $$('input[type="checkbox"]', f).forEach(function (c) { dados[c.name] = c.checked; });
+      var r = opc.aoEnviar ? await opc.aoEnviar(dados, f) : true;
+      if (r !== false) $("#modal").close();
+    } catch (err) { aviso(msgErro(err), "erro"); }
+    finally { if (b) b.disabled = false; }
+  };
+  f.querySelector("[data-fechar]").onclick = function () { $("#modal").close(); };
+  if (opc.aoAbrir) opc.aoAbrir(f);
+  $("#modal").showModal();
+  var p = f.querySelector("input:not([type=hidden]):not([readonly]),select,textarea"); if (p && !opc.semFoco) p.focus();
+}
+function confirmar(titulo, texto, rotulo, aoConfirmar, perigo) {
+  janela(titulo, '<p class="suave">' + texto + "</p>", { salvar: rotulo, perigo: perigo !== false, aoEnviar: aoConfirmar });
+}
+
+// ---------- chamadas ao servidor ----------
+async function chamarFn(nome, corpo, query) {
+  var s = (await sb.auth.getSession()).data.session;
+  if (!s) throw new Error("Sessão expirada. Entre de novo.");
+  var r = await fetch(FN + nome + (query || ""), { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + s.access_token, apikey: SUPABASE_KEY }, body: JSON.stringify(corpo || {}) });
+  var j = {}; try { j = await r.json(); } catch (_) {}
+  if (!r.ok) throw new Error(j.erro || "Falha na chamada (" + r.status + ").");
+  return j;
+}
+
+// ---------- estado ----------
+var S = { user: null, perfil: null, rota: "resumo", timer: null, cache: {}, codigoTg: null };
+var ehAdmin = function () { return S.perfil && S.perfil.papel === "admin"; };
+var donoPadrao = function () { return ehAdmin() ? null : S.user.id; };
+
+// ---------- entrar ----------
+function mostrarEntrar() {
+  S.user = null; S.perfil = null; clearInterval(S.timer);
+  $("#app").hidden = true; $("#entrar").hidden = false;
+  $("#form-entrar").hidden = false; $("#form-ativar").hidden = true;
+}
+function erroForm(form, msg) {
+  var d = $("[data-erro]", form);
+  if (!msg) { d.hidden = true; return; }
+  $("span", d).textContent = msg; d.hidden = false;
+}
+function carregandoForm(form, sim) {
+  var b = $('button[type="submit"]', form);
+  b.disabled = !!sim; $(".girando", b).hidden = !sim; $(".rotulo", b).hidden = !!sim;
+}
+async function carregarPerfil(user) {
+  var r = await sb.from("perfis").select("*").eq("user_id", user.id).maybeSingle();
+  if (r.error || !r.data || !r.data.ativo) { await sb.auth.signOut(); throw new Error("Esta conta não tem acesso ao painel."); }
+  return r.data;
+}
+async function abrirPainel(user) {
+  S.user = user; S.perfil = await carregarPerfil(user);
+  $("#entrar").hidden = true; $("#app").hidden = false;
+  $("#quem").textContent = (S.perfil.nome ? S.perfil.nome + " · " : "") + S.perfil.email;
+  $("#nav-equipe").hidden = !ehAdmin();
+  clearInterval(S.timer);
+  S.timer = setInterval(function () { if (!$("#modal").open && ["resumo", "dns", "trocas"].indexOf(S.rota) >= 0 && !document.hidden) rotear(true); }, 30000);
+  if (!location.hash) location.hash = "#/resumo"; else rotear();
+}
+$("#form-entrar").addEventListener("submit", async function (ev) {
+  ev.preventDefault(); var f = ev.target; erroForm(f, "");
+  var email = f.email.value.trim(), senha = f.senha.value;
+  if (!email || !senha) return erroForm(f, "Preencha o e-mail e a senha.");
+  carregandoForm(f, true);
+  try {
+    var r = await sb.auth.signInWithPassword({ email: email, password: senha });
+    if (r.error) throw r.error;
+    await abrirPainel(r.data.user); f.senha.value = "";
+  } catch (err) { erroForm(f, msgErro(err)); }
+  finally { carregandoForm(f, false); }
+});
+$("#form-ativar").addEventListener("submit", async function (ev) {
+  ev.preventDefault(); var f = ev.target; erroForm(f, "");
+  if (f.senha.value !== f.senha2.value) return erroForm(f, "As senhas não são iguais.");
+  carregandoForm(f, true);
+  try {
+    var r = await fetch(FN + "ativar", { method: "POST", headers: { "content-type": "application/json", apikey: SUPABASE_KEY }, body: JSON.stringify({ codigo: f.codigo.value, nome: f.nome.value, email: f.email.value, senha: f.senha.value }) });
+    var j = {}; try { j = await r.json(); } catch (_) {}
+    if (!r.ok) throw new Error(j.erro || "Não foi possível criar o acesso.");
+    var l = await sb.auth.signInWithPassword({ email: f.email.value.trim(), password: f.senha.value });
+    if (l.error) throw l.error;
+    f.senha.value = f.senha2.value = "";
+    await abrirPainel(l.data.user);
+    aviso("Acesso criado. Bem-vindo!", "ok");
+  } catch (err) { erroForm(f, msgErro(err)); }
+  finally { carregandoForm(f, false); }
+});
+
+// ---------- peças de tela ----------
+function cab(titulo, sub, acoes) {
+  return '<div class="topo"><div><h1>' + e(titulo) + "</h1>" + (sub ? '<p class="suave">' + sub + "</p>" : "") + '</div><div class="acoes">' + (acoes || "") + "</div></div>";
+}
+function ico(nome) {
+  var d = {
+    dns: '<rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/>',
+    users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3.2-5.5 6.5-5.5s6 2 6.5 5.5M16 4.6a3.5 3.5 0 010 6.8M18 14.8c1.9.7 3.2 2.4 3.5 5.2"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    swap: '<path d="M17 3l4 4-4 4M21 7H8a4 4 0 00-4 4M7 21l-4-4 4-4M3 17h13a4 4 0 004-4"/>'
+  }[nome];
+  return '<svg class="i" viewBox="0 0 24 24">' + d + "</svg>";
+}
+function pilulaDns(d) {
+  if (!d.ativo) return '<span class="pilula neutra">Desativada</span>';
+  if (!d.ultima_checagem) return '<span class="pilula neutra">Aguardando</span>';
+  if (d.status === "online") return '<span class="pilula ok">Online</span>';
+  if (d.status === "offline") return '<span class="pilula erro">Offline' + (d.falhas_seguidas > 1 ? " (" + d.falhas_seguidas + "x)" : "") + "</span>";
+  return '<span class="pilula neutra">Sem dados</span>';
+}
+function batidas(lista) {
+  var N = 30, pad = Math.max(0, N - lista.length), h = '<div class="batidas" aria-label="Últimas checagens">';
+  var max = 200; lista.forEach(function (c) { if (c.ok && c.latencia_ms > max) max = c.latencia_ms; });
+  for (var i = 0; i < pad; i++) h += '<i class="vaz"></i>';
+  lista.forEach(function (c) {
+    if (!c.ok) h += '<i class="falha" title="' + e(dataHora(c.em)) + ' · falhou"></i>';
+    else h += '<i style="height:' + Math.round(28 + 62 * Math.min(1, (c.latencia_ms || 0) / max)) + '%" title="' + e(dataHora(c.em)) + " · " + (c.latencia_ms || 0) + ' ms"></i>';
+  });
+  return h + "</div>";
+}
+function urlDns(d) { return d.protocolo + "://" + d.host + (d.porta ? ":" + d.porta : ""); }
+function nomeDns(d) { return d ? (d.nome ? d.nome + " (" + d.host + ")" : d.host) : "DNS removida"; }
+function carregando(el) { el.innerHTML = '<div class="cartao"><div class="vazio">Carregando…</div></div>'; }
+
+// ---------- visão geral ----------
+async function vResumo(el) {
+  var desde = new Date(Date.now() - 864e5).toISOString();
+  var r = await Promise.all([
+    q(sb.from("grupos").select("*").order("criado")),
+    q(sb.from("dns").select("*").order("prioridade")),
+    q(sb.from("dns_checks").select("dns_id,ok,latencia_ms,em").order("em", { ascending: false }).limit(900)),
+    cont(sb.from("usuarios_app").select("*", { count: "exact", head: true })),
+    cont(sb.from("usuarios_app").select("*", { count: "exact", head: true }).gte("ultimo_acesso", desde)),
+    cont(sb.from("acessos").select("*", { count: "exact", head: true }).eq("evento", "login").gte("em", desde)),
+    cont(sb.from("trocas").select("*", { count: "exact", head: true }).eq("status", "aguardando")),
+    q(sb.from("acessos").select("usuario,evento,em,dns_id").order("em", { ascending: false }).limit(8))
+  ]);
+  var grupos = r[0], dns = r[1], checks = r[2], nUsers = r[3], nAtivos = r[4], nLogins = r[5], nPend = r[6], ult = r[7];
+  var porDns = {}; checks.slice().reverse().forEach(function (c) { (porDns[c.dns_id] = porDns[c.dns_id] || []).push(c); });
+  var mapa = {}; dns.forEach(function (d) { mapa[d.id] = d; });
+  var on = dns.filter(function (d) { return d.ativo && d.status === "online"; }).length;
+  var tot = dns.filter(function (d) { return d.ativo; }).length;
+  var h = cab("Visão geral", "O que está acontecendo no app agora.", '<button class="btn" data-acao="verificarTudo">Verificar DNS agora</button>');
+  h += '<div class="grade n4">' +
+    '<div class="numero"><div class="ico">' + ico("dns") + "</div><div><b>" + on + " de " + tot + "</b><span>DNS online</span></div></div>" +
+    '<div class="numero"><div class="ico">' + ico("users") + "</div><div><b>" + nUsers + "</b><span>usuários, " + nAtivos + " ativos em 24 h</span></div></div>" +
+    '<div class="numero"><div class="ico">' + ico("clock") + "</div><div><b>" + nLogins + "</b><span>logins nas últimas 24 h</span></div></div>" +
+    '<div class="numero"><div class="ico">' + ico("swap") + "</div><div><b>" + nPend + "</b><span>" + (nPend === 1 ? "troca aguardando decisão" : "trocas aguardando decisão") + "</span></div></div></div>";
+  if (nPend) h += '<div class="nota info" style="margin-bottom:18px">Há trocas de DNS esperando sua decisão. <a href="#/trocas">Abrir trocas</a></div>';
+  h += '<div class="grade n2">';
+  if (!grupos.length) h += '<div class="cartao"><div class="vazio">Nenhum servidor cadastrado ainda. <a href="#/dns">Cadastrar DNS</a></div></div>';
+  grupos.forEach(function (g) {
+    var lista = dns.filter(function (d) { return d.grupo_id === g.id; });
+    var ativa = mapa[g.dns_ativa_id];
+    h += '<section class="cartao"><div class="cartao-topo"><div><h2>' + e(g.nome) + '</h2><span class="suave">Em uso: <span class="mono">' + e(ativa ? ativa.host : "nenhuma") + "</span></span></div>" +
+      '<span class="pilula ' + (g.auto_troca ? "ok" : "neutra") + '">Troca automática ' + (g.auto_troca ? "ligada" : "desligada") + "</span></div>";
+    if (!lista.length) h += '<div class="vazio">Sem DNS neste servidor.</div>';
+    lista.forEach(function (d) {
+      h += '<div class="dns-linha"><div class="dns-nome"><b>' + e(d.nome || d.host) + '</b><span class="mono suave">' + e(d.host) + "</span></div>" +
+        batidas(porDns[d.id] || []) + '<span class="mono suave">' + (d.latencia_ms != null && d.status === "online" ? d.latencia_ms + " ms" : "-") + "</span><div>" + pilulaDns(d) + "</div></div>";
+    });
+    h += "</section>";
+  });
+  h += "</div>";
+  h += '<section class="cartao"><div class="cartao-topo"><h2>Últimos acessos</h2><a href="#/acessos">Ver todos</a></div>';
+  if (!ult.length) h += '<div class="vazio">Ninguém entrou ainda. Os acessos aparecem aqui assim que o app registrar o primeiro login.</div>';
+  else h += '<div class="tabela-rolagem"><table><thead><tr><th>Usuário</th><th>Evento</th><th>DNS</th><th>Quando</th></tr></thead><tbody>' +
+    ult.map(function (a) { return "<tr><td>" + e(a.usuario) + "</td><td>" + e(a.evento === "login" ? "Login" : "Sessão") + '</td><td class="mono">' + e(mapa[a.dns_id] ? mapa[a.dns_id].host : "-") + '</td><td class="suave">' + e(tempo(a.em)) + "</td></tr>"; }).join("") + "</tbody></table></div>";
+  h += "</section>";
+  el.innerHTML = h;
+}
+
+// ---------- DNS ----------
+async function vDns(el) {
+  var r = await Promise.all([
+    q(sb.from("grupos").select("*").order("criado")),
+    q(sb.from("dns").select("*").order("prioridade")),
+    q(sb.from("usuarios_app").select("dns_id").limit(20000))
+  ]);
+  var grupos = r[0], dns = r[1], qtd = {};
+  r[2].forEach(function (u) { if (u.dns_id) qtd[u.dns_id] = (qtd[u.dns_id] || 0) + 1; });
+  S.cache.grupos = grupos; S.cache.dns = dns; S.cache.qtd = qtd;
+  var h = cab("DNS", "Cada servidor reúne as DNS que levam à mesma lista. Se uma cair, os usuários podem ir para outra do mesmo servidor.",
+    '<button class="btn" data-acao="verificarTudo">Verificar agora</button><button class="btn principal" data-acao="novoGrupo">Novo servidor</button>');
+  if (!grupos.length) h += '<div class="cartao"><div class="vazio">Nenhum servidor ainda. Crie um servidor e adicione as DNS dele.</div></div>';
+  grupos.forEach(function (g) {
+    var lista = dns.filter(function (d) { return d.grupo_id === g.id; });
+    h += '<section class="cartao"><div class="cartao-topo"><div><h2>' + e(g.nome) + '</h2><span class="suave">' +
+      (g.auto_troca ? "Troca automática após " + g.falhas_para_trocar + " falhas seguidas" : "Troca automática desligada") + "</span></div>" +
+      '<div class="acoes"><button class="btn pequeno" data-acao="novoDns" data-id="' + g.id + '">Adicionar DNS</button>' +
+      '<button class="btn pequeno" data-acao="trocarMassa" data-id="' + g.id + '">Trocar em massa</button>' +
+      '<button class="btn pequeno" data-acao="editarGrupo" data-id="' + g.id + '">Editar servidor</button>' +
+      '<button class="btn pequeno perigo" data-acao="excluirGrupo" data-id="' + g.id + '">Excluir</button></div></div>';
+    if (!lista.length) h += '<div class="vazio">Nenhuma DNS neste servidor.</div>';
+    else {
+      h += '<div class="tabela-rolagem"><table><thead><tr><th>DNS</th><th>Estado</th><th>Resposta</th><th>Usuários</th><th>Prioridade</th><th></th></tr></thead><tbody>';
+      lista.forEach(function (d) {
+        var ativa = g.dns_ativa_id === d.id;
+        h += "<tr><td><b>" + e(d.nome || d.host) + (ativa ? ' <span class="selo">principal</span>' : "") + '</b><br><span class="mono suave">' + e(urlDns(d)) + "</span></td>" +
+          "<td>" + pilulaDns(d) + (d.ultimo_erro && d.status === "offline" ? '<br><span class="suave" style="font-size:12px">' + e(String(d.ultimo_erro).slice(0, 70)) + "</span>" : "") + "</td>" +
+          '<td class="mono">' + (d.status === "online" && d.latencia_ms != null ? d.latencia_ms + " ms" : "-") + "</td>" +
+          "<td>" + (qtd[d.id] || 0) + "</td><td>" + d.prioridade + "</td>" +
+          '<td class="acoes"><button class="btn pequeno" data-acao="testarDns" data-id="' + d.id + '">Testar</button>' +
+          (ativa ? "" : '<button class="btn pequeno" data-acao="tornarPrincipal" data-id="' + d.id + '">Tornar principal</button>') +
+          '<button class="btn pequeno" data-acao="editarDns" data-id="' + d.id + '">Editar</button>' +
+          '<button class="btn pequeno" data-acao="alternarAtivo" data-id="' + d.id + '">' + (d.ativo ? "Desativar" : "Ativar") + "</button>" +
+          '<button class="btn pequeno perigo" data-acao="excluirDns" data-id="' + d.id + '">Excluir</button></td></tr>';
+      });
+      h += "</tbody></table></div>";
+    }
+    h += "</section>";
+  });
+  el.innerHTML = h;
+}
+function normalizarHost(txt) {
+  var s = String(txt || "").trim().toLowerCase(), proto = null;
+  var m = /^(https?):\/\//.exec(s); if (m) { proto = m[1]; s = s.slice(m[0].length); }
+  s = s.split("/")[0].split("?")[0];
+  var p = /:(\d{1,5})$/.exec(s), porta = null; if (p) { porta = parseInt(p[1], 10); s = s.slice(0, -p[0].length); }
+  return { host: s, proto: proto, porta: porta };
+}
+async function garantirAtiva(grupoId) {
+  var g = await q(sb.from("grupos").select("*").eq("id", grupoId).maybeSingle());
+  if (!g) return;
+  var lista = await q(sb.from("dns").select("*").eq("grupo_id", grupoId).eq("ativo", true).order("prioridade"));
+  var atual = lista.filter(function (d) { return d.id === g.dns_ativa_id; })[0];
+  if (atual) return;
+  var melhor = lista.filter(function (d) { return d.status === "online"; })[0] || lista[0] || null;
+  await q(sb.from("grupos").update({ dns_ativa_id: melhor ? melhor.id : null }).eq("id", grupoId));
+}
+function formDns(d) {
+  d = d || { protocolo: "http", prioridade: 100, ativo: true };
+  return '<label class="campo">Nome <small>só para você reconhecer</small><input type="text" name="nome" maxlength="60" value="' + e(d.nome || "") + '" placeholder="Ex.: DNS 1"></label>' +
+    '<label class="campo">Endereço (DNS)<input type="text" name="host" required value="' + e(d.host || "") + '" placeholder="exemplo.site" autocapitalize="none" spellcheck="false"></label>' +
+    '<div class="linha-campos"><label class="campo">Protocolo<select name="protocolo"><option value="http"' + (d.protocolo === "http" ? " selected" : "") + '>http</option><option value="https"' + (d.protocolo === "https" ? " selected" : "") + '>https</option></select></label>' +
+    '<label class="campo">Porta <small>vazio = padrão</small><input type="number" name="porta" min="1" max="65535" value="' + e(d.porta || "") + '"></label>' +
+    '<label class="campo">Prioridade <small>menor vem primeiro</small><input type="number" name="prioridade" min="1" max="9999" value="' + e(d.prioridade) + '"></label></div>' +
+    '<label class="opcao"><input type="checkbox" name="ativo"' + (d.ativo ? " checked" : "") + '>DNS ativa (entra no monitoramento)</label>';
+}
+function lerFormDns(v) {
+  var n = normalizarHost(v.host);
+  if (!/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(n.host)) throw new Error("Endereço inválido. Use algo como exemplo.site.");
+  return { nome: (v.nome || "").trim() || null, host: n.host, protocolo: n.proto || v.protocolo, porta: n.porta || (v.porta ? parseInt(v.porta, 10) : null), prioridade: parseInt(v.prioridade, 10) || 100, ativo: !!v.ativo };
+}
+var acoes = {
+  irAtivar: function () { $("#form-entrar").hidden = true; $("#form-ativar").hidden = false; },
+  irEntrar: function () { $("#form-ativar").hidden = true; $("#form-entrar").hidden = false; },
+  sair: async function () { await sb.auth.signOut(); mostrarEntrar(); },
+
+  verificarTudo: async function (_, btn) {
+    btn.disabled = true;
+    try { var r = await chamarFn("monitor", {}, "?forcar=1"); aviso("Verificação concluída" + (r && r.checadas != null ? ": " + r.checadas + " DNS checadas." : "."), "ok"); await rotear(true); }
+    catch (err) { aviso(msgErro(err), "erro"); } finally { btn.disabled = false; }
+  },
+  testarDns: async function (d, btn) {
+    btn.disabled = true;
+    try {
+      await chamarFn("monitor", {}, "?forcar=1&dns=" + encodeURIComponent(d.id));
+      var x = await q(sb.from("dns").select("*").eq("id", d.id).maybeSingle());
+      aviso(x && x.status === "online" ? nomeDns(x) + " respondeu em " + x.latencia_ms + " ms." : nomeDns(x) + " não respondeu: " + (x && x.ultimo_erro || "sem detalhe"), x && x.status === "online" ? "ok" : "erro");
+      await rotear(true);
+    } catch (err) { aviso(msgErro(err), "erro"); } finally { btn.disabled = false; }
+  },
+  novoGrupo: function () {
+    janela("Novo servidor",
+      '<label class="campo">Nome do servidor<input type="text" name="nome" required maxlength="60" placeholder="Ex.: Servidor principal"></label>' +
+      '<label class="opcao"><input type="checkbox" name="auto_troca" checked>Trocar de DNS automaticamente quando uma cair</label>' +
+      '<label class="campo">Falhas seguidas antes de trocar <small>cada checagem acontece a cada minuto</small><input type="number" name="falhas_para_trocar" min="1" max="20" value="3"></label>',
+      { salvar: "Criar servidor", aoEnviar: async function (v) {
+        await q(sb.from("grupos").insert({ nome: v.nome.trim(), auto_troca: !!v.auto_troca, falhas_para_trocar: parseInt(v.falhas_para_trocar, 10) || 3 }));
+        aviso("Servidor criado.", "ok"); await rotear(true);
+      } });
+  },
+  editarGrupo: function (d) {
+    var g = S.cache.grupos.filter(function (x) { return x.id === d.id; })[0]; if (!g) return;
+    janela("Editar servidor",
+      '<label class="campo">Nome do servidor<input type="text" name="nome" required maxlength="60" value="' + e(g.nome) + '"></label>' +
+      '<label class="opcao"><input type="checkbox" name="auto_troca"' + (g.auto_troca ? " checked" : "") + '>Trocar de DNS automaticamente quando uma cair</label>' +
+      '<label class="campo">Falhas seguidas antes de trocar<input type="number" name="falhas_para_trocar" min="1" max="20" value="' + g.falhas_para_trocar + '"></label>',
+      { aoEnviar: async function (v) {
+        await q(sb.from("grupos").update({ nome: v.nome.trim(), auto_troca: !!v.auto_troca, falhas_para_trocar: parseInt(v.falhas_para_trocar, 10) || 3 }).eq("id", g.id));
+        aviso("Servidor atualizado.", "ok"); await rotear(true);
+      } });
+  },
+  excluirGrupo: function (d) {
+    var g = S.cache.grupos.filter(function (x) { return x.id === d.id; })[0]; if (!g) return;
+    confirmar("Excluir servidor", "Excluir <b>" + e(g.nome) + "</b> remove também as DNS dele. Os usuários ficam sem DNS até o próximo acesso. Isso não pode ser desfeito.", "Excluir servidor",
+      async function () { await q(sb.from("grupos").delete().eq("id", g.id)); aviso("Servidor excluído.", "ok"); await rotear(true); });
+  },
+  novoDns: function (d) {
+    janela("Adicionar DNS", formDns(), { salvar: "Adicionar", aoEnviar: async function (v) {
+      var dados = lerFormDns(v); dados.grupo_id = d.id;
+      var novo = await q(sb.from("dns").insert(dados).select().single());
+      var g = S.cache.grupos.filter(function (x) { return x.id === d.id; })[0];
+      if (g && !g.dns_ativa_id) await q(sb.from("grupos").update({ dns_ativa_id: novo.id }).eq("id", d.id));
+      aviso("DNS adicionada. O monitor checa em até 1 minuto.", "ok"); await rotear(true);
+    } });
+  },
+  editarDns: function (d) {
+    var x = S.cache.dns.filter(function (y) { return y.id === d.id; })[0]; if (!x) return;
+    janela("Editar DNS", formDns(x), { aoEnviar: async function (v) {
+      var dados = lerFormDns(v);
+      await q(sb.from("dns").update(dados).eq("id", x.id));
+      await garantirAtiva(x.grupo_id);
+      aviso("DNS atualizada.", "ok"); await rotear(true);
+    } });
+  },
+  alternarAtivo: async function (d) {
+    var x = S.cache.dns.filter(function (y) { return y.id === d.id; })[0]; if (!x) return;
+    try {
+      await q(sb.from("dns").update({ ativo: !x.ativo }).eq("id", x.id));
+      await garantirAtiva(x.grupo_id);
+      aviso(x.ativo ? "DNS desativada." : "DNS ativada.", "ok"); await rotear(true);
+    } catch (err) { aviso(msgErro(err), "erro"); }
+  },
+  tornarPrincipal: async function (d) {
+    var x = S.cache.dns.filter(function (y) { return y.id === d.id; })[0]; if (!x) return;
+    try {
+      await q(sb.from("grupos").update({ dns_ativa_id: x.id }).eq("id", x.grupo_id));
+      aviso("Esta DNS agora é a principal para novos acessos. Para mover quem já usa outra, use Trocar em massa.", "ok"); await rotear(true);
+    } catch (err) { aviso(msgErro(err), "erro"); }
+  },
+  excluirDns: function (d) {
+    var x = S.cache.dns.filter(function (y) { return y.id === d.id; })[0]; if (!x) return;
+    var n = S.cache.qtd[x.id] || 0;
+    confirmar("Excluir DNS", "Excluir <b>" + e(x.host) + "</b>?" + (n ? " " + n + " usuário(s) usam esta DNS e serão levados para outra no próximo acesso." : ""), "Excluir DNS",
+      async function () { await q(sb.from("dns").delete().eq("id", x.id)); await garantirAtiva(x.grupo_id); aviso("DNS excluída.", "ok"); await rotear(true); });
+  },
+  trocarMassa: function (d) {
+    var lista = S.cache.dns.filter(function (x) { return x.grupo_id === d.id; });
+    if (lista.length < 2) return aviso("Este servidor precisa de pelo menos 2 DNS para trocar em massa.", "erro");
+    var op = function (sel) { return lista.map(function (x) { return '<option value="' + x.id + '"' + (x.id === sel ? " selected" : "") + ">" + e(nomeDns(x)) + " — " + (S.cache.qtd[x.id] || 0) + " usuário(s)</option>"; }).join(""); };
+    var de = lista.slice().sort(function (a, b) { return (S.cache.qtd[b.id] || 0) - (S.cache.qtd[a.id] || 0); })[0];
+    var para = lista.filter(function (x) { return x.id !== de.id && x.ativo; })[0] || lista.filter(function (x) { return x.id !== de.id; })[0];
+    janela("Trocar DNS em massa",
+      '<p class="suave">Move todos os usuários que usam a DNS de origem para a DNS de destino. Eles passam a usar a nova DNS no próximo acesso.</p>' +
+      '<label class="campo">De (origem)<select name="de">' + op(de.id) + "</select></label>" +
+      '<label class="campo">Para (destino)<select name="para">' + op(para.id) + "</select></label>" +
+      '<div class="nota info" id="resumo-massa"></div>',
+      { salvar: "Trocar em massa", aoAbrir: function (f) {
+        var atualizar = function () {
+          var n = S.cache.qtd[f.de.value] || 0;
+          $("#resumo-massa", f).textContent = f.de.value === f.para.value ? "Escolha DNS diferentes." : n + " usuário(s) serão movidos.";
+        };
+        f.de.onchange = f.para.onchange = atualizar; atualizar();
+      }, aoEnviar: async function (v) {
+        if (v.de === v.para) throw new Error("Escolha DNS diferentes.");
+        var r = await q(sb.rpc("trocar_dns_em_massa", { p_de: v.de, p_para: v.para, p_motivo: "massa", p_status: "aplicada" }));
+        aviso(r.usuarios + " usuário(s) movidos.", "ok"); await rotear(true);
+      } });
+  }
+};
+
+// ---------- usuários ----------
+async function vUsuarios(el) {
+  var r = await Promise.all([
+    q(sb.from("usuarios_app").select("*").order("ultimo_acesso", { ascending: false, nullsFirst: false }).limit(2000)),
+    q(sb.from("dns").select("id,nome,host,grupo_id,ativo")),
+    q(sb.from("grupos").select("id,nome"))
+  ]);
+  S.cache.usuarios = r[0]; S.cache.dnsLista = r[1]; S.cache.grupos = r[2];
+  var h = cab("Usuários", "Quem já entrou no app. Os usuários aparecem aqui sozinhos no primeiro login; você também pode cadastrar antes.",
+    '<button class="btn principal" data-acao="novoUsuario">Novo usuário</button>');
+  h += '<section class="cartao"><div class="cartao-topo"><h2>' + r[0].length + ' usuário(s)</h2>' +
+    '<input type="search" id="filtro-usuarios" placeholder="Buscar usuário" autocomplete="off" style="max-width:300px;width:100%"></div>' +
+    '<div class="tabela-rolagem" id="tab-usuarios"></div></section>';
+  el.innerHTML = h;
+  var desenhar = function () {
+    var t = ($("#filtro-usuarios").value || "").trim().toLowerCase();
+    var mapa = {}; S.cache.dnsLista.forEach(function (d) { mapa[d.id] = d; });
+    var lista = S.cache.usuarios.filter(function (u) { return !t || u.usuario.toLowerCase().indexOf(t) >= 0; });
+    $("#tab-usuarios").innerHTML = !lista.length ? '<div class="vazio">Nenhum usuário encontrado.</div>' :
+      '<table><thead><tr><th>Usuário</th><th>DNS</th><th>Logins</th><th>Último acesso</th><th>Situação</th><th></th></tr></thead><tbody>' +
+      lista.map(function (u) {
+        return "<tr><td><b>" + e(u.usuario) + "</b>" + (u.observacao ? '<br><span class="suave" style="font-size:12px">' + e(u.observacao) + "</span>" : "") + "</td>" +
+          '<td class="mono">' + e(mapa[u.dns_id] ? mapa[u.dns_id].host : "-") + "</td><td>" + (u.logins || 0) + '</td><td class="suave">' + e(tempo(u.ultimo_acesso)) + "</td>" +
+          "<td>" + (u.bloqueado ? '<span class="pilula erro">Bloqueado</span>' : '<span class="pilula ok">Liberado</span>') + "</td>" +
+          '<td class="acoes"><button class="btn pequeno" data-acao="editarUsuario" data-id="' + e(u.usuario) + '">Editar</button>' +
+          '<button class="btn pequeno" data-acao="alternarBloqueio" data-id="' + e(u.usuario) + '">' + (u.bloqueado ? "Liberar" : "Bloquear") + "</button>" +
+          '<button class="btn pequeno perigo" data-acao="excluirUsuario" data-id="' + e(u.usuario) + '">Excluir</button></td></tr>';
+      }).join("") + "</tbody></table>";
+  };
+  $("#filtro-usuarios").addEventListener("input", desenhar); desenhar();
+}
+function opcoesDns(sel) {
+  var gr = {}; S.cache.grupos.forEach(function (g) { gr[g.id] = g.nome; });
+  return '<option value="">Automática (DNS principal do servidor)</option>' + S.cache.dnsLista.map(function (d) {
+    return '<option value="' + d.id + '"' + (d.id === sel ? " selected" : "") + ">" + e((gr[d.grupo_id] || "") + " · " + (d.nome || d.host) + " (" + d.host + ")") + "</option>";
+  }).join("");
+}
+async function grupoDaDns(id) {
+  if (!id) return null;
+  var d = S.cache.dnsLista.filter(function (x) { return x.id === id; })[0];
+  return d ? d.grupo_id : null;
+}
+Object.assign(acoes, {
+  novoUsuario: function () {
+    janela("Novo usuário",
+      '<label class="campo">Usuário do IPTV<input type="text" name="usuario" required maxlength="80" autocapitalize="none" spellcheck="false"></label>' +
+      '<label class="campo">DNS<select name="dns_id">' + opcoesDns("") + "</select></label>" +
+      '<label class="campo">Observação <small>opcional</small><input type="text" name="observacao" maxlength="120"></label>',
+      { salvar: "Cadastrar", aoEnviar: async function (v) {
+        var dnsId = v.dns_id || null;
+        await q(sb.from("usuarios_app").insert({ usuario: v.usuario.trim(), dns_id: dnsId, grupo_id: await grupoDaDns(dnsId), observacao: (v.observacao || "").trim() || null, owner_id: donoPadrao() }));
+        aviso("Usuário cadastrado.", "ok"); await rotear(true);
+      } });
+  },
+  editarUsuario: function (d) {
+    var u = S.cache.usuarios.filter(function (x) { return x.usuario === d.id; })[0]; if (!u) return;
+    janela("Editar usuário",
+      '<label class="campo">Usuário do IPTV<input type="text" value="' + e(u.usuario) + '" readonly></label>' +
+      '<label class="campo">DNS<select name="dns_id">' + opcoesDns(u.dns_id) + "</select></label>" +
+      '<label class="campo">Observação<input type="text" name="observacao" maxlength="120" value="' + e(u.observacao || "") + '"></label>' +
+      '<label class="opcao"><input type="checkbox" name="bloqueado"' + (u.bloqueado ? " checked" : "") + '>Bloqueado (não consegue entrar no app)</label>',
+      { aoEnviar: async function (v) {
+        var dnsId = v.dns_id || null;
+        await q(sb.from("usuarios_app").update({ dns_id: dnsId, grupo_id: await grupoDaDns(dnsId), observacao: (v.observacao || "").trim() || null, bloqueado: !!v.bloqueado }).eq("usuario", u.usuario));
+        aviso("Usuário atualizado.", "ok"); await rotear(true);
+      } });
+  },
+  alternarBloqueio: async function (d) {
+    var u = S.cache.usuarios.filter(function (x) { return x.usuario === d.id; })[0]; if (!u) return;
+    try { await q(sb.from("usuarios_app").update({ bloqueado: !u.bloqueado }).eq("usuario", u.usuario)); aviso(u.bloqueado ? "Usuário liberado." : "Usuário bloqueado.", "ok"); await rotear(true); }
+    catch (err) { aviso(msgErro(err), "erro"); }
+  },
+  excluirUsuario: function (d) {
+    confirmar("Excluir usuário", "Excluir <b>" + e(d.id) + "</b> do painel? O histórico de acessos dele também some. Se ele entrar de novo no app, volta a aparecer.", "Excluir usuário",
+      async function () { await q(sb.from("usuarios_app").delete().eq("usuario", d.id)); aviso("Usuário excluído.", "ok"); await rotear(true); });
+  }
+});
+
+// ---------- acessos ----------
+async function vAcessos(el) {
+  var r = await Promise.all([
+    q(sb.from("acessos").select("*").order("em", { ascending: false }).limit(300)),
+    q(sb.from("dns").select("id,host"))
+  ]);
+  var mapa = {}; r[1].forEach(function (d) { mapa[d.id] = d.host; });
+  var h = cab("Acessos", "Os 300 acessos mais recentes ao app.");
+  h += '<section class="cartao">' + (!r[0].length ? '<div class="vazio">Nenhum acesso registrado ainda.</div>' :
+    '<div class="tabela-rolagem"><table><thead><tr><th>Quando</th><th>Usuário</th><th>Evento</th><th>DNS</th><th>IP</th><th>Aparelho</th></tr></thead><tbody>' +
+    r[0].map(function (a) {
+      return '<tr><td class="suave" title="' + e(dataHora(a.em)) + '">' + e(tempo(a.em)) + "</td><td><b>" + e(a.usuario) + "</b></td><td>" + e(a.evento === "login" ? "Login" : "Sessão") +
+        '</td><td class="mono">' + e(mapa[a.dns_id] || "-") + '</td><td class="mono">' + e(a.ip || "-") + '</td><td class="suave" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + e(a.user_agent || "") + '">' + e(a.user_agent || "-") + "</td></tr>";
+    }).join("") + "</tbody></table></div>") + "</section>";
+  el.innerHTML = h;
+}
+
+// ---------- trocas ----------
+var ROTULO_TROCA = { aplicada: ["Aplicada", "aviso"], aguardando: ["Aguardando você", "aviso"], mantida: ["Mantida", "ok"], revertida: ["Revertida", "neutra"] };
+var ROTULO_MOTIVO = { auto: "Automática", manual: "Manual", massa: "Em massa", reversao: "Reversão" };
+async function vTrocas(el) {
+  var r = await Promise.all([
+    q(sb.from("trocas").select("*").order("criado", { ascending: false }).limit(100)),
+    q(sb.from("dns").select("id,host,nome")),
+    q(sb.from("grupos").select("id,nome"))
+  ]);
+  var m = {}; r[1].forEach(function (d) { m[d.id] = d; });
+  var g = {}; r[2].forEach(function (x) { g[x.id] = x.nome; });
+  var h = cab("Trocas de DNS", "Cada vez que usuários mudam de DNS, automaticamente ou por você, fica registrado aqui.");
+  h += '<section class="cartao">' + (!r[0].length ? '<div class="vazio">Nenhuma troca até agora.</div>' :
+    '<div class="tabela-rolagem"><table><thead><tr><th>Quando</th><th>Servidor</th><th>De</th><th>Para</th><th>Usuários</th><th>Origem</th><th>Situação</th><th></th></tr></thead><tbody>' +
+    r[0].map(function (t) {
+      var s = ROTULO_TROCA[t.status] || [t.status, "neutra"], pend = t.status === "aguardando" || t.status === "aplicada";
+      return '<tr><td class="suave" title="' + e(dataHora(t.criado)) + '">' + e(tempo(t.criado)) + "</td><td>" + e(g[t.grupo_id] || "-") + '</td><td class="mono">' + e(m[t.de_dns_id] ? m[t.de_dns_id].host : "removida") +
+        '</td><td class="mono">' + e(m[t.para_dns_id] ? m[t.para_dns_id].host : "removida") + "</td><td>" + (t.usuarios_afetados || 0) + "</td><td>" + e(ROTULO_MOTIVO[t.motivo] || t.motivo) +
+        '</td><td><span class="pilula ' + s[1] + '">' + e(s[0]) + "</span></td>" +
+        '<td class="acoes">' + (pend && t.motivo !== "reversao" ? '<button class="btn pequeno" data-acao="manterTroca" data-id="' + t.id + '">Manter</button><button class="btn pequeno" data-acao="reverterTroca" data-id="' + t.id + '">Voltar à antiga</button>' : "") + "</td></tr>";
+    }).join("") + "</tbody></table></div>") + "</section>";
+  el.innerHTML = h;
+}
+Object.assign(acoes, {
+  manterTroca: async function (d) {
+    try { await q(sb.rpc("decidir_troca", { p_troca: d.id, p_manter: true })); aviso("Troca mantida.", "ok"); await rotear(true); }
+    catch (err) { aviso(msgErro(err), "erro"); }
+  },
+  reverterTroca: function (d) {
+    confirmar("Voltar à DNS antiga", "Os usuários que foram movidos nesta troca voltam para a DNS anterior. Confirma?", "Voltar à antiga",
+      async function () { var r = await q(sb.rpc("decidir_troca", { p_troca: d.id, p_manter: false })); aviso(r.usuarios + " usuário(s) voltaram à DNS antiga.", "ok"); await rotear(true); }, false);
+  }
+});
+
+// ---------- personalizar app ----------
+var CORES = [
+  ["cor_tv", "TV ao vivo", "#6D5BFF"], ["cor_filmes", "Filmes", "#FF5C8A"], ["cor_series", "Séries", "#22D3EE"],
+  ["cor_vidro", "Fundo dos cartões", "#1A1D3A"], ["cor_destaque", "Destaque", "#F5C84B"]
+];
+async function vApp(el) {
+  var lista = await q(sb.from("config_app").select("*"));
+  var cfg = lista.filter(function (c) { return ehAdmin() ? c.owner_id === null : c.owner_id === S.user.id; })[0] || {};
+  S.cache.cfg = cfg;
+  var h = cab("Personalizar app", "Aparência do app na TV: nome, logo, imagem de fundo e cores. As mudanças aparecem no próximo acesso ao app.",
+    '<button class="btn principal" data-acao="salvarApp">Salvar alterações</button>');
+  h += '<div class="grade n2"><section class="cartao"><h2>Identidade</h2><form id="form-app" onsubmit="return false">' +
+    '<label class="campo">Nome do app<input type="text" name="nome_app" maxlength="40" value="' + e(cfg.nome_app || "Gold Play") + '"></label>' +
+    '<div class="campo">Logo<div class="envio"><input type="file" id="arq-logo" accept="image/png,image/jpeg,image/webp"><button type="button" class="btn pequeno" data-acao="escolher" data-id="arq-logo">Enviar imagem</button>' +
+    '<button type="button" class="btn pequeno" data-acao="limparImg" data-id="logo_url">Remover</button></div><input type="hidden" name="logo_url" value="' + e(cfg.logo_url || "") + '"></div>' +
+    '<div class="campo">Imagem de fundo<div class="envio"><input type="file" id="arq-fundo" accept="image/png,image/jpeg,image/webp"><button type="button" class="btn pequeno" data-acao="escolher" data-id="arq-fundo">Enviar imagem</button>' +
+    '<button type="button" class="btn pequeno" data-acao="limparImg" data-id="fundo_url">Remover</button></div><input type="hidden" name="fundo_url" value="' + e(cfg.fundo_url || "") + '"></div>' +
+    '<h2 style="margin-top:8px">Cores</h2><div class="linha-campos">' +
+    CORES.map(function (c) { return '<label class="campo">' + c[1] + '<input type="color" name="' + c[0] + '" value="' + e(cfg[c[0]] || c[2]) + '" style="padding:4px;height:46px"></label>'; }).join("") +
+    '</div><p class="suave" style="font-size:13px">Imagens: PNG, JPG ou WebP até 5 MB.</p></form></section>' +
+    '<section class="cartao"><h2>Prévia</h2><div class="previa" id="previa"><img class="logo" id="previa-logo" alt=""><div class="nome-app" id="previa-nome"></div><div class="cartoes"><div id="pv-tv">TV ao vivo</div><div id="pv-filmes">Filmes</div><div id="pv-series">Séries</div></div></div>' +
+    '<p class="suave" style="font-size:13px;margin-top:12px">A prévia mostra como as cores e o fundo combinam. Nada vai para o app até você salvar.</p></section></div>';
+  el.innerHTML = h;
+  var f = $("#form-app");
+  var pintar = function () {
+    var p = $("#previa");
+    p.style.backgroundImage = f.fundo_url.value ? 'linear-gradient(rgba(10,11,22,.55),rgba(10,11,22,.55)),url("' + f.fundo_url.value.replace(/"/g, "") + '")' : "none";
+    $("#previa-logo").hidden = !f.logo_url.value; if (f.logo_url.value) $("#previa-logo").src = f.logo_url.value;
+    $("#previa-nome").textContent = f.nome_app.value || "Gold Play";
+    $("#pv-tv").style.background = f.cor_tv.value; $("#pv-filmes").style.background = f.cor_filmes.value; $("#pv-series").style.background = f.cor_series.value;
+    $("#pv-tv").style.boxShadow = $("#pv-filmes").style.boxShadow = $("#pv-series").style.boxShadow = "0 0 0 2px " + f.cor_destaque.value + " inset";
+  };
+  f.addEventListener("input", pintar); f._pintar = pintar; pintar();
+  ["arq-logo", "arq-fundo"].forEach(function (id) {
+    $("#" + id).addEventListener("change", async function (ev) {
+      var arq = ev.target.files[0]; if (!arq) return;
+      var campo = id === "arq-logo" ? "logo_url" : "fundo_url";
+      if (arq.size > 5 * 1024 * 1024) { ev.target.value = ""; return aviso("A imagem passa de 5 MB.", "erro"); }
+      try {
+        var ext = (arq.type.split("/")[1] || "png").replace("jpeg", "jpg");
+        var caminho = (ehAdmin() ? "global" : S.user.id) + "/" + (campo === "logo_url" ? "logo" : "fundo") + "-" + Date.now() + "." + ext;
+        var up = await sb.storage.from("branding").upload(caminho, arq, { contentType: arq.type, upsert: true });
+        if (up.error) throw up.error;
+        f[campo].value = sb.storage.from("branding").getPublicUrl(caminho).data.publicUrl;
+        pintar(); aviso("Imagem enviada. Clique em Salvar alterações para aplicar.", "ok");
+      } catch (err) { aviso(msgErro(err), "erro"); }
+      ev.target.value = "";
+    });
+  });
+}
+Object.assign(acoes, {
+  escolher: function (d) { $("#" + d.id).click(); },
+  limparImg: function (d) { var f = $("#form-app"); f[d.id].value = ""; f._pintar(); },
+  salvarApp: async function (_, btn) {
+    var f = $("#form-app"), cfg = S.cache.cfg || {}; btn.disabled = true;
+    try {
+      var d = { nome_app: f.nome_app.value.trim() || "Gold Play", logo_url: f.logo_url.value || null, fundo_url: f.fundo_url.value || null, atualizado: new Date().toISOString() };
+      CORES.forEach(function (c) { d[c[0]] = f[c[0]].value; });
+      if (cfg.id) await q(sb.from("config_app").update(d).eq("id", cfg.id));
+      else { d.owner_id = donoPadrao(); await q(sb.from("config_app").insert(d)); }
+      aviso("Personalização salva.", "ok"); await rotear(true);
+    } catch (err) { aviso(msgErro(err), "erro"); } finally { btn.disabled = false; }
+  }
+});
+
+// ---------- telegram ----------
+async function vTelegram(el) {
+  var st = await q(sb.rpc("telegram_status"));
+  var h = cab("Avisos no Telegram", "Receba alerta quando uma DNS cair, voltar, ou quando o painel trocar de DNS sozinho, com botões para manter ou voltar.");
+  if (!st.bot) {
+    h += '<div class="grade n2"><section class="cartao"><h2>1. Crie o bot</h2><p class="suave">No Telegram, abra o <b>@BotFather</b>, envie <span class="mono">/newbot</span> e siga os passos. No final ele entrega um token longo.</p>' +
+      '<form id="form-tg"><label class="campo">Token do bot<input type="password" name="token" autocomplete="off" required placeholder="Cole o token aqui" spellcheck="false"></label>' +
+      '<button class="btn principal" type="submit">Conectar bot</button></form></section>' +
+      '<section class="cartao"><h2>2. Vincule sua conta</h2><p class="suave">Depois de conectar, o painel mostra um link. Abra, toque em Iniciar, e o bot passa a avisar só você.</p></section></div>';
+  } else {
+    var link = S.codigoTg ? "https://t.me/" + st.bot + "?start=" + S.codigoTg : null;
+    h += '<div class="grade n2"><section class="cartao"><div class="cartao-topo"><h2>@' + e(st.bot) + '</h2><span class="pilula ' + (st.configurado && st.ativo ? "ok" : "aviso") + '">' + (st.configurado && st.ativo ? "Vinculado" : "Falta vincular") + "</span></div>";
+    if (!st.configurado || !st.ativo) {
+      h += link ? '<p class="suave">Abra o link, toque em <b>Iniciar</b> no Telegram e volte aqui.</p><div class="codigo-grande" style="font-size:16px;letter-spacing:.02em">' + e(link) + '</div><div class="acoes" style="margin-top:12px"><a class="btn principal" href="' + e(link) + '" target="_blank" rel="noopener">Abrir no Telegram</a><button class="btn" data-acao="atualizarTg">Já vinculei</button></div>'
+        : '<p class="suave">Gere o link de vínculo para conectar sua conta.</p><button class="btn principal" data-acao="novoCodigoTg">Gerar link de vínculo</button>';
+    } else {
+      h += '<p class="suave">Tudo certo. Os avisos chegam no seu Telegram.</p><div class="acoes"><button class="btn" data-acao="testarTg">Enviar mensagem de teste</button><button class="btn" data-acao="novoCodigoTg">Trocar de conta</button></div>';
+    }
+    h += '</section><section class="cartao"><h2>O que você recebe</h2><p class="suave">DNS offline após as falhas seguidas, DNS que voltou, e trocas automáticas com os botões Manter e Voltar à antiga. Se todas as DNS do servidor estiverem fora, o painel mantém a atual e avisa.</p>' +
+      '<button class="btn perigo" data-acao="removerTg">Desconectar bot</button></section></div>';
+  }
+  el.innerHTML = h;
+  var f = $("#form-tg");
+  if (f) f.addEventListener("submit", async function (ev) {
+    ev.preventDefault(); var b = $('button[type="submit"]', f); b.disabled = true;
+    try { var r = await chamarFn("painel", { acao: "telegram_salvar", token: f.token.value.trim() }); S.codigoTg = r.codigo; f.token.value = ""; aviso("Bot conectado.", "ok"); await rotear(true); }
+    catch (err) { aviso(msgErro(err), "erro"); b.disabled = false; }
+  });
+}
+Object.assign(acoes, {
+  novoCodigoTg: async function (_, b) { b.disabled = true; try { var r = await chamarFn("painel", { acao: "telegram_novo_codigo" }); S.codigoTg = r.codigo; await rotear(true); } catch (err) { aviso(msgErro(err), "erro"); b.disabled = false; } },
+  atualizarTg: function () { rotear(true); },
+  testarTg: async function (_, b) { b.disabled = true; try { await chamarFn("painel", { acao: "telegram_testar" }); aviso("Mensagem enviada. Confira o Telegram.", "ok"); } catch (err) { aviso(msgErro(err), "erro"); } finally { b.disabled = false; } },
+  removerTg: function () {
+    confirmar("Desconectar bot", "Os avisos param de chegar e o webhook do bot é removido. Você pode conectar de novo quando quiser.", "Desconectar",
+      async function () { await chamarFn("painel", { acao: "telegram_remover" }); S.codigoTg = null; aviso("Bot desconectado.", "ok"); await rotear(true); });
+  }
+});
+
+// ---------- equipe ----------
+async function vEquipe(el) {
+  if (!ehAdmin()) { el.innerHTML = cab("Quem acessa", "") + '<div class="cartao"><div class="vazio">Só administradores veem esta área.</div></div>'; return; }
+  var r = await Promise.all([q(sb.from("perfis").select("*").order("criado")), q(sb.from("convites").select("id,papel,nome,criado,expira,usado_em,usado_por").order("criado", { ascending: false }).limit(30))]);
+  S.cache.perfis = r[0];
+  var h = cab("Quem acessa", "Pessoas com acesso a este painel. Revendedores só enxergam os próprios servidores e usuários.", '<button class="btn principal" data-acao="novoConvite">Convidar pessoa</button>');
+  h += '<section class="cartao"><h2>Acessos ao painel</h2><div class="tabela-rolagem"><table><thead><tr><th>Pessoa</th><th>Papel</th><th>Situação</th><th></th></tr></thead><tbody>' +
+    r[0].map(function (p) {
+      var eu = p.user_id === S.user.id;
+      return "<tr><td><b>" + e(p.nome || p.email) + (eu ? " (você)" : "") + '</b><br><span class="mono suave">' + e(p.email) + "</span></td><td>" + (p.papel === "admin" ? "Administrador" : "Revendedor") + "</td><td>" +
+        (p.ativo ? '<span class="pilula ok">Ativo</span>' : '<span class="pilula erro">Desativado</span>') + '</td><td class="acoes">' +
+        (eu ? "" : '<button class="btn pequeno" data-acao="alternarPerfil" data-id="' + p.user_id + '">' + (p.ativo ? "Desativar" : "Reativar") + "</button>") + "</td></tr>";
+    }).join("") + "</tbody></table></div></section>";
+  h += '<section class="cartao"><h2>Convites</h2>' + (!r[1].length ? '<div class="vazio">Nenhum convite gerado.</div>' :
+    '<div class="tabela-rolagem"><table><thead><tr><th>Para</th><th>Papel</th><th>Criado</th><th>Situação</th></tr></thead><tbody>' +
+    r[1].map(function (c) {
+      var st = c.usado_em ? '<span class="pilula ok">Usado por ' + e(c.usado_por || "") + "</span>" : (new Date(c.expira) < new Date() ? '<span class="pilula neutra">Expirado</span>' : '<span class="pilula aviso">Aguardando uso</span>');
+      return "<tr><td>" + e(c.nome || "-") + "</td><td>" + (c.papel === "admin" ? "Administrador" : "Revendedor") + '</td><td class="suave">' + e(tempo(c.criado)) + "</td><td>" + st + "</td></tr>";
+    }).join("") + "</tbody></table></div>") + "</section>";
+  el.innerHTML = h;
+}
+Object.assign(acoes, {
+  alternarPerfil: async function (d) {
+    var p = S.cache.perfis.filter(function (x) { return x.user_id === d.id; })[0]; if (!p) return;
+    try { await q(sb.from("perfis").update({ ativo: !p.ativo }).eq("user_id", p.user_id)); aviso(p.ativo ? "Acesso desativado." : "Acesso reativado.", "ok"); await rotear(true); }
+    catch (err) { aviso(msgErro(err), "erro"); }
+  },
+  novoConvite: function () {
+    janela("Convidar pessoa",
+      '<label class="campo">Nome<input type="text" name="nome" maxlength="60" placeholder="Quem vai usar"></label>' +
+      '<label class="campo">Papel<select name="papel"><option value="revendedor">Revendedor</option><option value="admin">Administrador</option></select></label>' +
+      '<p class="suave" style="font-size:13px">O código vale por 2 dias e só funciona uma vez. A pessoa também precisa estar autorizada pelo e-mail dela.</p>',
+      { salvar: "Gerar código", aoEnviar: async function (v) {
+        var r = await chamarFn("convite", { papel: v.papel, nome: v.nome.trim() || null });
+        janela("Código de acesso", '<p class="suave">Envie este código para a pessoa. Ele aparece só agora.</p><div class="codigo-grande">' + e(r.codigo) + "</div>", { semSalvar: true, semFoco: true });
+        $("#modal-form .rodape").insertAdjacentHTML("afterbegin", '<button class="btn" type="button" id="copiar-cod">Copiar</button>');
+        $("#copiar-cod").onclick = function () { copiar(r.codigo); };
+        await rotear(true);
+        return false;
+      } });
+  }
+});
+
+// ---------- roteador ----------
+var VISTAS = { resumo: vResumo, dns: vDns, usuarios: vUsuarios, acessos: vAcessos, trocas: vTrocas, app: vApp, telegram: vTelegram, equipe: vEquipe };
+var seq = 0;
+async function rotear(silencioso) {
+  if (!S.user) return;
+  var rota = (location.hash.replace(/^#\//, "").split("?")[0]) || "resumo";
+  if (!VISTAS[rota]) rota = "resumo";
+  S.rota = rota;
+  $$(".lateral .item").forEach(function (a) { a.classList.toggle("ativo", a.dataset.rota === rota); if (a.dataset.rota === rota) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  var el = $("#conteudo"), meu = ++seq;
+  if (!silencioso) carregando(el);
+  var rolagem = window.scrollY;
+  try {
+    await VISTAS[rota](el);
+    if (meu !== seq) return;
+    if (silencioso) window.scrollTo(0, rolagem);
+  } catch (err) {
+    if (meu !== seq) return;
+    el.innerHTML = cab("Não foi possível carregar", "") + '<div class="cartao"><div class="erro-form"><span>' + e(msgErro(err)) + '</span></div><div class="acoes" style="margin-top:14px"><button class="btn" data-acao="recarregar">Tentar de novo</button></div></div>';
+  }
+  if (!silencioso) { el.focus({ preventScroll: true }); window.scrollTo(0, 0); }
+}
+acoes.recarregar = function () { rotear(); };
+window.addEventListener("hashchange", function () { rotear(); });
+
+document.addEventListener("click", function (ev) {
+  var t = ev.target.closest("[data-acao]"); if (!t) return;
+  var fn = acoes[t.dataset.acao]; if (!fn) return;
+  ev.preventDefault();
+  Promise.resolve(fn({ id: t.dataset.id }, t)).catch(function (err) { aviso(msgErro(err), "erro"); });
+});
+$("#modal").addEventListener("click", function (ev) { if (ev.target === ev.currentTarget) ev.currentTarget.close(); });
+
+// ---------- início ----------
+iniciarTema();
+(async function () {
+  try {
+    var s = (await sb.auth.getSession()).data.session;
+    if (s && s.user) { await abrirPainel(s.user); return; }
+  } catch (_) {}
+  mostrarEntrar();
+})();
+})();
+</script>
+</body>
+</html>
