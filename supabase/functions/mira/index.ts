@@ -3,6 +3,8 @@
 // O endereço (DNS) do provedor fica AQUI, no Supabase, e não no GitHub público.
 // Usuário/senha vêm da TV, viram um token criptografado (30 dias) e não são guardados.
 
+import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
+
 const PROVEDOR = { host: "horizonmult.site", protocolo: "http" };
 const POR_PAGINA = 60;
 const VALIDADE_MS = 30 * 24 * 3600 * 1000;
@@ -243,7 +245,8 @@ function faixaSvg(_k: string, _semente: string, icone: string, ativo = false, v 
     + `<g transform="translate(${ix} ${iy}) scale(${sc})" fill="#fff" fill-opacity="${ativo ? 0.2 : 0.1}"><path d="${ic}"/></g></g>`
     + `<rect x="${x + 1}" y="${y + 1}" width="${w - 2}" height="${hh - 2}" rx="${rx - 1}" fill="none" stroke="#fff" stroke-opacity="${ativo ? 0.55 : 0.28}" stroke-width="2"/></svg>`;
 }
-const faixa = (k: string, semente: string, icone: string, ativo = false, v = "c") => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "bg", k, n: semente.slice(0, 40), i: icone, ...(ativo ? { x: "1" } : {}), ...(v !== "c" ? { v } : {}) }).toString()}`;
+// botões de vidro: PNGs estáticos (msx/img/tile-*.png), sem chamar a função a cada botão
+const faixa = (_k: string, _semente: string, _icone: string, ativo = false, v = "c") => `${IMG}tile-${VARIANTES[v] ? v : "c"}${ativo ? "-a" : ""}.png`;
 
 const SELF = () => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira`;
 const q = (o: Record<string, string | number>) =>
@@ -348,11 +351,11 @@ async function paginar(
   if (itens.length) itens[0] = { ...itens[0], focus: true }; // foco no 1º item, não no botão de categorias
   const total = Math.ceil(todos.length / POR_PAGINA);
   const vv = layout.startsWith("0,0,2,3") ? "t" : layout.startsWith("0,0,4,1") ? "q" : "c";
-  if (ini + POR_PAGINA < todos.length) itens.push({ title: "Próxima página", titleFooter: `${pg + 2} de ${total}`, image: faixa("nav", "proxima", "next", false, vv), imageFiller: "cover", color: "transparent", action: proxima(pg + 1) });
-  if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${total}`, image: faixa("nav", "anterior", "prev", false, vv), imageFiller: "cover", color: "transparent", action: proxima(pg - 1) });
+  if (ini + POR_PAGINA < todos.length) itens.push({ title: "Próxima página", titleFooter: `${pg + 2} de ${total}`, image: faixa("nav", "proxima", "next", false, vv), imageFiller: "fit", color: "transparent", action: proxima(pg + 1) });
+  if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${total}`, image: faixa("nav", "anterior", "prev", false, vv), imageFiller: "fit", color: "transparent", action: proxima(pg - 1) });
   if (!todos.length) itens.push({ title: "Nada encontrado", action: "none" });
   // botão fixo no topo para voltar às categorias (volta para a tela anterior, sem recarregar)
-  itens.unshift({ title: "Categorias", titleFooter: "Voltar às categorias", image: faixa("nav", "categorias", "apps", true, vv), imageFiller: "cover", color: "transparent", action: "back" });
+  itens.unshift({ title: "Categorias", titleFooter: "Voltar às categorias", image: faixa("nav", "categorias", "apps", true, vv), imageFiller: "fit", color: "transparent", action: "back" });
   return lista(titulo, itens, layout, {}, ext ?? `${todos.length} itens`, kind);
 }
 const nota = (v: unknown) => { const n = Number(v); return n > 0 ? n.toFixed(1) : undefined; };
@@ -410,7 +413,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
   const lista = `panel:${SELF()}?${q({ a: "painel", t, c, cn, s: x.stream_id })}`;
   const ativo = painel && String(x.stream_id) === atual;
   const visual = painel
-    ? { titleHeader: n ? `CANAL ${n}` : undefined, image: faixa("live", nome, ativo ? "play" : "live", ativo, "p"), imageFiller: "cover", color: "transparent" }
+    ? { titleHeader: n ? `CANAL ${n}` : undefined, image: faixa("live", nome, ativo ? "play" : "live", ativo, "p"), imageFiller: "fit", color: "transparent" }
     : { image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)", icon: logo ? undefined : "live-tv", iconSize: "small", color: COR.vidro };
   return {
     title: nome, titleFooter: (ativo ? "▶ " : "") + (guia.linha || (ativo ? "Assistindo agora" : "Ao vivo")), truncation: "title|titleFooter",
@@ -515,7 +518,7 @@ async function tratar(url: URL) {
     const cats = await api(cred, `&action=${T.cats}`);
     const lst = Array.isArray(cats) ? cats : [];
     // visual transparente (o vídeo/fundo aparece por trás), como o usuário preferiu
-    const linha = (nome: string, ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, image: faixa(cid ? tipoQ : "nav", nome, ic, !cid), imageFiller: "cover", color: "transparent", action: go({ a: "itens", k: tipoQ, t, c: cid, cn: cid ? nome : "" }) });
+    const linha = (nome: string, ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, image: faixa(cid ? tipoQ : "nav", nome, ic, !cid), imageFiller: "fit", color: "transparent", action: go({ a: "itens", k: tipoQ, t, c: cid, cn: cid ? nome : "" }) });
     const itens = [
       { ...linha("Todos", "apps", "", `Todo o catálogo de ${T.nome.toLowerCase()}`), focus: true },
       ...lst.map((x: any) => { const nome = limparNome(String(x.category_name)); return linha(nome, iconeDoNome(nome, "play"), x.category_id, T.nome); }),
@@ -559,11 +562,12 @@ async function tratar(url: URL) {
     const dados = await api(cred, `&action=get_live_streams${c ? "&category_id=" + encodeURIComponent(c) : ""}`);
     const todos = (Array.isArray(dados) ? dados : []).slice(0, 400);
     const idx = todos.findIndex((x: any) => String(x.stream_id) === s);
-    const ids = [s, ...todos.slice(0, 120).map((x: any) => String(x.stream_id)).filter((i: string) => i !== s)];
-    const ep = await epgVarios(cred, ids);
+    const perto = idx >= 0 ? todos.slice(Math.max(0, idx - 4), idx + 20) : todos.slice(0, 24);
+    const ids = [s, ...perto.map((x: any) => String(x.stream_id)).filter((i: string) => i !== s)];
+    const ep = await epgVarios(cred, ids, 1200);
     const navegar = {
       titleHeader: "NAVEGAR  ·  BOTÃO VERMELHO", title: "Trocar categoria", titleFooter: `Atual: ${cn || "Todos os canais"}`, key: "red",
-      image: faixa("nav", "nav", "apps", true, "p"), imageFiller: "cover", color: "transparent",
+      image: faixa("nav", "nav", "apps", true, "p"), imageFiller: "fit", color: "transparent",
       action: `panel:${SELF()}?${q({ a: "pcats", t, s })}`,
     };
     const canais = todos.map((x: any, i: number) => ({ x, i })).filter((o: any) => o.i !== idx)
@@ -583,7 +587,7 @@ async function tratar(url: URL) {
     const lst = Array.isArray(cats) ? cats : [];
     const item = (nome: string, cid: string) => ({
       title: nome, titleFooter: "TV ao vivo", truncation: "title",
-      image: faixa("live", nome, iconeDoNome(nome, "live"), false, "p"), imageFiller: "cover", color: "transparent",
+      image: faixa("live", nome, iconeDoNome(nome, "live"), false, "p"), imageFiller: "fit", color: "transparent",
       action: `panel:${SELF()}?${q({ a: "painel", t, c: cid, cn: cid ? nome : "", s })}`,
     });
     return {
@@ -602,7 +606,7 @@ async function tratar(url: URL) {
     const numeros = Object.keys(eps).sort((x, y) => Number(x) - Number(y));
     if (temp === null) {
       return lista(limparNome(nome), numeros.map((n) => ({
-        title: `Temporada ${n}`, titleFooter: `${eps[n].length} episódios`, image: faixa("series", "Temporada " + n, "series"), imageFiller: "cover", color: "transparent",
+        title: `Temporada ${n}`, titleFooter: `${eps[n].length} episódios`, image: faixa("series", "Temporada " + n, "series"), imageFiller: "fit", color: "transparent",
         action: go({ a: "serie", t, s, n }),
       })), "0,0,6,1", {}, `${numeros.length} temporadas`, "series");
     }
@@ -744,15 +748,24 @@ async function logoEmbutida(url: string): Promise<string | null> {
   if (cacheLogos.has(ok)) return cacheLogos.get(ok)!;
   let out: string | null = null;
   try {
-    const r = await fetch(ok, { signal: AbortSignal.timeout(2500), headers: { "user-agent": "GoldPlay-MSX/1.0" } });
+    const r = await fetch(ok, { signal: AbortSignal.timeout(4000), headers: { "user-agent": "Mozilla/5.0 (Web0S; SmartTV) AppleWebKit/537.36", accept: "image/png,image/*;q=0.8,*/*;q=0.5", referer: "https://painelmaster.lol/" } });
     const tipo = (r.headers.get("content-type") ?? "").split(";")[0].trim();
-    if (r.ok && /^image\/(png|jpeg|webp)$/.test(tipo)) {
-      const buf = new Uint8Array(await r.arrayBuffer());
-      if (buf.length > 0 && buf.length <= 120_000) out = `data:${tipo};base64,${btoa(Array.from(buf, (c) => String.fromCharCode(c)).join(""))}`;
+    if (r.ok && /^image\/(png|jpeg|webp|gif)$/.test(tipo)) {
+      let buf = new Uint8Array(await r.arrayBuffer());
+      if (buf.length > 0 && buf.length <= 3_000_000) {
+        try {
+          const img = await Image.decode(buf);
+          const lado = 72, f = Math.min(lado / img.width, lado / img.height);
+          img.resize(Math.max(1, Math.round(img.width * f)), Math.max(1, Math.round(img.height * f)));
+          buf = await img.encode();
+          out = `data:image/png;base64,${btoa(Array.from(buf, (c) => String.fromCharCode(c)).join(""))}`;
+        } catch {
+          if (buf.length <= 40_000) out = `data:${tipo};base64,${btoa(Array.from(buf, (c) => String.fromCharCode(c)).join(""))}`;
+        }
+      }
     }
   } catch { /* sem logo: usa a bolinha com a sigla */ }
-  if (cacheLogos.size > 400) cacheLogos.clear();
-  cacheLogos.set(ok, out);
+  if (out) { if (cacheLogos.size > 400) cacheLogos.clear(); cacheLogos.set(ok, out); }
   return out;
 }
 
@@ -921,7 +934,7 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
   const jogos = await jogosDoDia(5000);
   const j = (jogos ?? []).find((x) => x.casa.nome === n1 && x.fora.nome === n2);
   if (!j) return aviso("Jogo", "Não encontramos mais este jogo na programação de hoje.");
-  const linhaVidro = (i: number, o: Record<string, unknown>) => ({ type: "default", layout: `4,${1 + i},8,1`, imageFiller: "cover", color: "transparent", ...o });
+  const linhaVidro = (i: number, o: Record<string, unknown>) => ({ type: "default", layout: `4,${1 + i},8,1`, imageFiller: "fit", color: "transparent", ...o });
   const topo = [
     camadaFundo("bg-tv.jpg"),
     { type: "space", layout: "0,0,12,1", headline: `${j.casa.nome} x ${j.fora.nome}`, text: `{col:msx-white-soft}${j.liga} · ${j.status}` },
@@ -985,6 +998,19 @@ Deno.serve(async (req: Request) => {
       const g = u0.searchParams;
       const svg = cartaoSvg(g.get("k") ?? "live", g.get("t") ?? "", g.get("s") ?? "", g.get("i") ?? "play", g.get("f") === "p");
       return new Response(svg, { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
+    }
+    if (req.method === "GET" && u0.searchParams.get("a") === "ldbg") {
+      const u = urlLogoOk(u0.searchParams.get("u") ?? "");
+      let info: Record<string, unknown> = { permitido: !!u };
+      if (u) {
+        try {
+          const r = await fetch(u, { signal: AbortSignal.timeout(5000), headers: { "user-agent": "Mozilla/5.0 (Web0S; SmartTV) AppleWebKit/537.36" } });
+          const b = new Uint8Array(await r.arrayBuffer());
+          info = { ...info, status: r.status, tipo: r.headers.get("content-type"), bytes: b.length };
+          try { const im = await Image.decode(b); info = { ...info, w: im.width, h: im.height }; } catch (e) { info = { ...info, decode: String(e).slice(0, 80) }; }
+        } catch (e) { info = { ...info, erro: String(e).slice(0, 120) }; }
+      }
+      return new Response(JSON.stringify(info), { headers: CORS });
     }
     if (req.method === "GET" && u0.searchParams.get("a") === "bg") {
       const g = u0.searchParams;
