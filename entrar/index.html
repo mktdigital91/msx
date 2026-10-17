@@ -229,6 +229,7 @@
         var e = r && r.erro;
         if (e === 'codigo') { erro('Esse código não vale mais. Olhe a TV: use o código novo ou toque em "Novo código".'); code = ''; mostrarCodigo(); }
         else if (e === 'credenciais') erro('Usuário ou senha incorretos. Confira e tente de novo.');
+        else if (e === 'bloqueado') erro('Este acesso está bloqueado. Fale com o suporte.');
         else if (e === 'provedor') erro('Não consegui falar com o provedor agora. Tente de novo em instantes.');
         else erro('Preencha todos os campos.');
       })

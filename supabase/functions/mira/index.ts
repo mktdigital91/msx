@@ -17,10 +17,78 @@ const CORS = {
 };
 
 const IMG = "https://mktdigital91.github.io/msx/msx/img/";
-const LOGO = IMG + "logo-goldplay.png";
+let LOGO = IMG + "logo-goldplay.png";
+let FUNDO_CFG = ""; // imagem de fundo escolhida no painel (vazio = fundos padrão)
 const COR = { tv: "rgba(124,92,255,0.40)", vod: "rgba(244,63,142,0.38)", series: "rgba(34,211,238,0.32)", vidro: "rgba(14,16,36,0.55)", destaque: "#7C5CFF" };
 
-const BASE_PROV = `${PROVEDOR.protocolo}://${PROVEDOR.host}`;
+const BASE_PROV = `${PROVEDOR.protocolo}://${PROVEDOR.host}`; // reserva, se o painel/banco não responder
+
+// ---------- painel: DNS por usuário, acessos, bloqueio e personalização (tudo vem do banco) ----------
+const SB = () => Deno.env.get("SUPABASE_URL") ?? "";
+const SBK = () => Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const sbh = () => ({ apikey: SBK(), authorization: `Bearer ${SBK()}`, "content-type": "application/json" });
+const TTL = 30_000;
+const _base = new Map<string, { t: number; b: string }>();
+async function baseDoDns(id: string | null): Promise<string | null> {
+  if (!id) return null;
+  const c = _base.get(id);
+  if (c && Date.now() - c.t < TTL) return c.b;
+  try {
+    const r = await fetch(`${SB()}/rest/v1/dns?id=eq.${id}&select=host,protocolo,porta&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+    const j = await r.json();
+    if (!Array.isArray(j) || !j[0]) return null;
+    const b = `${j[0].protocolo}://${j[0].host}${j[0].porta ? ":" + j[0].porta : ""}`;
+    _base.set(id, { t: Date.now(), b });
+    return b;
+  } catch { return null; }
+}
+const _usr = new Map<string, { t: number; b: string; bloq: boolean }>();
+// DNS e bloqueio de um usuário. Quem ainda não existe usa a DNS principal do primeiro servidor.
+async function infoUsuario(u: string): Promise<{ b: string; bloq: boolean }> {
+  const c = _usr.get(u);
+  if (c && Date.now() - c.t < TTL) return c;
+  let b: string | null = null, bloq = false;
+  try {
+    const r = await fetch(`${SB()}/rest/v1/usuarios_app?usuario=eq.${encodeURIComponent(u)}&select=dns_id,bloqueado&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+    const j = await r.json();
+    if (Array.isArray(j) && j[0]) { bloq = !!j[0].bloqueado; b = await baseDoDns(j[0].dns_id); }
+    if (!b) {
+      const g = await fetch(`${SB()}/rest/v1/grupos?dns_ativa_id=not.is.null&select=dns_ativa_id&order=criado&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+      const gj = await g.json();
+      if (Array.isArray(gj) && gj[0]) b = await baseDoDns(gj[0].dns_ativa_id);
+    }
+  } catch { /* usa a reserva */ }
+  const o = { t: Date.now(), b: b ?? BASE_PROV, bloq };
+  _usr.set(u, o);
+  return o;
+}
+let _ctx = { ip: "", ua: "" };
+async function registrarAcesso(u: string, aparelho: string | null, evento: "login" | "sessao") {
+  try {
+    await fetch(`${SB()}/rest/v1/rpc/registrar_acesso`, { method: "POST", headers: sbh(), body: JSON.stringify({ p_usuario: u, p_aparelho: aparelho, p_evento: evento, p_ip: _ctx.ip || null, p_ua: _ctx.ua || null }), signal: AbortSignal.timeout(4000) });
+    _usr.delete(u);
+  } catch { /* o painel não pode derrubar o app */ }
+}
+const rgba = (hex: string, a: number) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex ?? ""); if (!m) return null;
+  const n = parseInt(m[1], 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+};
+let _cfgT = 0;
+async function carregarConfig() {
+  if (Date.now() - _cfgT < 60_000) return;
+  _cfgT = Date.now();
+  try {
+    const r = await fetch(`${SB()}/rest/v1/config_app?owner_id=is.null&select=logo_url,fundo_url,cor_tv,cor_filmes,cor_series,cor_vidro,cor_destaque&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+    const j = await r.json(); const c = Array.isArray(j) ? j[0] : null; if (!c) return;
+    if (c.logo_url && /^https:\/\//.test(c.logo_url)) LOGO = c.logo_url;
+    FUNDO_CFG = c.fundo_url && /^https:\/\//.test(c.fundo_url) ? c.fundo_url : "";
+    COR.tv = rgba(c.cor_tv, 0.40) ?? COR.tv;
+    COR.vod = rgba(c.cor_filmes, 0.38) ?? COR.vod;
+    COR.series = rgba(c.cor_series, 0.32) ?? COR.series;
+    COR.vidro = rgba(c.cor_vidro, 0.55) ?? COR.vidro;
+    if (/^#[0-9a-f]{6}$/i.test(c.cor_destaque ?? "")) COR.destaque = c.cor_destaque;
+  } catch { /* mantém o que já estava */ }
+}
 
 // ---------- token (AES-GCM), chave derivada de um segredo que o próprio Supabase injeta ----------
 const b64 = (u: Uint8Array) => btoa(String.fromCharCode(...u)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -43,28 +111,31 @@ async function criarToken(u: string, p: string) {
   t.set(iv); t.set(c, iv.length);
   return b64(t);
 }
-async function lerToken(t: string | null): Promise<{ u: string; p: string } | null> {
+type Cred = { u: string; p: string; b?: string; bloq?: boolean };
+async function lerToken(t: string | null): Promise<Cred | null> {
   if (!t) return null;
   try {
     const raw = unb64(t);
     const d = await crypto.subtle.decrypt({ name: "AES-GCM", iv: raw.slice(0, 12) }, await chave(), raw.slice(12));
     const o = JSON.parse(new TextDecoder().decode(d));
-    return o.e > Date.now() ? { u: o.u, p: o.p } : null;
+    if (!(o.e > Date.now())) return null;
+    const x = await infoUsuario(o.u);
+    return { u: o.u, p: o.p, b: x.b, bloq: x.bloq };
   } catch {
     return null;
   }
 }
 
 // ---------- provedor ----------
-async function api(cred: { u: string; p: string }, extra = "") {
-  const url = `${BASE_PROV}/player_api.php?username=${encodeURIComponent(cred.u)}&password=${encodeURIComponent(cred.p)}${extra}`;
+async function api(cred: Cred, extra = "") {
+  const url = `${cred.b ?? BASE_PROV}/player_api.php?username=${encodeURIComponent(cred.u)}&password=${encodeURIComponent(cred.p)}${extra}`;
   const r = await fetch(url, { signal: AbortSignal.timeout(20000), headers: { "user-agent": "Mozilla/5.0" } });
   if (!r.ok) throw new Error("provedor respondeu " + r.status);
   const txt = await r.text();
   try { return JSON.parse(txt); } catch { return null; } // provedor devolve vazio/HTML com login inválido
 }
-const urlFluxo = (tipo: string, c: { u: string; p: string }, id: string | number, ext?: string) =>
-  `${BASE_PROV}/${tipo}/${encodeURIComponent(c.u)}/${encodeURIComponent(c.p)}/${id}${ext ? "." + ext : ""}`;
+const urlFluxo = (tipo: string, c: Cred, id: string | number, ext?: string) =>
+  `${c.b ?? BASE_PROV}/${tipo}/${encodeURIComponent(c.u)}/${encodeURIComponent(c.p)}/${id}${ext ? "." + ext : ""}`;
 
 // ---------- telas do MSX ----------
 // ---------- sessão guardada por aparelho (tabela "sessoes", só o servidor acessa) ----------
@@ -173,8 +244,11 @@ async function parear(corpo: { c?: string; u?: string; p?: string }) {
   const aparelho = await aparelhoDoCodigo(codigo);
   if (!aparelho) return { ok: false, erro: "codigo" };
   let info;
-  try { info = await api({ u, p }); } catch { return { ok: false, erro: "provedor" }; }
+  const x = await infoUsuario(u);
+  if (x.bloq) return { ok: false, erro: "bloqueado" };
+  try { info = await api({ u, p, b: x.b }); } catch { return { ok: false, erro: "provedor" }; }
   if (!info?.user_info || Number(info.user_info.auth) !== 1) return { ok: false, erro: "credenciais" };
+  await registrarAcesso(u, aparelho, "login");
   await salvarSessao(aparelho, await criarToken(u, p));
   await apagarCodigo(codigo);
   return { ok: true, usuario: u };
@@ -274,7 +348,7 @@ function inputAction(servico: string, titulo: string, dica: string) {
 
 const FUNDO: Record<string, string> = { live: "bg-tv.jpg", vod: "bg-filmes.jpg", series: "bg-series.jpg" };
 // O MSX ignora o "background" da raiz nessas telas; então o fundo vira um item de tela cheia atrás dos blocos.
-const camadaFundo = (img: string) => ({ type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", image: IMG + img, imageFiller: "cover", enable: false });
+const camadaFundo = (img: string) => ({ type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", image: FUNDO_CFG || IMG + img, imageFiller: "cover", enable: false });
 // Monta uma lista como páginas (grade 12x6) para poder ter o fundo em cada página.
 function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Record<string, unknown> = {}, extensao?: string, kind = "") {
   const [, , w, h] = layout.split(",").map(Number);
@@ -289,7 +363,7 @@ function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Re
     pages.push({ items: [fundo, ...fatia] });
     if (!items.length) break;
   }
-  return { type: "pages", headline, extension: extensao, transparent: 2, ready: { action: "quiet" }, background: IMG + (FUNDO[kind] ?? "bg-tv.jpg"), pages };
+  return { type: "pages", headline, extension: extensao, transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + (FUNDO[kind] ?? "bg-tv.jpg"), pages };
 }
 function aviso(titulo: string, msg: string, voltar?: unknown[]) {
   return lista(titulo, [{ title: msg, action: "none" }, ...(voltar ?? [])], "0,0,12,1");
@@ -303,7 +377,7 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
   const ep = p ? { p } : {};
   const pronto = !!(u && p);
   return {
-    type: "pages", transparent: 2, ready: { action: "quiet" }, background: IMG + "bg-tv.jpg",
+    type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-tv.jpg",
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,9,1", headline: "Entrar no Gold Play", text: msg ?? "Escaneie o QR code com o celular ou digite seu usuário e senha aqui na TV." },
@@ -467,7 +541,11 @@ async function tratar(url: URL) {
   if (a === "inicio") {
     const tk = await lerSessao(d);
     const cr = await lerToken(tk);
-    if (tk && cr) return await home(tk, cr.u, d);
+    if (tk && cr) {
+      if (cr.bloq) { await apagarSessao(d); return telaCelular(await codigoDoAparelho(d), d, "Acesso bloqueado. Fale com o suporte."); }
+      await registrarAcesso(cr.u, d, "sessao");
+      return await home(tk, cr.u, d);
+    }
     if (d && url.searchParams.get("r")) await fetch(`${REST_COD()}?aparelho=eq.${encodeURIComponent(d)}`, { method: "DELETE", headers: cab() }).catch(() => {});
     return telaCelular(await codigoDoAparelho(d), d);
   }
@@ -502,9 +580,12 @@ async function tratar(url: URL) {
     const p = url.searchParams.get("p") ?? "";
     if (!u || !p) return telaEntrar("Informe usuário e senha", d, u, "");
     let info;
-    try { info = await api({ u, p }); } catch (e) { return telaEntrar("Provedor: " + String((e as Error).message ?? e).slice(0, 80), d, u, ""); }
+    const x = await infoUsuario(u);
+    if (x.bloq) return telaEntrar("Acesso bloqueado. Fale com o suporte.", d, u, "");
+    try { info = await api({ u, p, b: x.b }); } catch (e) { return telaEntrar("Provedor: " + String((e as Error).message ?? e).slice(0, 80), d, u, ""); }
     if (!info?.user_info || Number(info.user_info.auth) !== 1) return telaEntrar("Usuário ou senha incorretos", d, u, "");
     const exp = info.user_info.exp_date ? new Date(Number(info.user_info.exp_date) * 1000).toLocaleDateString("pt-BR") : "sem data";
+    await registrarAcesso(u, d, "login");
     const tk = await criarToken(u, p);
     await salvarSessao(d, tk);
     return await home(tk, `${u} · vence ${exp}`, d);
@@ -512,6 +593,7 @@ async function tratar(url: URL) {
 
   const cred = await lerToken(url.searchParams.get("t"));
   if (!cred) return telaEntrar("Sessão expirada, entre de novo", d);
+  if (cred.bloq) return telaEntrar("Acesso bloqueado. Fale com o suporte.", d);
   const t = url.searchParams.get("t")!;
   const c = url.searchParams.get("c") ?? "";
 
@@ -845,7 +927,7 @@ async function home(t: string, quem: string, d: string | null = null) {
     type: "default", layout: `${3 + i * 3},4,3,2`, image: jogoImg(j), imageFiller: "fit", color: "transparent", action: jogoAcao(j, t),
   }));
   return {
-    type: "pages", transparent: 2, ready: { action: "quiet" }, background: IMG + "bg-tv.jpg",
+    type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-tv.jpg",
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,2,1", image: LOGO, imageFiller: "fit" },
@@ -967,7 +1049,7 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
   });
   if (assistir.length) {
     const extra = abrirEventos.map((e) => ({ ...e, layout: `4,${1 + assistir.length},8,1` }));
-    return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: IMG + "bg-tv.jpg", pages: [{ items: [...topo, ...assistir, ...extra] }] };
+    return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-tv.jpg", pages: [{ items: [...topo, ...assistir, ...extra] }] };
   }
   const onde = j.canaisLista.length ? `Este jogo passa em ${j.canaisLista.join(" · ")}` : "A programação não informou onde passa";
   const aviso1 = { ...linhaVidro(0, {}), title: "Canal não encontrado para este jogo", titleFooter: cat ? onde : "Não foi possível consultar seus canais agora", action: "none", truncation: "title|titleFooter" };
@@ -975,17 +1057,19 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
     ...abrirEventos.map((e) => ({ ...e, layout: "4,2,8,1", focus: true })),
     { ...linhaVidro(abrirEventos.length ? 2 : 1, {}), focus: !abrirEventos.length, title: "TV ao vivo", titleFooter: "Procurar o canal nas categorias", action: go({ a: "cats", k: "live", t }) },
   ];
-  return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: IMG + "bg-tv.jpg", pages: [{ items: [...topo, aviso1, ...opcoes] }] };
+  return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-tv.jpg", pages: [{ items: [...topo, aviso1, ...opcoes] }] };
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   try {
+    _ctx = { ip: (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim(), ua: req.headers.get("user-agent") ?? "" };
+    await carregarConfig();
     const u0 = new URL(req.url);
     const mv = u0.pathname.match(/\/v\/(live|movie|series)\/([\w-]+)\/([^/]+)\.(\w+)$/);
     if (mv) {
       const cred = await lerToken(mv[2]);
-      if (!cred) return new Response("Sessão expirada", { status: 403 });
+      if (!cred || cred.bloq) return new Response("Sessão expirada", { status: 403 });
       return new Response(null, { status: 302, headers: { location: urlFluxo(mv[1], cred, decodeURIComponent(mv[3]), mv[4]), "cache-control": "no-store", "access-control-allow-origin": "*" } });
     }
     if (req.method === "GET" && u0.searchParams.get("a") === "img") {
