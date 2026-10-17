@@ -23,7 +23,7 @@
 <body>
 <video id="v" autoplay></video>
 <div id="carregando"></div>
-<div id="aviso"><div id="cartao"><div class="ico">!</div><h1 id="titulo">Não foi possível reproduzir</h1><p>Tente novamente em instantes.</p></div></div>
+<div id="aviso"><div id="cartao"><div class="ico">!</div><h1 id="titulo">Não foi possível reproduzir</h1><p>Tente novamente em instantes.</p><p id="det" style="margin-top:14px;font-size:18px;color:rgba(255,255,255,.45)"></p></div></div>
 <script src="//msx.benzac.de/js/tvx-plugin.min.js"></script>
 <script>
 // Player próprio do Mira (ES5): esconde o endereço do vídeo e mostra erros em português.
@@ -47,6 +47,20 @@
   var aviso = document.getElementById("aviso");
   var carregando = document.getElementById("carregando");
   var atual = 0, vigia = null, falhou = false;
+  // Android (celular/tablet): o WebView toca HLS mal, então usa hls.js; TVs e iPhone seguem no player nativo
+  var ua = navigator.userAgent || "";
+  var usaHls = /Android/i.test(ua) && !/Web0S|webOS|Tizen|SMART-TV|SmartTV/i.test(ua);
+  var hls = null, hlsTent = 0;
+  function carregarHls(cb) {
+    if (!usaHls || window.Hls) { cb(); return; }
+    var sc = document.createElement("script");
+    sc.src = "https://cdn.jsdelivr.net/npm/hls.js@1.5.20/dist/hls.min.js";
+    sc.onload = function () { cb(); };
+    sc.onerror = function () { cb(); };
+    document.getElementsByTagName("head")[0].appendChild(sc);
+  }
+  function soltarHls() { if (hls) { try { hls.destroy(); } catch (e) {} hls = null; } }
+  function detalhe(t) { var d = document.getElementById("det"); if (d) d.innerHTML = t || ""; }
 
   document.getElementById("titulo").innerHTML = "Não foi possível reproduzir " + tipo;
 
@@ -55,6 +69,7 @@
     falhou = true;
     clearTimeout(vigia);
     mostrarCarregando(false);
+    soltarHls();
     try { v.removeAttribute("src"); v.load(); } catch (e) {}
     aviso.style.display = "block";
   }
@@ -63,8 +78,23 @@
     if (i >= fontes.length) { erroFinal(); return; }
     atual = i; ult = -1; parado = 0;
     mostrarCarregando(true);
-    v.src = fontes[i];
-    try { v.load(); } catch (e) {}
+    soltarHls();
+    if (usaHls && window.Hls && Hls.isSupported() && /\.m3u8/.test(fontes[i])) {
+      hlsTent = 0;
+      hls = new Hls({ lowLatencyMode: false, maxBufferLength: 30, manifestLoadingMaxRetry: 2, levelLoadingMaxRetry: 2, fragLoadingMaxRetry: 3 });
+      hls.on(Hls.Events.ERROR, function (ev, d) {
+        if (!d || !d.fatal) return;
+        detalhe("hls: " + d.type + " / " + d.details + (d.response && d.response.code !== undefined ? " / " + d.response.code : ""));
+        if (d.type === Hls.ErrorTypes.NETWORK_ERROR && hlsTent < 2) { hlsTent++; try { hls.startLoad(); } catch (e) {} return; }
+        if (d.type === Hls.ErrorTypes.MEDIA_ERROR && hlsTent < 2) { hlsTent++; try { hls.recoverMediaError(); } catch (e) {} return; }
+        tentar(atual + 1);
+      });
+      hls.loadSource(fontes[i]);
+      hls.attachMedia(v);
+    } else {
+      v.src = fontes[i];
+      try { v.load(); } catch (e) {}
+    }
     var p = v.play();
     if (p && p["catch"]) p["catch"](function () {});
     // se em 20 s não começar a tocar, tenta a próxima fonte
@@ -99,11 +129,11 @@
     this.play = function () {
       if (falhou) return;
       pausado = false; parado = 0;
-      if (!v.src) { tentar(0); return; }
+      if (!v.src) { carregarHls(function () { tentar(0); }); return; }
       var p = v.play(); if (p && p["catch"]) p["catch"](function () {});
     };
     this.pause = function () { pausado = true; try { v.pause(); } catch (e) {} };
-    this.stop = function () { pausado = true; clearTimeout(vigia); try { v.pause(); v.removeAttribute("src"); v.load(); } catch (e) {} };
+    this.stop = function () { pausado = true; clearTimeout(vigia); soltarHls(); try { v.pause(); v.removeAttribute("src"); v.load(); } catch (e) {} };
     this.getDuration = function () { return isFinite(v.duration) ? v.duration : 0; };
     this.getPosition = function () { return v.currentTime || 0; };
     this.setPosition = function (s) { try { v.currentTime = s; } catch (e) {} };
@@ -124,7 +154,7 @@
       TVXVideoPlugin.init();
     });
   } else {
-    tentar(0); // fora do MSX (teste no navegador)
+    carregarHls(function () { tentar(0); }); // fora do MSX (teste no navegador)
   }
 })();
 </script>
