@@ -81,13 +81,14 @@
   setInterval(function () {
     if (falhou || pausado || !v.src) return;
     var t = v.currentTime || 0;
-    if (t !== ult) { ult = t; parado = 0; if (!v.paused) { refeitos = 0; } return; }
+    if (t !== ult) { ult = t; parado = 0; if (!v.paused) { refeitos = 0; mostrarCarregando(false); } return; }
     if (v.paused && !v.ended) { try { v.play(); } catch (e) {} }
     parado += 2;
     if (parado >= 8) { mostrarCarregando(true); reconectar(); }
   }, 2000);
   v.addEventListener("playing", function () { clearTimeout(vigia); mostrarCarregando(false); });
-  v.addEventListener("stalled", function () { if (!falhou) mostrarCarregando(true); });
+  v.addEventListener("canplay", function () { if (!v.paused) mostrarCarregando(false); });
+  v.addEventListener("timeupdate", function () { if (!falhou && !v.paused && v.currentTime > 0 && !v.seeking) { clearTimeout(vigia); mostrarCarregando(false); } });
   v.addEventListener("ended", function () { if (!falhou && fontes.length) reconectar(); });
   v.addEventListener("waiting", function () { if (!falhou) mostrarCarregando(true); });
   v.addEventListener("error", function () { if (!falhou) tentar(atual + 1); });
