@@ -376,7 +376,7 @@ async function epgDe(cred: { u: string; p: string }, id: string): Promise<Prog[]
     const j = await api(cred, `&action=get_short_epg&stream_id=${encodeURIComponent(id)}&limit=3`);
     v = ((Array.isArray(j?.epg_listings) ? j.epg_listings : []) as any[])
       .map((p) => ({ titulo: b64txt(p.title).trim(), ini: Number(p.start_timestamp) * 1000, fim: Number(p.stop_timestamp) * 1000 }))
-      .filter((p) => p.titulo && p.fim > Date.now())
+      .filter((p) => p.titulo && !/no\s*programm/i.test(p.titulo) && p.fim > Date.now())
       .sort((a, b) => a.ini - b.ini);
   } catch { /* sem guia */ }
   cacheEpg.set(id, { em: Date.now(), v });
@@ -421,7 +421,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
     ? { color: ativo ? VID.ouro : VID.n }
     : { image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)", icon: logo ? undefined : "live-tv", iconSize: "small", color: VID.n };
   return {
-    title: (ativo ? "▶  " : "") + (favs?.has(String(x.stream_id)) ? CORACAO : "") + nome, titleFooter: guia.linha || (ativo ? "Ao vivo agora" : "Ao vivo"), truncation: "title|titleFooter",
+    title: (ativo ? "▶  " : "") + (favs?.has(String(x.stream_id)) ? CORACAO : "") + nome, titleFooter: guia.linha || "TV Ao Vivo", truncation: "title|titleFooter",
     ...visual,
     focus: ativo ? true : undefined, enumerate: true,
     playerLabel: nome,
@@ -431,7 +431,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
       "control:transparent": true,
       "control:action": lista,
       "info:headline": nome,
-      "info:text": guia.player || (cn ? `${cn} · sem guia de programação` : "Sem guia de programação"),
+      "info:text": guia.player || "TV Ao Vivo",
       "button:content:icon": "list",
       "button:content:action": lista,
       "button:content:focus": true,
@@ -578,7 +578,7 @@ async function tratar(url: URL) {
     const ids = [s, ...perto.map((x: any) => String(x.stream_id)).filter((i: string) => i !== s)];
     const ep = await epgVarios(cred, ids, 1200);
     const navegar = {
-      title: "‹   CATEGORIAS", titleFooter: `Atual: ${cn || "Todos os canais"}`, key: "red",
+      title: "Categorias", key: "red", display: false,
       color: VID.voltar,
       action: `panel:${SELF()}?${q({ a: "pcats", t, s })}`,
     };
@@ -587,17 +587,17 @@ async function tratar(url: URL) {
     const atualCanal: any = todos.find((x: any) => String(x.stream_id) === s) ?? (a === "fav" && nParam ? { name: nParam, stream_id: s, stream_icon: iParam } : undefined);
     const alternar = atualCanal ? `panel:${SELF()}?${q({ a: "fav", t, c, cn, s, n: limparNome(String(atualCanal.name)), i: String(atualCanal.stream_icon ?? "") })}` : "none";
     const inicioItem = {
-      title: "⌂  INÍCIO", titleFooter: "Parar e voltar para Canais, Filmes e Séries", key: "blue",
+      title: "Início", key: "blue", display: false,
       color: VID.voltar,
       action: `[quiet|${go({ a: "home", t })}]`,
     };
     const canais = todos.map((x: any, i: number) => ({ x, i })).filter((o: any) => o.i !== idx)
       .map((o: any) => ({ ...canalItem(o.x, cred, t, c, true, s, cn, o.i + 1, ep.get(String(o.x.stream_id)), favs), focus: undefined }));
-    const fixo = atualCanal ? [{ ...canalItem(atualCanal, cred, t, c, true, s, cn, idx + 1, ep.get(s), favs), key: "green", action: alternar, focus: true, ...(avisoFav ? { titleFooter: "Canal " + avisoFav } : {}) }] : [];
+    const fixo = atualCanal ? [{ ...canalItem(atualCanal, cred, t, c, true, s, cn, idx + 1, ep.get(s), favs), action: "back", focus: true, ...(avisoFav ? { titleFooter: "Canal " + avisoFav } : {}) }] : [];
     return {
-      type: "list", headline: "Canais  {col:msx-red}●{col:msx-white-soft} Categorias  {col:msx-green}●{col:msx-white-soft} Favoritar  {col:msx-blue}●{col:msx-white-soft} Início ",
+      type: "list", headline: "Canais  {col:msx-red}•{col:msx-white-soft}Categorias  {col:msx-green}•{col:msx-white-soft}Favoritar  {col:msx-blue}•{col:msx-white-soft}Início ",
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [{ ...navegar, focus: !atualCanal ? true : undefined }, inicioItem, ...fixo, ...canais],
+      items: [{ ...navegar, focus: !atualCanal ? true : undefined }, inicioItem, ...(atualCanal ? [{ title: "Favoritar", key: "green", display: false, color: VID.voltar, action: alternar }] : []), ...fixo, ...canais],
     };
   }
 
