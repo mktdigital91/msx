@@ -3,7 +3,6 @@
 // O endereço (DNS) do provedor fica AQUI, no Supabase, e não no GitHub público.
 // Usuário/senha vêm da TV, viram um token criptografado (30 dias) e não são guardados.
 
-import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 
 const PROVEDOR = { host: "horizonmult.site", protocolo: "http" };
 const POR_PAGINA = 60;
@@ -246,7 +245,8 @@ function faixaSvg(_k: string, _semente: string, icone: string, ativo = false, v 
     + `<rect x="${x + 1}" y="${y + 1}" width="${w - 2}" height="${hh - 2}" rx="${rx - 1}" fill="none" stroke="#fff" stroke-opacity="${ativo ? 0.55 : 0.28}" stroke-width="2"/></svg>`;
 }
 // botões de vidro: PNGs estáticos (msx/img/tile-*.png), sem chamar a função a cada botão
-const faixa = (_k: string, _semente: string, _icone: string, ativo = false, v = "c") => `${IMG}tile-${VARIANTES[v] ? v : "c"}${ativo ? "-a" : ""}.png`;
+const VID = { n: "rgba(10,12,28,0.62)", ouro: "rgba(245,180,0,0.32)", voltar: "rgba(6,7,14,0.88)" };
+const _faixaAntiga = (_k: string, _semente: string, _icone: string, ativo = false, v = "c") => `${IMG}tile-${VARIANTES[v] ? v : "c"}${ativo ? "-a" : ""}.png`;
 
 const SELF = () => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira`;
 const q = (o: Record<string, string | number>) =>
@@ -351,11 +351,11 @@ async function paginar(
   if (itens.length) itens[0] = { ...itens[0], focus: true }; // foco no 1º item, não no botão de categorias
   const total = Math.ceil(todos.length / POR_PAGINA);
   const vv = layout.startsWith("0,0,2,3") ? "t" : layout.startsWith("0,0,4,1") ? "q" : "c";
-  if (ini + POR_PAGINA < todos.length) itens.push({ title: "Próxima página", titleFooter: `${pg + 2} de ${total}`, image: faixa("nav", "proxima", "next", false, vv), imageFiller: "fit", color: "transparent", action: proxima(pg + 1) });
-  if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${total}`, image: faixa("nav", "anterior", "prev", false, vv), imageFiller: "fit", color: "transparent", action: proxima(pg - 1) });
+  if (ini + POR_PAGINA < todos.length) itens.push({ title: "Próxima página", titleFooter: `${pg + 2} de ${total}`, color: VID.n, action: proxima(pg + 1) });
+  if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${total}`, color: VID.n, action: proxima(pg - 1) });
   if (!todos.length) itens.push({ title: "Nada encontrado", action: "none" });
   // botão fixo no topo para voltar às categorias (volta para a tela anterior, sem recarregar)
-  itens.unshift({ title: "Categorias", titleFooter: "Voltar às categorias", image: faixa("nav", "categorias", "apps", true, vv), imageFiller: "fit", color: "transparent", action: "back" });
+  itens.unshift({ title: "‹   CATEGORIAS", titleFooter: "Voltar às categorias", color: VID.voltar, action: "back" });
   return lista(titulo, itens, layout, {}, ext ?? `${todos.length} itens`, kind);
 }
 const nota = (v: unknown) => { const n = Number(v); return n > 0 ? n.toFixed(1) : undefined; };
@@ -413,10 +413,10 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
   const lista = `panel:${SELF()}?${q({ a: "painel", t, c, cn, s: x.stream_id })}`;
   const ativo = painel && String(x.stream_id) === atual;
   const visual = painel
-    ? { titleHeader: n ? `CANAL ${n}` : undefined, image: faixa("live", nome, ativo ? "play" : "live", ativo, "p"), imageFiller: "fit", color: "transparent" }
-    : { image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)", icon: logo ? undefined : "live-tv", iconSize: "small", color: COR.vidro };
+    ? { titleHeader: ativo ? "▶  ASSISTINDO AGORA" : n ? `CANAL ${n}` : undefined, color: ativo ? VID.ouro : VID.n }
+    : { image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)", icon: logo ? undefined : "live-tv", iconSize: "small", color: VID.n };
   return {
-    title: nome, titleFooter: (ativo ? "▶ " : "") + (guia.linha || (ativo ? "Assistindo agora" : "Ao vivo")), truncation: "title|titleFooter",
+    title: nome, titleFooter: guia.linha || (ativo ? "Ao vivo agora" : "Ao vivo"), truncation: "title|titleFooter",
     ...visual,
     focus: ativo ? true : undefined, enumerate: true,
     playerLabel: nome,
@@ -518,7 +518,7 @@ async function tratar(url: URL) {
     const cats = await api(cred, `&action=${T.cats}`);
     const lst = Array.isArray(cats) ? cats : [];
     // visual transparente (o vídeo/fundo aparece por trás), como o usuário preferiu
-    const linha = (nome: string, ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, image: faixa(cid ? tipoQ : "nav", nome, ic, !cid), imageFiller: "fit", color: "transparent", action: go({ a: "itens", k: tipoQ, t, c: cid, cn: cid ? nome : "" }) });
+    const linha = (nome: string, ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, color: VID.n, action: go({ a: "itens", k: tipoQ, t, c: cid, cn: cid ? nome : "" }) });
     const itens = [
       { ...linha("Todos", "apps", "", `Todo o catálogo de ${T.nome.toLowerCase()}`), focus: true },
       ...lst.map((x: any) => { const nome = limparNome(String(x.category_name)); return linha(nome, iconeDoNome(nome, "play"), x.category_id, T.nome); }),
@@ -566,8 +566,8 @@ async function tratar(url: URL) {
     const ids = [s, ...perto.map((x: any) => String(x.stream_id)).filter((i: string) => i !== s)];
     const ep = await epgVarios(cred, ids, 1200);
     const navegar = {
-      titleHeader: "NAVEGAR  ·  BOTÃO VERMELHO", title: "Trocar categoria", titleFooter: `Atual: ${cn || "Todos os canais"}`, key: "red",
-      image: faixa("nav", "nav", "apps", true, "p"), imageFiller: "fit", color: "transparent",
+      titleHeader: "BOTÃO VERMELHO", title: "‹   CATEGORIAS", titleFooter: `Atual: ${cn || "Todos os canais"}`, key: "red",
+      color: VID.voltar,
       action: `panel:${SELF()}?${q({ a: "pcats", t, s })}`,
     };
     const canais = todos.map((x: any, i: number) => ({ x, i })).filter((o: any) => o.i !== idx)
@@ -587,7 +587,7 @@ async function tratar(url: URL) {
     const lst = Array.isArray(cats) ? cats : [];
     const item = (nome: string, cid: string) => ({
       title: nome, titleFooter: "TV ao vivo", truncation: "title",
-      image: faixa("live", nome, iconeDoNome(nome, "live"), false, "p"), imageFiller: "fit", color: "transparent",
+      color: VID.n,
       action: `panel:${SELF()}?${q({ a: "painel", t, c: cid, cn: cid ? nome : "", s })}`,
     });
     return {
@@ -606,7 +606,7 @@ async function tratar(url: URL) {
     const numeros = Object.keys(eps).sort((x, y) => Number(x) - Number(y));
     if (temp === null) {
       return lista(limparNome(nome), numeros.map((n) => ({
-        title: `Temporada ${n}`, titleFooter: `${eps[n].length} episódios`, image: faixa("series", "Temporada " + n, "series"), imageFiller: "fit", color: "transparent",
+        title: `Temporada ${n}`, titleFooter: `${eps[n].length} episódios`, color: VID.n,
         action: go({ a: "serie", t, s, n }),
       })), "0,0,6,1", {}, `${numeros.length} temporadas`, "series");
     }
@@ -740,35 +740,6 @@ async function jogosDoDia(limiteMs = 3500): Promise<Jogo[] | null> {
   }
 }
 
-// logos dos times: baixados uma vez, só do domínio da API, e embutidos no SVG (a TV não carrega imagem externa dentro de SVG)
-const cacheLogos = new Map<string, string | null>();
-async function logoEmbutida(url: string): Promise<string | null> {
-  const ok = urlLogoOk(url);
-  if (!ok) return null;
-  if (cacheLogos.has(ok)) return cacheLogos.get(ok)!;
-  let out: string | null = null;
-  try {
-    const r = await fetch(ok, { signal: AbortSignal.timeout(4000), headers: { "user-agent": "Mozilla/5.0 (Web0S; SmartTV) AppleWebKit/537.36", accept: "image/png,image/*;q=0.8,*/*;q=0.5", referer: "https://painelmaster.lol/" } });
-    const tipo = (r.headers.get("content-type") ?? "").split(";")[0].trim();
-    if (r.ok && /^image\/(png|jpeg|webp|gif)$/.test(tipo)) {
-      let buf = new Uint8Array(await r.arrayBuffer());
-      if (buf.length > 0 && buf.length <= 3_000_000) {
-        try {
-          const img = await Image.decode(buf);
-          const lado = 72, f = Math.min(lado / img.width, lado / img.height);
-          img.resize(Math.max(1, Math.round(img.width * f)), Math.max(1, Math.round(img.height * f)));
-          buf = await img.encode();
-          out = `data:image/png;base64,${btoa(Array.from(buf, (c) => String.fromCharCode(c)).join(""))}`;
-        } catch {
-          if (buf.length <= 40_000) out = `data:${tipo};base64,${btoa(Array.from(buf, (c) => String.fromCharCode(c)).join(""))}`;
-        }
-      }
-    }
-  } catch { /* sem logo: usa a bolinha com a sigla */ }
-  if (out) { if (cacheLogos.size > 400) cacheLogos.clear(); cacheLogos.set(ok, out); }
-  return out;
-}
-
 // cartão SVG de um jogo (placar em duas linhas, estilo app esportivo)
 async function jogoSvg(g: URLSearchParams) {
   const W = 600, H = 380;
@@ -776,7 +747,7 @@ async function jogoSvg(g: URLSearchParams) {
   const st = limparNome(g.get("s") ?? "").slice(0, 18);
   const liga = limparNome(g.get("l") ?? "").slice(0, 24).toUpperCase();
   const canais = (g.get("c") ?? "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 80);
-  const [logoH, logoF] = await Promise.all([logoEmbutida(g.get("lh") ?? ""), logoEmbutida(g.get("lf") ?? "")]);
+  const logoH: string | null = null, logoF: string | null = null; // logos embutidas não aparecem na TV: sempre a bolinha com a sigla
   const linha = (y: number, p: string, logo: string | null) => {
     const [nome = "", sigla = "", cor = "475569", gols = "", v = ""] = (g.get(p) ?? "").split("|");
     const apaga = k === "post" && v !== "1";
@@ -804,14 +775,14 @@ async function jogoSvg(g: URLSearchParams) {
     + `<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1B1F3B" stop-opacity=".82"/><stop offset="1" stop-color="#0B0D1E" stop-opacity=".72"/></linearGradient>`
     + `<linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".12"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient>`
     + `<radialGradient id="bri" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity=".25"/></radialGradient>`
-    + `<clipPath id="c"><rect x="8" y="8" width="${W - 16}" height="${H - 16}" rx="34"/></clipPath></defs>`
+    + `<clipPath id="c"><rect x="8" y="8" width="${W - 16}" height="${H - 16}" rx="0"/></clipPath></defs>`
     + `<g clip-path="url(#c)"><rect width="${W}" height="${H}" fill="url(#bg)"/><rect width="${W}" height="${H}" fill="url(#sh)"/>`
     + (aoVivo ? `<rect width="8" height="${H}" x="8" fill="#EF4444"/>` : "")
     + `<circle cx="${W}" cy="${H}" r="170" fill="#F5B400" fill-opacity=".07"/>`
     + `<text x="40" y="58" font-size="22" font-weight="700" letter-spacing="2" fill="#fff" fill-opacity=".7" font-family="Arial, Helvetica, sans-serif">${xml(liga)}</text>${pill}`
     + `<line x1="40" x2="${W - 40}" y1="96" y2="96" stroke="#fff" stroke-opacity=".1" stroke-width="2"/>`
     + linha(156, "h", logoH) + linha(246, "f", logoF) + rodape + `</g>`
-    + `<rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="33" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="2"/></svg>`;
+    + `<rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="0" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="2"/></svg>`;
 }
 const timeTxt = (t: Time) => [t.nome, t.sigla, t.cor, t.gols, t.venceu ? "1" : ""].join("|");
 const jogoImg = (j: Jogo) => `${SELF()}?${q({
@@ -827,14 +798,14 @@ function resumoSvg(total: number, vivos: number, falhou: boolean) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs>`
     + `<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F5B400"/><stop offset=".6" stop-color="#FF7A00"/><stop offset="1" stop-color="#E11D48"/></linearGradient>`
     + `<linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>`
-    + `<clipPath id="c"><rect x="8" y="8" width="${W - 16}" height="${H - 16}" rx="34"/></clipPath></defs>`
+    + `<clipPath id="c"><rect x="8" y="8" width="${W - 16}" height="${H - 16}" rx="0"/></clipPath></defs>`
     + `<g clip-path="url(#c)"><rect width="${W}" height="${H}" fill="url(#g)"/><rect width="${W}" height="${H}" fill="url(#sh)"/>`
     + `<g transform="translate(400 170) scale(10)" fill="#fff" fill-opacity=".13"><path d="${bola}"/></g>`
     + `<rect x="40" y="40" width="84" height="84" rx="24" fill="#fff" fill-opacity=".22"/><g transform="translate(58 58) scale(2)" fill="#fff"><path d="${bola}"/></g>`
     + `<text x="40" y="226" font-size="46" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">Jogos de hoje</text>`
     + `<text x="42" y="272" font-size="28" font-weight="600" fill="#fff" fill-opacity=".88" font-family="Arial, Helvetica, sans-serif">${xml(sub)}</text>`
     + (total && !falhou ? `<text x="42" y="330" font-size="24" font-weight="700" fill="#fff" fill-opacity=".95" font-family="Arial, Helvetica, sans-serif">Ver todos  ›</text>` : "")
-    + `</g><rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="33" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/></svg>`;
+    + `</g><rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="0" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/></svg>`;
 }
 const resumoImg = (total: number, vivos: number, falhou: boolean) => `${SELF()}?${q({ a: "jr", n: total, vv: vivos, x: falhou ? 1 : 0 })}`;
 
@@ -934,7 +905,7 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
   const jogos = await jogosDoDia(5000);
   const j = (jogos ?? []).find((x) => x.casa.nome === n1 && x.fora.nome === n2);
   if (!j) return aviso("Jogo", "Não encontramos mais este jogo na programação de hoje.");
-  const linhaVidro = (i: number, o: Record<string, unknown>) => ({ type: "default", layout: `4,${1 + i},8,1`, imageFiller: "fit", color: "transparent", ...o });
+  const linhaVidro = (i: number, o: Record<string, unknown>) => ({ type: "default", layout: `4,${1 + i},8,1`, color: VID.n, ...o });
   const topo = [
     camadaFundo("bg-tv.jpg"),
     { type: "space", layout: "0,0,12,1", headline: `${j.casa.nome} x ${j.fora.nome}`, text: `{col:msx-white-soft}${j.liga} · ${j.status}` },
@@ -942,7 +913,7 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
   ];
   let cat: Catalogo | null = null;
   try { cat = await catalogoAoVivo(cred); } catch { /* sem catálogo: mostra só o aviso */ }
-  const abrirEventos = cat?.evento ? [{ ...linhaVidro(0, {}), title: "Eventos em Destaque", titleFooter: "Ver todos os canais de jogos do dia", image: faixa("nav", "eventos", "star", false, "w"), action: go({ a: "itens", k: "live", t, c: cat.evento.id, cn: cat.evento.nome }) }] : [];
+  const abrirEventos = cat?.evento ? [{ ...linhaVidro(0, {}), title: "Eventos em Destaque", titleFooter: "Ver todos os canais de jogos do dia", action: go({ a: "itens", k: "live", t, c: cat.evento.id, cn: cat.evento.nome }) }] : [];
 
   // candidatos: canais cujo nome cita os times (principalmente na categoria de eventos) ou que são os canais informados pela API
   const chaves = j.canaisLista.map(chaveDoCanal).filter((k) => k.length);
@@ -967,8 +938,8 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
       ...item, ...linhaVidro(i, {}), enumerate: false, focus: i === 0 ? true : undefined,
       imageWidth: undefined, wrapperColor: undefined, icon: undefined, iconSize: undefined,
       titleHeader: x.evento ? "EVENTO EM DESTAQUE  ·  ASSISTIR" : "ASSISTIR",
-      title: x.c.nome, titleFooter: nomeCat, truncation: "title|titleFooter",
-      image: faixa("live", x.c.nome, "play", i === 0, "w"),
+      title: x.c.nome.length > 44 ? x.c.nome.slice(0, 43) + "…" : x.c.nome, titleFooter: nomeCat, truncation: "title|titleFooter",
+      color: i === 0 ? VID.ouro : VID.n,
     };
   });
   if (assistir.length) {
@@ -976,10 +947,10 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
     return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: IMG + "bg-tv.jpg", pages: [{ items: [...topo, ...assistir, ...extra] }] };
   }
   const onde = j.canaisLista.length ? `Este jogo passa em ${j.canaisLista.join(" · ")}` : "A programação não informou onde passa";
-  const aviso1 = { ...linhaVidro(0, {}), titleHeader: "CANAL NÃO ENCONTRADO", title: "Não achamos este jogo na sua lista", titleFooter: cat ? onde : "Não foi possível consultar seus canais agora", image: faixa("vod", "naoachou", "search", false, "w"), action: "none", truncation: "title|titleFooter" };
+  const aviso1 = { ...linhaVidro(0, {}), titleHeader: "CANAL NÃO ENCONTRADO", title: "Não achamos este jogo na sua lista", titleFooter: cat ? onde : "Não foi possível consultar seus canais agora", action: "none", truncation: "title|titleFooter" };
   const opcoes = [
     ...abrirEventos.map((e) => ({ ...e, layout: "4,2,8,1", focus: true })),
-    { ...linhaVidro(abrirEventos.length ? 2 : 1, {}), focus: !abrirEventos.length, title: "TV ao vivo", titleFooter: "Procurar o canal nas categorias", image: faixa("live", "tvaovivo", "live", false, "w"), action: go({ a: "cats", k: "live", t }) },
+    { ...linhaVidro(abrirEventos.length ? 2 : 1, {}), focus: !abrirEventos.length, title: "TV ao vivo", titleFooter: "Procurar o canal nas categorias", action: go({ a: "cats", k: "live", t }) },
   ];
   return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: IMG + "bg-tv.jpg", pages: [{ items: [...topo, aviso1, ...opcoes] }] };
 }
@@ -998,19 +969,6 @@ Deno.serve(async (req: Request) => {
       const g = u0.searchParams;
       const svg = cartaoSvg(g.get("k") ?? "live", g.get("t") ?? "", g.get("s") ?? "", g.get("i") ?? "play", g.get("f") === "p");
       return new Response(svg, { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
-    }
-    if (req.method === "GET" && u0.searchParams.get("a") === "ldbg") {
-      const u = urlLogoOk(u0.searchParams.get("u") ?? "");
-      let info: Record<string, unknown> = { permitido: !!u };
-      if (u) {
-        try {
-          const r = await fetch(u, { signal: AbortSignal.timeout(5000), headers: { "user-agent": "Mozilla/5.0 (Web0S; SmartTV) AppleWebKit/537.36" } });
-          const b = new Uint8Array(await r.arrayBuffer());
-          info = { ...info, status: r.status, tipo: r.headers.get("content-type"), bytes: b.length };
-          try { const im = await Image.decode(b); info = { ...info, w: im.width, h: im.height }; } catch (e) { info = { ...info, decode: String(e).slice(0, 80) }; }
-        } catch (e) { info = { ...info, erro: String(e).slice(0, 120) }; }
-      }
-      return new Response(JSON.stringify(info), { headers: CORS });
     }
     if (req.method === "GET" && u0.searchParams.get("a") === "bg") {
       const g = u0.searchParams;
