@@ -61,7 +61,8 @@
     document.getElementsByTagName("head")[0].appendChild(sc);
   }
   function soltarHls() { if (hls) { try { hls.destroy(); } catch (e) {} hls = null; } }
-  var dg = { frags: 0, anexos: 0, avisos: "", codecs: "" };
+  var dg = { frags: 0, anexos: 0, avisos: "", codecs: "", manif: 0, host: "" };
+  function so_host(u) { var m = /^[a-z]+:\/\/([^\/?#]+)/i.exec(u || ""); return m ? m[1] : ""; }
   function dbgAtualizar() {
     var el = document.getElementById("dbg");
     if (!el || !usaHls) return;
@@ -70,7 +71,7 @@
     el.style.display = "block";
     el.innerHTML = (hls ? "hls" : "nativo") + " rs=" + v.readyState + " t=" + (v.currentTime || 0).toFixed(1) + " buf=" + b +
       " frags=" + dg.frags + " anexos=" + dg.anexos + " vid=" + v.videoWidth + "x" + v.videoHeight + (v.error ? " err=" + v.error.code : "") +
-      "\n" + dg.codecs + (dg.avisos ? "\n" + dg.avisos : "");
+      "\n" + (dg.codecs || (dg.manif ? "manifesto: aguardando " + Math.round((new Date().getTime() - dg.manif) / 1000) + "s" : "")) + (dg.host ? " host=" + dg.host : "") + (dg.avisos ? "\n" + dg.avisos : "");
   }
   setInterval(dbgAtualizar, 1000);
   function detalhe(t) { var d = document.getElementById("det"); if (d) d.innerHTML = t || ""; }
@@ -94,8 +95,10 @@
     soltarHls();
     if (usaHls && window.Hls && Hls.isSupported() && /\.m3u8/.test(fontes[i])) {
       hlsTent = 0;
-      hls = new Hls({ lowLatencyMode: false, maxBufferLength: 30, manifestLoadingMaxRetry: 2, levelLoadingMaxRetry: 2, fragLoadingMaxRetry: 3 });
-      dg.frags = 0; dg.anexos = 0; dg.avisos = ""; dg.codecs = "";
+      hls = new Hls({ lowLatencyMode: false, maxBufferLength: 30, manifestLoadingTimeOut: 8000, manifestLoadingMaxRetry: 1, manifestLoadingRetryDelay: 500, levelLoadingMaxRetry: 2, fragLoadingMaxRetry: 3 });
+      dg.frags = 0; dg.anexos = 0; dg.avisos = ""; dg.codecs = ""; dg.manif = 0; dg.host = "";
+      hls.on(Hls.Events.MANIFEST_LOADING, function () { dg.manif = new Date().getTime(); });
+      hls.on(Hls.Events.MANIFEST_LOADED, function (ev, d) { try { dg.host = so_host((d.networkDetails && d.networkDetails.responseURL) || d.url); } catch (e) {} });
       hls.on(Hls.Events.MANIFEST_PARSED, function (ev, d) {
         try { var l = d.levels[0]; dg.codecs = "codec v=" + (l.videoCodec || "?") + " a=" + (l.audioCodec || "?") + " " + (l.width || 0) + "x" + (l.height || 0) + " niveis=" + d.levels.length; } catch (e) {}
       });
@@ -104,6 +107,7 @@
       hls.on(Hls.Events.ERROR, function (ev, d) {
         if (d && !d.fatal) { dg.avisos = "aviso: " + d.details + (d.response && d.response.code !== undefined ? " " + d.response.code : ""); }
         if (!d || !d.fatal) return;
+        dg.avisos = "FATAL: " + d.details + (d.response && d.response.code !== undefined ? " " + d.response.code : "");
         detalhe("hls: " + d.type + " / " + d.details + (d.response && d.response.code !== undefined ? " / " + d.response.code : ""));
         if (d.type === Hls.ErrorTypes.NETWORK_ERROR && hlsTent < 2) { hlsTent++; try { hls.startLoad(); } catch (e) {} return; }
         if (d.type === Hls.ErrorTypes.MEDIA_ERROR && hlsTent < 2) { hlsTent++; try { hls.recoverMediaError(); } catch (e) {} return; }
