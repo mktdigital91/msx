@@ -387,10 +387,10 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
   const lista = `panel:${SELF()}?${q({ a: "painel", t, c, cn, s: x.stream_id })}`;
   const ativo = painel && String(x.stream_id) === atual;
   const visual = painel
-    ? { titleHeader: ativo ? "▶  ASSISTINDO AGORA" : n ? `CANAL ${n}` : undefined, color: ativo ? VID.ouro : VID.n }
+    ? { color: ativo ? VID.ouro : VID.n }
     : { image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)", icon: logo ? undefined : "live-tv", iconSize: "small", color: VID.n };
   return {
-    title: nome, titleFooter: guia.linha || (ativo ? "Ao vivo agora" : "Ao vivo"), truncation: "title|titleFooter",
+    title: ativo ? "▶  " + nome : nome, titleFooter: guia.linha || (ativo ? "Ao vivo agora" : "Ao vivo"), truncation: "title|titleFooter",
     ...visual,
     focus: ativo ? true : undefined, enumerate: true,
     playerLabel: nome,
@@ -540,7 +540,7 @@ async function tratar(url: URL) {
     const ids = [s, ...perto.map((x: any) => String(x.stream_id)).filter((i: string) => i !== s)];
     const ep = await epgVarios(cred, ids, 1200);
     const navegar = {
-      titleHeader: "BOTÃO VERMELHO", title: "‹   CATEGORIAS", titleFooter: `Atual: ${cn || "Todos os canais"}`, key: "red",
+      title: "‹   CATEGORIAS", titleFooter: `Atual: ${cn || "Todos os canais"}  ·  botão vermelho`, key: "red",
       color: VID.voltar,
       action: `panel:${SELF()}?${q({ a: "pcats", t, s })}`,
     };
@@ -910,8 +910,7 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
     return {
       ...item, ...linhaVidro(i, {}), enumerate: false, focus: i === 0 ? true : undefined,
       imageWidth: undefined, wrapperColor: undefined, icon: undefined, iconSize: undefined,
-      titleHeader: x.evento ? "EVENTO EM DESTAQUE  ·  ASSISTIR" : "ASSISTIR",
-      title: x.c.nome.length > 44 ? x.c.nome.slice(0, 43) + "…" : x.c.nome, titleFooter: nomeCat, truncation: "title|titleFooter",
+      title: "Assistir · " + (x.c.nome.length > 40 ? x.c.nome.slice(0, 39) + "…" : x.c.nome), titleFooter: (x.evento ? "Evento em destaque · " : "") + nomeCat, truncation: "title|titleFooter",
       color: i === 0 ? VID.ouro : VID.n,
     };
   });
@@ -920,7 +919,7 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
     return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: IMG + "bg-tv.jpg", pages: [{ items: [...topo, ...assistir, ...extra] }] };
   }
   const onde = j.canaisLista.length ? `Este jogo passa em ${j.canaisLista.join(" · ")}` : "A programação não informou onde passa";
-  const aviso1 = { ...linhaVidro(0, {}), titleHeader: "CANAL NÃO ENCONTRADO", title: "Não achamos este jogo na sua lista", titleFooter: cat ? onde : "Não foi possível consultar seus canais agora", action: "none", truncation: "title|titleFooter" };
+  const aviso1 = { ...linhaVidro(0, {}), title: "Canal não encontrado para este jogo", titleFooter: cat ? onde : "Não foi possível consultar seus canais agora", action: "none", truncation: "title|titleFooter" };
   const opcoes = [
     ...abrirEventos.map((e) => ({ ...e, layout: "4,2,8,1", focus: true })),
     { ...linhaVidro(abrirEventos.length ? 2 : 1, {}), focus: !abrirEventos.length, title: "TV ao vivo", titleFooter: "Procurar o canal nas categorias", action: go({ a: "cats", k: "live", t }) },
