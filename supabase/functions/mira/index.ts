@@ -63,9 +63,12 @@ async function infoUsuario(u: string): Promise<{ b: string; bloq: boolean }> {
   return o;
 }
 let _ctx = { ip: "", ua: "" };
-async function registrarAcesso(u: string, aparelho: string | null, evento: "login" | "sessao") {
+async function registrarAcesso(u: string, aparelho: string | null, evento: "login" | "sessao", metodo: string | null = null, mac: string | null = null) {
+  const base = { p_usuario: u, p_aparelho: aparelho, p_evento: evento, p_ip: _ctx.ip || null, p_ua: _ctx.ua || null };
+  const chamar = (corpo: Record<string, unknown>) => fetch(`${SB()}/rest/v1/rpc/registrar_acesso`, { method: "POST", headers: sbh(), body: JSON.stringify(corpo), signal: AbortSignal.timeout(4000) });
   try {
-    await fetch(`${SB()}/rest/v1/rpc/registrar_acesso`, { method: "POST", headers: sbh(), body: JSON.stringify({ p_usuario: u, p_aparelho: aparelho, p_evento: evento, p_ip: _ctx.ip || null, p_ua: _ctx.ua || null }), signal: AbortSignal.timeout(4000) });
+    let r = await chamar({ ...base, p_metodo: metodo, p_mac: mac });
+    if (!r.ok) r = await chamar(base); // banco ainda sem as colunas de método: registra como antes
     _usr.delete(u);
   } catch { /* o painel não pode derrubar o app */ }
 }
@@ -259,23 +262,46 @@ async function aparelhoDoToken(t: string): Promise<string | null> {
 const PLUGIN = "https://mktdigital91.github.io/msx/msx/mira.html";
 const PAGINA_CELULAR = "https://mktdigital91.github.io/msx/entrar/";
 
+const normMac = (v: unknown) => { const h = String(v ?? "").toUpperCase().replace(/[^0-9A-F]/g, ""); return h.length === 10 ? h.replace(/(..)(?=.)/g, "$1:") : ""; };
+async function tvPorMac(mac: string): Promise<{ aparelho: string; bloqueado: boolean } | null> {
+  try {
+    const r = await fetch(`${SB()}/rest/v1/tvs?mac=eq.${encodeURIComponent(mac)}&select=aparelho,bloqueado&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(5000) });
+    const j = await r.json();
+    return Array.isArray(j) && j[0] ? { aparelho: j[0].aparelho as string, bloqueado: !!j[0].bloqueado } : null;
+  } catch { return null; }
+}
+
 // Chamado pela página do celular: confere o código, valida usuário e senha e liga a sessão à TV.
-async function parear(corpo: { c?: string; u?: string; p?: string }) {
-  const codigo = String(corpo.c ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+async function parear(corpo: { c?: string; m?: string; u?: string; p?: string }) {
   const u = String(corpo.u ?? "").trim();
   const p = String(corpo.p ?? "");
-  if (codigo.length !== 6) return { ok: false, erro: "codigo" };
+  const porMac = corpo.m !== undefined && corpo.m !== null && String(corpo.m) !== "";
+  let aparelho: string | null = null, codigo = "", mac = "";
+  if (porMac) {
+    mac = normMac(corpo.m);
+    if (!mac) return { ok: false, erro: "mac" };
+  } else {
+    codigo = String(corpo.c ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (codigo.length !== 6) return { ok: false, erro: "codigo" };
+  }
   if (!u || !p) return { ok: false, erro: "campos" };
-  const aparelho = await aparelhoDoCodigo(codigo);
-  if (!aparelho) return { ok: false, erro: "codigo" };
+  if (porMac) {
+    const tv = await tvPorMac(mac);
+    if (!tv) return { ok: false, erro: "mac" };
+    if (tv.bloqueado) return { ok: false, erro: "bloqueado" };
+    aparelho = tv.aparelho;
+  } else {
+    aparelho = await aparelhoDoCodigo(codigo);
+    if (!aparelho) return { ok: false, erro: "codigo" };
+  }
   let info;
   const x = await infoUsuario(u);
   if (x.bloq) return { ok: false, erro: "bloqueado" };
   try { info = await api({ u, p, b: x.b }); } catch { return { ok: false, erro: "provedor" }; }
   if (!info?.user_info || Number(info.user_info.auth) !== 1) return { ok: false, erro: "credenciais" };
-  await registrarAcesso(u, aparelho, "login");
+  await registrarAcesso(u, aparelho, "login", porMac ? "mac" : "codigo", porMac ? mac : null);
   await salvarSessao(aparelho, await criarToken(u, p));
-  await apagarCodigo(codigo);
+  if (!porMac) await apagarCodigo(codigo);
   return { ok: true, usuario: u };
 }
 
@@ -412,7 +438,7 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
       { type: "space", layout: "0,1,3,3", offset: "0,0.4,0,-0.15", image: IMG + "login-qr.png", imageFiller: "cover" },
       { id: "qr", type: "default", layout: "0,1,3,3", offset: "0.15,0.57,-0.3,-0.45", color: "transparent", image: qr, imageFiller: "fit", action: "none" },
       { type: "space", layout: "3,1,3,2", offset: "0,0.4,0,-0.15", image: IMG + "login-codigo.png", imageFiller: "cover" },
-      { type: "default", layout: "3,1,3,2", offset: "0,0.45,0,-0.3", color: "transparent", titleHeader: "Código celular:", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Válido por: 24h", action: "none" },
+      { type: "default", layout: "3,1,3,2", offset: "0,0.25,0,-0.3", color: "transparent", titleHeader: "Código celular:", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Válido por: 24h", action: "none" },
       { type: "space", layout: "3,3,3,1", offset: "-0.1,0.38,0.2,0.15", image: IMG + "login-novo.png", imageFiller: "fit" },
       { type: "default", layout: "3,3,3,1", offset: "-0.1,0.27,0.2,0.15", color: "transparent", alignment: "center", title: "Novo código", titleFooter: "Gerar outro QR code", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
       { type: "space", layout: "0,5,6,1", text: `{col:msx-white-soft}Número do MAC: {col:msx-white}${mac || "indisponível"}` },
@@ -597,7 +623,7 @@ async function tratar(url: URL) {
       catch { return telaCelular(await codigoDoAparelho(d), d, "Servidor indisponível agora. Toque em Atualizar para tentar de novo.", tv); }
       if (!info?.user_info || Number(info.user_info.auth) !== 1) return telaCelular(await codigoDoAparelho(d), d, "O cadastro desta TV está com usuário ou senha inválidos. Fale com o suporte.", tv);
       const exp = info.user_info.exp_date ? new Date(Number(info.user_info.exp_date) * 1000).toLocaleDateString("pt-BR") : "sem data";
-      await registrarAcesso(tv.usuario, d, "login");
+      await registrarAcesso(tv.usuario, d, "login", "painel", tv.mac);
       await fixarDnsDoUsuario(tv.usuario, tv.dns_id);
       const tk = await criarToken(tv.usuario, senha!, ver);
       await salvarSessao(d, tk);
@@ -649,7 +675,7 @@ async function tratar(url: URL) {
     try { info = await api({ u, p, b: x.b }); } catch (e) { return telaEntrar("Provedor: " + String((e as Error).message ?? e).slice(0, 80), d, u, ""); }
     if (!info?.user_info || Number(info.user_info.auth) !== 1) return telaEntrar("Usuário ou senha incorretos", d, u, "");
     const exp = info.user_info.exp_date ? new Date(Number(info.user_info.exp_date) * 1000).toLocaleDateString("pt-BR") : "sem data";
-    await registrarAcesso(u, d, "login");
+    await registrarAcesso(u, d, "login", "tv", (await tvDoAparelho(d))?.mac ?? null);
     const tk = await criarToken(u, p);
     await salvarSessao(d, tk);
     return await home(tk, `${u} · vence ${exp}`, d);

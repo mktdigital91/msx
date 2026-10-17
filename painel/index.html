@@ -473,7 +473,7 @@ async function vResumo(el) {
     cont(sb.from("usuarios_app").select("*", { count: "exact", head: true }).gte("ultimo_acesso", desde)),
     cont(sb.from("acessos").select("*", { count: "exact", head: true }).eq("evento", "login").gte("em", desde)),
     cont(sb.from("trocas").select("*", { count: "exact", head: true }).eq("status", "aguardando")),
-    q(sb.from("acessos").select("usuario,evento,em,dns_id").order("em", { ascending: false }).limit(8))
+    q(sb.from("acessos").select("*").order("em", { ascending: false }).limit(8))
   ]);
   var grupos = r[0], dns = r[1], checks = r[2], nUsers = r[3], nAtivos = r[4], nLogins = r[5], nPend = r[6], ult = r[7];
   var porDns = {}; checks.slice().reverse().forEach(function (c) { (porDns[c.dns_id] = porDns[c.dns_id] || []).push(c); });
@@ -504,8 +504,8 @@ async function vResumo(el) {
   h += "</div>";
   h += '<section class="cartao"><div class="cartao-topo"><h2>Últimos acessos</h2><a href="#/acessos">Ver todos</a></div>';
   if (!ult.length) h += '<div class="vazio">Ninguém entrou ainda. Os acessos aparecem aqui assim que o app registrar o primeiro login.</div>';
-  else h += '<div class="tabela-rolagem"><table><thead><tr><th>Usuário</th><th>Evento</th><th>DNS</th><th>Quando</th></tr></thead><tbody>' +
-    ult.map(function (a) { return "<tr><td>" + e(a.usuario) + "</td><td>" + e(a.evento === "login" ? "Login" : "Sessão") + '</td><td class="mono">' + e(mapa[a.dns_id] ? mapa[a.dns_id].host : "-") + '</td><td class="suave">' + e(tempo(a.em)) + "</td></tr>"; }).join("") + "</tbody></table></div>";
+  else h += '<div class="tabela-rolagem"><table><thead><tr><th>Usuário</th><th>Como entrou</th><th>DNS</th><th>Quando</th></tr></thead><tbody>' +
+    ult.map(function (a) { return "<tr><td>" + e(a.usuario) + "</td><td>" + e(rotuloAcesso(a)) + '</td><td class="mono">' + e(mapa[a.dns_id] ? mapa[a.dns_id].host : "-") + '</td><td class="suave">' + e(tempo(a.em)) + "</td></tr>"; }).join("") + "</tbody></table></div>";
   h += "</section>";
   el.innerHTML = h;
 }
@@ -710,10 +710,10 @@ async function vUsuarios(el) {
     var mapa = {}; S.cache.dnsLista.forEach(function (d) { mapa[d.id] = d; });
     var lista = S.cache.usuarios.filter(function (u) { return !t || u.usuario.toLowerCase().indexOf(t) >= 0; });
     $("#tab-usuarios").innerHTML = !lista.length ? '<div class="vazio">Nenhum usuário encontrado.</div>' :
-      '<table><thead><tr><th>Usuário</th><th>DNS</th><th>Logins</th><th>Último acesso</th><th>Situação</th><th></th></tr></thead><tbody>' +
+      '<table><thead><tr><th>Usuário</th><th>DNS</th><th>Logins</th><th>Último login</th><th>Último acesso</th><th>Situação</th><th></th></tr></thead><tbody>' +
       lista.map(function (u) {
         return "<tr><td><b>" + e(u.usuario) + "</b>" + (u.observacao ? '<br><span class="suave" style="font-size:12px">' + e(u.observacao) + "</span>" : "") + "</td>" +
-          '<td class="mono">' + e(mapa[u.dns_id] ? mapa[u.dns_id].host : "-") + "</td><td>" + (u.logins || 0) + '</td><td class="suave">' + e(tempo(u.ultimo_acesso)) + "</td>" +
+          '<td class="mono">' + e(mapa[u.dns_id] ? mapa[u.dns_id].host : "-") + "</td><td>" + (u.logins || 0) + '</td><td class="suave">' + e(ROTULO_METODO[u.ultimo_metodo] || "-") + '</td><td class="suave">' + e(tempo(u.ultimo_acesso)) + "</td>" +
           "<td>" + (u.bloqueado ? '<span class="pilula erro">Bloqueado</span>' : '<span class="pilula ok">Liberado</span>') + "</td>" +
           '<td class="acoes"><button class="btn pequeno" data-acao="editarUsuario" data-id="' + e(u.usuario) + '">Editar</button>' +
           '<button class="btn pequeno" data-acao="alternarBloqueio" data-id="' + e(u.usuario) + '">' + (u.bloqueado ? "Liberar" : "Bloquear") + "</button>" +
@@ -769,6 +769,9 @@ Object.assign(acoes, {
   }
 });
 
+var ROTULO_METODO = { codigo: "Código do celular", mac: "MAC pelo celular", tv: "Digitado na TV", painel: "Cadastro do painel" };
+function rotuloAcesso(a) { return a.evento === "login" ? (ROTULO_METODO[a.metodo] || "Login") : "Sessão salva"; }
+
 // ---------- acessos ----------
 async function vAcessos(el) {
   var r = await Promise.all([
@@ -778,9 +781,9 @@ async function vAcessos(el) {
   var mapa = {}; r[1].forEach(function (d) { mapa[d.id] = d.host; });
   var h = cab("Acessos", "Os 300 acessos mais recentes ao app.");
   h += '<section class="cartao">' + (!r[0].length ? '<div class="vazio">Nenhum acesso registrado ainda.</div>' :
-    '<div class="tabela-rolagem"><table><thead><tr><th>Quando</th><th>Usuário</th><th>Evento</th><th>DNS</th><th>IP</th><th>Aparelho</th></tr></thead><tbody>' +
+    '<div class="tabela-rolagem"><table><thead><tr><th>Quando</th><th>Usuário</th><th>Como entrou</th><th>MAC da TV</th><th>DNS</th><th>IP</th><th>Aparelho</th></tr></thead><tbody>' +
     r[0].map(function (a) {
-      return '<tr><td class="suave" title="' + e(dataHora(a.em)) + '">' + e(tempo(a.em)) + "</td><td><b>" + e(a.usuario) + "</b></td><td>" + e(a.evento === "login" ? "Login" : "Sessão") +
+      return '<tr><td class="suave" title="' + e(dataHora(a.em)) + '">' + e(tempo(a.em)) + "</td><td><b>" + e(a.usuario) + "</b></td><td>" + e(rotuloAcesso(a)) + '</td><td class="mono">' + e(a.mac || "-") +
         '</td><td class="mono">' + e(mapa[a.dns_id] || "-") + '</td><td class="mono">' + e(a.ip || "-") + '</td><td class="suave" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + e(a.user_agent || "") + '">' + e(a.user_agent || "-") + "</td></tr>";
     }).join("") + "</tbody></table></div>") + "</section>";
   el.innerHTML = h;
