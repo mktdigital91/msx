@@ -19,9 +19,19 @@ const CORS = {
 const IMG = "https://mktdigital91.github.io/msx/msx/img/";
 let LOGO = IMG + "logo-goldplay.png";
 let FUNDO_CFG = ""; // imagem de fundo escolhida no painel (vazio = fundos padrão)
+// ---------- temas do app (painel > Personalizar app) ----------
+// "classico": o visual colorido original; "onix": preto com dourado
+let TEMA = "classico";
+const TEMAS: Record<string, { pasta: string; arquivos: Set<string> }> = {
+  onix: { pasta: "temas/onix/", arquivos: new Set(["bg-tv.jpg", "bg-filmes.jpg", "bg-series.jpg", "card-tv.png", "card-filmes.png", "card-series.png", "btn-sair.png", "btn-atualizar.png", "btn-pesquisar.png", "login-qr.png", "login-codigo.png", "login-campo.png", "login-entrar.png", "login-novo.png"]) },
+};
+// endereço de uma imagem do app no tema ativo (cai na versão clássica se o tema não tiver a peça)
+const im = (nome: string) => { const t = TEMAS[TEMA]; return IMG + (t && t.arquivos.has(nome) ? t.pasta : "") + nome; };
 let CONTATO = ""; // contato para renovar o plano (painel > Personalizar app)
 let AVISO_DIAS = 5; // quantos dias antes do vencimento o aviso aparece
-const COR = { tv: "rgba(124,92,255,0.40)", vod: "rgba(244,63,142,0.38)", series: "rgba(34,211,238,0.32)", vidro: "rgba(14,16,36,0.55)", destaque: "#7C5CFF" };
+const COR_CLASSICO = { tv: "rgba(124,92,255,0.40)", vod: "rgba(244,63,142,0.38)", series: "rgba(34,211,238,0.32)", vidro: "rgba(14,16,36,0.55)", destaque: "#7C5CFF" };
+const COR_ONIX = { tv: "rgba(214,178,94,0.22)", vod: "rgba(205,132,72,0.22)", series: "rgba(196,186,160,0.20)", vidro: "rgba(16,15,19,0.74)", destaque: "#D6B25E" };
+const COR = { ...COR_CLASSICO };
 
 const BASE_PROV = `${PROVEDOR.protocolo}://${PROVEDOR.host}`; // reserva, se o painel/banco não responder
 
@@ -123,15 +133,21 @@ async function carregarConfig() {
   if (Date.now() - _cfgT < 60_000) return;
   _cfgT = Date.now();
   try {
-    const r = await fetch(`${SB()}/rest/v1/config_app?owner_id=is.null&select=logo_url,fundo_url,cor_tv,cor_filmes,cor_series,cor_vidro,cor_destaque,extra&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+    const r = await fetch(`${SB()}/rest/v1/config_app?owner_id=is.null&select=logo_url,fundo_url,cor_tv,cor_filmes,cor_series,cor_vidro,cor_destaque,extra,tema_app&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
     const j = await r.json(); const c = Array.isArray(j) ? j[0] : null; if (!c) return;
     if (c.logo_url && /^https:\/\//.test(c.logo_url)) LOGO = c.logo_url;
     FUNDO_CFG = c.fundo_url && /^https:\/\//.test(c.fundo_url) ? c.fundo_url : "";
-    COR.tv = rgba(c.cor_tv, 0.40) ?? COR.tv;
-    COR.vod = rgba(c.cor_filmes, 0.38) ?? COR.vod;
-    COR.series = rgba(c.cor_series, 0.32) ?? COR.series;
-    COR.vidro = rgba(c.cor_vidro, 0.55) ?? COR.vidro;
-    if (/^#[0-9a-f]{6}$/i.test(c.cor_destaque ?? "")) COR.destaque = c.cor_destaque;
+    TEMA = c.tema_app === "onix" ? "onix" : "classico";
+    // o Ônix tem cores próprias; no Clássico valem as cores escolhidas no painel
+    Object.assign(COR, TEMA === "onix" ? COR_ONIX : COR_CLASSICO);
+    Object.assign(VID, TEMA === "onix" ? VID_ONIX : VID_CLASSICO);
+    if (TEMA === "classico") {
+      COR.tv = rgba(c.cor_tv, 0.40) ?? COR.tv;
+      COR.vod = rgba(c.cor_filmes, 0.38) ?? COR.vod;
+      COR.series = rgba(c.cor_series, 0.32) ?? COR.series;
+      COR.vidro = rgba(c.cor_vidro, 0.55) ?? COR.vidro;
+      if (/^#[0-9a-f]{6}$/i.test(c.cor_destaque ?? "")) COR.destaque = c.cor_destaque;
+    }
     CONTATO = String(c.extra?.contato ?? "").replace(/[{}]/g, "").trim().slice(0, 60);
     const dias = Number(c.extra?.aviso_dias); AVISO_DIAS = Number.isFinite(dias) && dias >= 0 && dias <= 60 ? Math.round(dias) : 5;
   } catch { /* mantém o que já estava */ }
@@ -458,6 +474,11 @@ const ICONES: Record<string, string> = {
   next: "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
   prev: "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z",
 };
+// cartões desenhados (capas sem imagem): no Ônix, tons escuros com dourado
+const PALETAS_ONIX: Record<string, string[][]> = {
+  live: [["#2A2418", "#0E0D10"], ["#1F1B14", "#0B0B0D"]], vod: [["#2E2016", "#0E0C0D"], ["#251A14", "#0B0A0C"]],
+  nav: [["#3A2E18", "#14110C"]], series: [["#26241E", "#0D0D0F"], ["#1F1E1A", "#0B0B0C"]],
+};
 const PALETAS: Record<string, string[][]> = {
   live: [["#7C5CFF", "#3B82F6"], ["#6D4AFF", "#22D3EE"], ["#8B5CF6", "#EC4899"], ["#4F46E5", "#06B6D4"]],
   vod: [["#F43F8E", "#F59E0B"], ["#EF4444", "#F97316"], ["#EC4899", "#8B5CF6"], ["#E11D48", "#FB923C"]],
@@ -494,7 +515,8 @@ function quebrar(t: string, max = 15, linhas = 3) {
 function cartaoSvg(k: string, titulo: string, sub: string, icone: string, retrato = false) {
   const nome = limparNome(titulo).slice(0, 70) || "Sem nome";
   let h = 0; for (const ch of nome) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-  const pal = PALETAS[k] ?? PALETAS.live;
+  const tab = TEMA === "onix" ? PALETAS_ONIX : PALETAS;
+  const pal = tab[k] ?? tab.live;
   const [c1, c2] = pal[h % pal.length];
   const ic = ICONES[icone] ?? ICONES.play;
   const W = retrato ? 480 : 640, H = retrato ? 720 : 480;
@@ -508,10 +530,12 @@ function cartaoSvg(k: string, titulo: string, sub: string, icone: string, retrat
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" overflow="hidden"><defs><clipPath id="c"><rect width="${W}" height="${H}"/></clipPath><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><g clip-path="url(#c)"><rect width="${W}" height="${H}" fill="url(#g)"/><circle cx="${W - 70}" cy="50" r="190" fill="#fff" fill-opacity=".12"/><circle cx="30" cy="${H}" r="170" fill="#000" fill-opacity=".15"/><g transform="translate(${gx} ${gy}) scale(11)" fill="#fff" fill-opacity=".17"><path d="${ic}"/></g><rect x="40" y="40" width="88" height="88" rx="26" fill="#fff" fill-opacity=".22"/><g transform="translate(60 60) scale(2)" fill="#fff"><path d="${ic}"/></g>${textos}${subt}</g></svg>`;
 }
 // URL da imagem de um cartão
-const cartao = (k: string, t: string, s = "", i = "play", retrato = false) => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "img", k, t: limparNome(t).slice(0, 70), s, i, ...(retrato ? { f: "p" } : {}) }).toString()}`;
+const cartao = (k: string, t: string, s = "", i = "play", retrato = false) => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira?${new URLSearchParams({ a: "img", k, t: limparNome(t).slice(0, 70), s, i, ...(retrato ? { f: "p" } : {}), ...(TEMA !== "classico" ? { th: TEMA } : {}) }).toString()}`;
 
 // botões de vidro retos: só cor do MSX (sem imagem), mais leve e sem cantos aparecendo atrás
-const VID = { n: "rgba(10,12,28,0.62)", ouro: "rgba(245,180,0,0.32)", voltar: "rgba(6,7,14,0.88)" };
+const VID_CLASSICO = { n: "rgba(10,12,28,0.62)", ouro: "rgba(245,180,0,0.32)", voltar: "rgba(6,7,14,0.88)" };
+const VID_ONIX = { n: "rgba(18,17,21,0.72)", ouro: "rgba(214,178,94,0.30)", voltar: "rgba(8,8,10,0.92)" };
+const VID = { ...VID_CLASSICO };
 
 const SELF = () => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira`;
 const q = (o: Record<string, string | number>) =>
@@ -550,7 +574,7 @@ function inputAction(servico: string, titulo: string, dica: string) {
 
 const FUNDO: Record<string, string> = { live: "bg-tv.jpg", vod: "bg-filmes.jpg", series: "bg-series.jpg" };
 // O MSX ignora o "background" da raiz nessas telas; então o fundo vira um item de tela cheia atrás dos blocos.
-const camadaFundo = (img: string) => ({ type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", image: FUNDO_CFG || IMG + img, imageFiller: "cover", enable: false });
+const camadaFundo = (img: string) => ({ type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", image: FUNDO_CFG || im(img), imageFiller: "cover", enable: false });
 // Monta uma lista como páginas (grade 12x6) para poder ter o fundo em cada página.
 const ROLAGEM_VERTICAL = true; // listas rolam para baixo (false = páginas laterais, como antes)
 function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Record<string, unknown> = {}, extensao?: string, kind = "") {
@@ -558,7 +582,7 @@ function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Re
   if (ROLAGEM_VERTICAL) {
     return {
       type: "list", headline, extension: extensao, transparent: 2, ready: { action: "quiet" },
-      background: FUNDO_CFG || IMG + (FUNDO[kind] ?? "bg-tv.jpg"),
+      background: FUNDO_CFG || im(FUNDO[kind] ?? "bg-tv.jpg"),
       // o "background" da raiz não aparece; a camada "underlay" fica atrás de cada página da lista
       underlay: { items: [camadaFundo(FUNDO[kind] ?? "bg-tv.jpg")] },
       template: { type: "default", color: COR.vidro, ...extra, layout: `0,0,${w},${h}` },
@@ -576,7 +600,7 @@ function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Re
     pages.push({ items: [fundo, ...fatia] });
     if (!items.length) break;
   }
-  return { type: "pages", headline, extension: extensao, transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + (FUNDO[kind] ?? "bg-tv.jpg"), pages };
+  return { type: "pages", headline, extension: extensao, transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im(FUNDO[kind] ?? "bg-tv.jpg"), pages };
 }
 function aviso(titulo: string, msg: string, voltar?: unknown[]) {
   return lista(titulo, [{ title: msg, action: "none" }, ...(voltar ?? [])], "0,0,12,1");
@@ -590,37 +614,37 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
   const ep = p ? { p } : {};
   const pronto = !!(u && p);
   return {
-    type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-tv.jpg",
+    type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-tv.jpg"),
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "4,0,4,1", offset: "0,-0.3,0,-0.15", image: LOGO, imageFiller: "fit" },
       { type: "space", layout: "0,0,12,1", offset: "0,0.6,0,-0.3", alignment: "center", centration: "text", text: msg ?? "Escaneie o QR code com o celular ou digite seu usuário e senha aqui na TV." },
-      { id: "atualizar", type: "default", layout: "10,0,2,1", image: IMG + "btn-atualizar.png", imageFiller: "fit", color: "transparent", action: go(base({ a: "inicio", x: Date.now() })) },
+      { id: "atualizar", type: "default", layout: "10,0,2,1", image: im("btn-atualizar.png"), imageFiller: "fit", color: "transparent", action: go(base({ a: "inicio", x: Date.now() })) },
       // ---- lado esquerdo: pelo celular ----
-      { type: "space", layout: "0,1,3,3", offset: "0,0.4,0,-0.15", image: IMG + "login-qr.png", imageFiller: "cover" },
+      { type: "space", layout: "0,1,3,3", offset: "0,0.4,0,-0.15", image: im("login-qr.png"), imageFiller: "cover" },
       { id: "qr", type: "default", layout: "0,1,3,3", offset: "0.15,0.57,-0.3,-0.45", color: "transparent", image: qr, imageFiller: "fit", action: "none" },
-      { type: "space", layout: "3,1,3,2", offset: "0,0.4,0,-0.15", image: IMG + "login-codigo.png", imageFiller: "cover" },
+      { type: "space", layout: "3,1,3,2", offset: "0,0.4,0,-0.15", image: im("login-codigo.png"), imageFiller: "cover" },
       { type: "default", layout: "3,1,3,2", offset: "0,0.25,0,-0.3", color: "transparent", titleHeader: "Código celular:", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Válido por: 24h", action: "none" },
-      { type: "space", layout: "3,3,3,1", offset: "-0.1,0.38,0.2,0.15", image: IMG + "login-novo.png", imageFiller: "fit" },
+      { type: "space", layout: "3,3,3,1", offset: "-0.1,0.38,0.2,0.15", image: im("login-novo.png"), imageFiller: "fit" },
       { type: "default", layout: "3,3,3,1", offset: "-0.1,0.27,0.2,0.15", color: "transparent", alignment: "center", title: "Novo código", titleFooter: "Gerar outro QR code", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
       { type: "space", layout: "0,5,6,1", text: `{col:msx-white-soft}Número do MAC: {col:msx-white}${mac || "indisponível"}` },
       // ---- divisória ----
       { type: "space", layout: "6,2,1,2", offset: "0,0.4,0,0", title: "ou", alignment: "center", centration: "title" },
       // ---- lado direito: usuário e senha na TV ----
-      { type: "space", layout: "7,1,5,1", offset: "0,0.4,0,-0.1", image: IMG + "login-campo.png", imageFiller: "cover" },
+      { type: "space", layout: "7,1,5,1", offset: "0,0.4,0,-0.1", image: im("login-campo.png"), imageFiller: "cover" },
       {
         id: "usuario", type: "default", layout: "7,1,5,1", offset: "0,0.4,0,-0.1", color: "transparent",
         titleHeader: "USUÁRIO", titleFooter: u || "Toque para digitar", focus: !u && !p,
         action: inputAction(`${SELF()}?${q(base({ a: "in", f: "u", ...ep }))}&v={INPUT}`, "Usuário", "Digite o usuário e confirme"),
       },
-      { type: "space", layout: "7,2,5,1", offset: "0,0.4,0,-0.1", image: IMG + "login-campo.png", imageFiller: "cover" },
+      { type: "space", layout: "7,2,5,1", offset: "0,0.4,0,-0.1", image: im("login-campo.png"), imageFiller: "cover" },
       {
         id: "senha", type: "default", layout: "7,2,5,1", offset: "0,0.4,0,-0.1", color: "transparent",
         titleHeader: "SENHA", titleFooter: p ? "••••••••" : "Toque para digitar",
         focus: !!u && !p, execute: auto && !!u && !p,
         action: inputAction(`${SELF()}?${q(base({ a: "in", f: "p", ...eu }))}&v={INPUT}`, "Senha", "Digite a senha e confirme"),
       },
-      { type: "space", layout: "7,3,5,1", offset: "0.9,0.3,-1.8,0.1", image: IMG + "login-entrar.png", imageFiller: "fit" },
+      { type: "space", layout: "7,3,5,1", offset: "0.9,0.3,-1.8,0.1", image: im("login-entrar.png"), imageFiller: "fit" },
       {
         id: "entrar", type: "default", layout: "7,3,5,1", offset: "0.9,0.3,-1.8,0.1", color: "transparent", alignment: "center", centration: "title",
         title: "Entrar",
@@ -1337,7 +1361,9 @@ function resumoSvg(total: number, vivos: number, falhou: boolean) {
   const sub = falhou ? "Placar indisponível agora" : total ? `${total} partida${total > 1 ? "s" : ""}${vivos ? ` · ${vivos} ao vivo` : ""}` : "Nenhuma partida hoje";
   const bola = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 3.3l1.35-.95c1.82.56 3.37 1.76 4.38 3.34l-.39 1.34-1.35.46L13 6.7V5.3zm-3.35-.95L11 5.3v1.4L7.01 9.49l-1.35-.47-.39-1.34c1.01-1.57 2.56-2.77 4.38-3.33zM7.08 17.11l-1.14.1C4.73 15.81 4 13.99 4 12c0-.12.01-.23.02-.35l1-.73 1.38.48 1.46 4.34-.78 1.37zm7.42 2.48c-.79.26-1.63.41-2.5.41s-1.71-.15-2.5-.41l-.69-1.49.64-1.1h5.11l.64 1.11-.7 1.48zM14.27 15H9.73l-1.35-4.02L12 8.44l3.63 2.54L14.27 15zm3.79 2.21l-1.14-.1-.79-1.37 1.46-4.34 1.39-.47 1 .73c.01.11.02.22.02.34 0 1.99-.73 3.81-1.94 5.21z";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs>`
-    + `<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F5B400"/><stop offset=".6" stop-color="#FF7A00"/><stop offset="1" stop-color="#E11D48"/></linearGradient>`
+    + (TEMA === "onix"
+      ? `<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2B2418"/><stop offset=".55" stop-color="#16130F"/><stop offset="1" stop-color="#0C0B0D"/></linearGradient>`
+      : `<linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F5B400"/><stop offset=".6" stop-color="#FF7A00"/><stop offset="1" stop-color="#E11D48"/></linearGradient>`)
     + `<linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>`
     + `<clipPath id="c"><rect x="8" y="8" width="${W - 16}" height="${H - 16}" rx="0"/></clipPath></defs>`
     + `<g clip-path="url(#c)"><rect width="${W}" height="${H}" fill="url(#g)"/><rect width="${W}" height="${H}" fill="url(#sh)"/>`
@@ -1346,9 +1372,9 @@ function resumoSvg(total: number, vivos: number, falhou: boolean) {
     + `<text x="40" y="226" font-size="46" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">Jogos de hoje</text>`
     + `<text x="42" y="272" font-size="28" font-weight="600" fill="#fff" fill-opacity=".88" font-family="Arial, Helvetica, sans-serif">${xml(sub)}</text>`
     + (total && !falhou ? `<text x="42" y="330" font-size="24" font-weight="700" fill="#fff" fill-opacity=".95" font-family="Arial, Helvetica, sans-serif">Ver todos  ›</text>` : "")
-    + `</g><rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="0" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/></svg>`;
+    + `</g><rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="0" fill="none" stroke="${TEMA === "onix" ? "#D6B25E" : "#fff"}" stroke-opacity="${TEMA === "onix" ? ".7" : ".35"}" stroke-width="2"/></svg>`;
 }
-const resumoImg = (total: number, vivos: number, falhou: boolean) => `${SELF()}?${q({ a: "jr", n: total, vv: vivos, x: falhou ? 1 : 0 })}`;
+const resumoImg = (total: number, vivos: number, falhou: boolean) => `${SELF()}?${q({ a: "jr", n: total, vv: vivos, x: falhou ? 1 : 0, ...(TEMA !== "classico" ? { th: TEMA } : {}) })}`;
 
 async function home(t: string, quemTxt: string, d: string | null = null, escolher = false) {
   const [usuario] = quemTxt.split(" · ");
@@ -1379,12 +1405,12 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
   const vivos = lst.filter((j) => j.estado === "in").length;
   const todos = go({ a: "jogos", t });
   const card = (layout: string, img: string, acao: string, extra: Record<string, unknown> = {}) =>
-    ({ type: "default", layout, image: IMG + img, imageFiller: "fit", color: "transparent", action: acao, ...extra });
+    ({ type: "default", layout, image: im(img), imageFiller: "fit", color: "transparent", action: acao, ...extra });
   const destaques = lst.slice(0, 3).map((j, i) => ({
     type: "default", layout: `${3 + i * 3},4,3,2`, image: jogoImg(j), imageFiller: "fit", color: "transparent", action: jogoAcao(j, t),
   }));
   return {
-    type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-tv.jpg",
+    type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-tv.jpg"),
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,2,1", image: LOGO, imageFiller: "fit" },
@@ -1554,7 +1580,7 @@ async function telaPerfis(cred: Cred, t: string, d: string | null) {
   if (v.length < 5) itens.push({ type: "default", layout: `${x0 + v.length * 2},2,2,2`, color: VID.n, icon: "add", iconSize: "large", title: "Adicionar", alignment: "center",
     action: inputAction(`${SELF()}?${q(base({ a: "perfilnovo", t }))}&v={INPUT}`, "Novo perfil", "Digite o nome e confirme") });
   itens.push({ type: "default", layout: "4,5,4,1", color: VID.n, icon: "settings", title: "Gerenciar perfis", titleFooter: "Nomes, infantil e controle parental", action: go(base({ a: "perfisger", t })) });
-  return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-tv.jpg", pages: [{ items: itens }] };
+  return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-tv.jpg"), pages: [{ items: itens }] };
 }
 async function telaGerenciar(cred: Cred, t: string, d: string | null) {
   const [v, cfg] = await Promise.all([listaPerfis(cred.u), contaCfg(cred.u)]);
@@ -1683,7 +1709,7 @@ async function telaFilme(cred: Cred, t: string, s: string) {
   if (andamento) botoes.push(botao("6,4,3,1", "replay", "Do início", "Começar de novo", play, { playerLabel: nome, properties: { ...props, "resume:position": "none" } }));
   if (yt) botoes.push(botao(`${andamento ? 9 : 6},4,3,1`, "movie", "Trailer", "YouTube", `video:plugin:http://msx.benzac.de/plugins/youtube.html?id=${yt}`, { playerLabel: `Trailer · ${nome}` }));
   return {
-    type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-filmes.jpg",
+    type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-filmes.jpg"),
     pages: [{ items: [
       ...fundoDetalhe(imgOk(inf.backdrop_path), "bg-filmes.jpg"),
       { type: "space", layout: "0,0,3,5", offset: "0.1,0.1,-0.2,-0.2", image: capa, imageFiller: "fit" },
@@ -1734,7 +1760,7 @@ async function telaSerie(cred: Cred, t: string, s: string) {
   }));
   if (muitas) temps.push({ type: "default", layout: "11,5,1,1", color: VID.voltar, alignment: "center", centration: "title", title: "Todas", action: go({ a: "serie", t, s, n: "*" }) });
   return {
-    type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-series.jpg",
+    type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-series.jpg"),
     pages: [{ items: [
       ...fundoDetalhe(imgOk(inf.backdrop_path), "bg-series.jpg"),
       { type: "space", layout: "0,0,3,5", offset: "0.1,0.1,-0.2,-0.2", image: capa, imageFiller: "fit" },
@@ -1826,7 +1852,7 @@ async function buscaDados(cred: Cred, t: string, k: string, escondeAdulto: (cat:
       properties: JSON.stringify(m.properties),
     };
   }
-  return { ok: true, itens, live };
+  return { ok: true, itens, live, tema: { img: IMG + (TEMAS[TEMA]?.pasta ?? ""), n: VID.n, ouro: VID.ouro, voltar: VID.voltar, vidro: COR.vidro } };
 }
 function itemBusca(x: ItemBusca, cred: Cred, t: string) {
   if (x.k === "live") {
@@ -1876,7 +1902,7 @@ async function telaBusca(cred: Cred, t: string, k: string, texto: string, foco: 
   }
   const aviso = erro || (!normBusca(texto) ? "Digite com o teclado ao lado; os resultados aparecem aqui." : achados.length ? "" : "Nada encontrado com esse nome.");
   return {
-    type: "pages", flag: "busca", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + (FUNDO[k] ?? "bg-tv.jpg"),
+    type: "pages", flag: "busca", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im(FUNDO[k] ?? "bg-tv.jpg"),
     pages: [{ items: [
       camadaFundo(FUNDO[k] ?? "bg-tv.jpg"),
       { type: "space", layout: "0,0,6,1", headline: `{col:msx-white}${texto ? xmlMsx(texto.toUpperCase()) : "{col:msx-white-soft}Pesquisar"}{col:msx-yellow}_`, text: `{col:msx-white-soft}Pesquisar em ${secao}` },
@@ -1997,7 +2023,7 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
   });
   if (assistir.length) {
     const extra = abrirEventos.map((e) => ({ ...e, layout: `4,${1 + assistir.length},8,1` }));
-    return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-tv.jpg", pages: [{ items: [...topo, ...assistir, ...extra] }] };
+    return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-tv.jpg"), pages: [{ items: [...topo, ...assistir, ...extra] }] };
   }
   const onde = j.canaisLista.length ? `Este jogo passa em ${j.canaisLista.join(" · ")}` : "A programação não informou onde passa";
   const aviso1 = { ...linhaVidro(0, {}), title: "Canal não encontrado para este jogo", titleFooter: cat ? onde : "Não foi possível consultar seus canais agora", action: "none", truncation: "title|titleFooter" };
@@ -2005,7 +2031,7 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
     ...abrirEventos.map((e) => ({ ...e, layout: "4,2,8,1", focus: true })),
     { ...linhaVidro(abrirEventos.length ? 2 : 1, {}), focus: !abrirEventos.length, title: "TV ao vivo", titleFooter: "Procurar o canal nas categorias", action: go({ a: "cats", k: "live", t }) },
   ];
-  return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-tv.jpg", pages: [{ items: [...topo, aviso1, ...opcoes] }] };
+  return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-tv.jpg"), pages: [{ items: [...topo, aviso1, ...opcoes] }] };
 }
 
 Deno.serve(async (req: Request) => {

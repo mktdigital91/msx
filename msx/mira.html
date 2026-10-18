@@ -97,6 +97,8 @@
   var VID_N = 'rgba(10,12,28,0.62)', VID_OURO = 'rgba(245,180,0,0.32)';
   var FUNDOS = { live: 'bg-tv.jpg', vod: 'bg-filmes.jpg', series: 'bg-series.jpg' };
   var IMG = 'https://mktdigital91.github.io/msx/msx/img/';
+  // cores e imagens do tema escolhido no painel (vêm junto com o catálogo)
+  function aplicarTema(tm) { if (tm.img) { IMG = tm.img; } if (tm.n) { VID_N = tm.n; } if (tm.ouro) { VID_OURO = tm.ouro; } }
   function chaveCat() { return BUSCA.t.slice(-32) + '|' + BUSCA.k; }
   function acaoBusca(cmd) { return 'replace:content:busca:request:interaction:busca/' + cmd + '@' + PLUGIN; }
   function acaoServidor(qs) { return 'content:request:interaction:' + qs + '&rl=1@' + PLUGIN; }
@@ -109,7 +111,7 @@
     if (c && (c.carregando || new Date().getTime() - c.em < 15 * 60000)) { return; }
     catalogos[ch] = { carregando: true };
     pedirRelay('a=buscadados&t=' + encodeURIComponent(BUSCA.t) + (BUSCA.k ? '&k=' + BUSCA.k : '') + '&rl=1', null, 0, function (r) {
-      if (r && r.itens) { catalogos[ch] = { em: new Date().getTime(), itens: r.itens, live: r.live }; }
+      if (r && r.itens) { catalogos[ch] = { em: new Date().getTime(), itens: r.itens, live: r.live }; if (r.tema) { aplicarTema(r.tema); } }
       else { catalogos[ch] = { erro: true, em: 0 }; }
       atualizarSeAberta(ch);
     }, function () { catalogos[ch] = { erro: true, em: 0 }; atualizarSeAberta(ch); }, 120000);

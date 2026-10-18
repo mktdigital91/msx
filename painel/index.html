@@ -171,6 +171,15 @@
   @keyframes g { to { transform: rotate(360deg); } }
 
   /* personalização do app */
+  .temas { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 6px 0 4px; }
+  .tema { position: relative; display: block; cursor: pointer; border-radius: 18px; overflow: hidden; border: 2px solid var(--vidro-linha); background: #0A0B16 center / cover; aspect-ratio: 16 / 9; }
+  .tema input { position: absolute; opacity: 0; pointer-events: none; }
+  .tema .mini { position: absolute; left: 8%; right: 8%; top: 30%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5%; }
+  .tema .mini img { width: 100%; height: auto; display: block; }
+  .tema .rot { position: absolute; left: 0; right: 0; bottom: 0; padding: 8px 12px; background: linear-gradient(transparent, rgba(0,0,0,.75)); color: #fff; font-weight: 700; font-size: 14px; }
+  .tema .rot small { display: block; font-weight: 500; opacity: .75; font-size: 12px; }
+  .tema:has(input:checked) { border-color: var(--marca); box-shadow: 0 0 0 3px color-mix(in srgb, var(--marca) 35%, transparent); }
+  .tema:has(input:focus-visible) { outline: 2px solid var(--marca); outline-offset: 2px; }
   .previa { border-radius: 22px; overflow: hidden; border: 1px solid var(--vidro-linha); background: #0A0B16 center / cover; padding: 20px; display: grid; gap: 14px; min-height: 190px; }
   .previa .logo { height: 40px; width: auto; max-width: 180px; object-fit: contain; object-position: left; }
   .previa .nome-app { color: #fff; font-weight: 800; font-size: 20px; letter-spacing: -.02em; text-shadow: 0 2px 12px rgba(0,0,0,.5); }
@@ -824,6 +833,11 @@ Object.assign(acoes, {
 });
 
 // ---------- personalizar app ----------
+var IMG_APP = "https://mktdigital91.github.io/msx/msx/img/";
+var TEMAS_APP = [
+  { id: "classico", nome: "Clássico", desc: "Colorido, com gradientes", pasta: "" },
+  { id: "onix", nome: "Ônix", desc: "Preto com dourado, elegante", pasta: "temas/onix/" }
+];
 var CORES = [
   ["cor_tv", "TV ao vivo", "#6D5BFF"], ["cor_filmes", "Filmes", "#FF5C8A"], ["cor_series", "Séries", "#22D3EE"],
   ["cor_vidro", "Fundo dos cartões", "#1A1D3A"], ["cor_destaque", "Destaque", "#F5C84B"]
@@ -840,7 +854,15 @@ async function vApp(el) {
     '<button type="button" class="btn pequeno" data-acao="limparImg" data-id="logo_url">Remover</button></div><input type="hidden" name="logo_url" value="' + e(cfg.logo_url || "") + '"></div>' +
     '<div class="campo">Imagem de fundo<div class="envio"><input type="file" id="arq-fundo" accept="image/png,image/jpeg,image/webp"><button type="button" class="btn pequeno" data-acao="escolher" data-id="arq-fundo">Enviar imagem</button>' +
     '<button type="button" class="btn pequeno" data-acao="limparImg" data-id="fundo_url">Remover</button></div><input type="hidden" name="fundo_url" value="' + e(cfg.fundo_url || "") + '"></div>' +
-    '<h2 style="margin-top:8px">Cores</h2><div class="linha-campos">' +
+    '<h2 style="margin-top:8px">Tema do app</h2><div class="temas">' +
+    TEMAS_APP.map(function (t) {
+      var on = (cfg.tema_app || "classico") === t.id;
+      return '<label class="tema" style="background-image:url(' + IMG_APP + t.pasta + 'bg-tv.jpg)"><input type="radio" name="tema_app" value="' + t.id + '"' + (on ? " checked" : "") + '>' +
+        '<div class="mini"><img src="' + IMG_APP + t.pasta + 'card-tv.png" alt=""><img src="' + IMG_APP + t.pasta + 'card-filmes.png" alt=""><img src="' + IMG_APP + t.pasta + 'card-series.png" alt=""></div>' +
+        '<div class="rot">' + t.nome + '<small>' + t.desc + '</small></div></label>';
+    }).join("") + '</div>' +
+    '<p class="suave" id="nota-tema" style="font-size:13px"></p>' +
+    '<h2 style="margin-top:8px">Cores</h2><div class="linha-campos" id="campos-cores">' +
     CORES.map(function (c) { return '<label class="campo">' + c[1] + '<input type="color" name="' + c[0] + '" value="' + e(cfg[c[0]] || c[2]) + '" style="padding:4px;height:46px"></label>'; }).join("") +
     '</div><h2 style="margin-top:8px">Aviso de vencimento</h2>' +
     '<label class="campo">Contato para renovar (aparece na TV)<input type="text" name="contato" maxlength="60" placeholder="Ex.: WhatsApp (85) 99999-9999" value="' + e((cfg.extra && cfg.extra.contato) || "") + '"></label>' +
@@ -858,6 +880,13 @@ async function vApp(el) {
     $("#pv-tv").style.background = f.cor_tv.value; $("#pv-filmes").style.background = f.cor_filmes.value; $("#pv-series").style.background = f.cor_series.value;
     $("#pv-tv").style.boxShadow = $("#pv-filmes").style.boxShadow = $("#pv-series").style.boxShadow = "0 0 0 2px " + f.cor_destaque.value + " inset";
   };
+  var tema = function () {
+    var onix = (f.querySelector('input[name="tema_app"]:checked') || {}).value === "onix";
+    $("#campos-cores").querySelectorAll("input").forEach(function (i) { i.disabled = onix; });
+    $("#campos-cores").style.opacity = onix ? ".45" : "";
+    $("#nota-tema").textContent = onix ? "No tema Ônix as cores são do próprio tema; as cores abaixo valem só para o Clássico." : "O tema muda imagens de fundo, cartões e botões do app na TV.";
+  };
+  f.addEventListener("change", tema); tema();
   f.addEventListener("input", pintar); f._pintar = pintar; pintar();
   ["arq-logo", "arq-fundo"].forEach(function (id) {
     $("#" + id).addEventListener("change", async function (ev) {
@@ -882,8 +911,8 @@ Object.assign(acoes, {
   salvarApp: async function (_, btn) {
     var f = $("#form-app"), cfg = S.cache.cfg || {}; btn.disabled = true;
     try {
-      var d = { nome_app: f.nome_app.value.trim() || "Gold Play", logo_url: f.logo_url.value || null, fundo_url: f.fundo_url.value || null, atualizado: new Date().toISOString() };
-      CORES.forEach(function (c) { d[c[0]] = f[c[0]].value; });
+      var d = { tema_app: (f.querySelector('input[name="tema_app"]:checked') || {}).value || "classico", nome_app: f.nome_app.value.trim() || "Gold Play", logo_url: f.logo_url.value || null, fundo_url: f.fundo_url.value || null, atualizado: new Date().toISOString() };
+      CORES.forEach(function (c) { d[c[0]] = f[c[0]].value || (cfg[c[0]] || c[2]); });
       var dias = parseInt(f.aviso_dias.value, 10);
       d.extra = Object.assign({}, cfg.extra || {}, { contato: f.contato.value.trim(), aviso_dias: isNaN(dias) ? 5 : Math.max(0, Math.min(60, dias)) });
       if (cfg.id) await q(sb.from("config_app").update(d).eq("id", cfg.id));
