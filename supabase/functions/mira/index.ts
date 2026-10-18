@@ -1867,8 +1867,15 @@ function anotarContagem(u: string, k: string, n: number) {
   const c = _contagem.get(u) ?? { t: Date.now(), v: {} };
   if (c.v[k] === n && Date.now() - c.t < 3600_000) return;
   c.v[k] = n; c.t = Date.now(); _contagem.set(u, c);
-  // guarda no banco: outra instância do servidor também mostra
-  fetch(`${SB()}/rest/v1/usuarios_app?usuario=eq.${encodeURIComponent(u)}`, { method: "PATCH", headers: sbh(), body: JSON.stringify({ contagem: { ...c.v, em: Date.now() } }), signal: AbortSignal.timeout(4000) }).catch(() => {});
+  // guarda no banco (somando ao que outra instância já gravou)
+  (async () => {
+    try {
+      const r = await fetch(`${SB()}/rest/v1/usuarios_app?usuario=eq.${encodeURIComponent(u)}&select=contagem&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+      const j = await r.json(); const antes = (Array.isArray(j) && j[0]?.contagem) || {};
+      Object.assign(c.v, { ...antes, ...c.v, [k]: n });
+      await fetch(`${SB()}/rest/v1/usuarios_app?usuario=eq.${encodeURIComponent(u)}`, { method: "PATCH", headers: sbh(), body: JSON.stringify({ contagem: { ...c.v, em: Date.now() } }), signal: AbortSignal.timeout(4000) });
+    } catch { /* sem contagem */ }
+  })();
 }
 async function contagemDe(u: string): Promise<{ t: number; v: Record<string, number> } | null> {
   const m = _contagem.get(u);
