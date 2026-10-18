@@ -772,7 +772,9 @@ async function tratar(url: URL) {
     const cx = RC()!;
     if (!au.ok && cx.need.size) { // o servidor não alcança algum provedor: a TV tenta por ele
       if (cx.cap) throw new RelayNeed();
-      return { action: `content:request:interaction:${q({ a: "login", u, p, d: d ?? "", rl: 1 })}@${PLUGIN}` };
+      // o MSX só aceita telas aqui: uma tela "Entrando…" que dispara sozinha o login pelo plugin da TV
+      const acao = `content:request:interaction:${q({ a: "login", u, p, d: d ?? "", rl: 1 })}@${PLUGIN}`;
+      return { type: "list", headline: "Gold Play", ready: { action: acao }, template: { type: "separate", layout: "0,0,12,1", color: "msx-glass" }, items: [{ title: "Entrando…", titleFooter: "Aguarde um instante", action: acao, focus: true }] };
     }
     if (!au.ok) return telaEntrar(au.erroProv ? "Provedor indisponível. Tente de novo." : "Usuário ou senha incorretos", d, u, "");
     info = au.info;
