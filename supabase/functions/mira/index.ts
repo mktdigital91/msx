@@ -1065,6 +1065,7 @@ async function tratar(url: URL) {
     const o = tipoQ === "live" ? "" : (url.searchParams.get("o") ?? "");
     const semAdulto = !c && regra.protege ? await filtroAdulto(cred, tipoQ) : null;
     const brutos = (Array.isArray(dados) ? dados : []) as any[];
+    if (!c) anotarContagem(cred.u, tipoQ, brutos.length);
     const todos = ordenar(semAdulto ? brutos.filter((x) => !semAdulto(String(x.category_id), tipoQ)) : brutos, o in ORDENS ? o : "");
     const cnQ = url.searchParams.get("cn") ?? "";
     const pkQ = url.searchParams.get("pk") ?? "";
@@ -1394,6 +1395,14 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       if (Number.isFinite(exp) && exp > 0) { vence = exp * 1000; await salvarVence(usuario, i); }
     } catch (e) { if (e instanceof RelayNeed) throw e; }
   }
+  const qtd = cred ? (_contagem.get(cred.u)?.v ?? {}) : {};
+  const velho = cred && (!_contagem.get(cred.u) || Date.now() - _contagem.get(cred.u)!.t > 6 * 3600_000);
+  if (cred && velho && !cred.r) {
+    const er = (globalThis as any).EdgeRuntime;
+    const tarefa = Promise.all((["live", "vod", "series"] as const).map((k) => catalogoBusca(cred, k).catch(() => null)));
+    if (er?.waitUntil) er.waitUntil(tarefa);
+  }
+  const selo = (n?: number) => (fmtQtd(n) ? { tag: fmtQtd(n), tagColor: TEMA === "onix" ? "msx-yellow" : "msx-white" } : {});
   const dias = vence !== null ? diasPara(vence) : null;
   const dataVence = vence !== null ? new Date(vence).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" }) : "";
   const renovar = CONTATO ? `{br}{col:msx-white}Renove: ${CONTATO}` : "{br}{col:msx-white-soft}Fale com seu revendedor";
@@ -1423,9 +1432,9 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       // Atualizar: recarrega a configuração do painel e a tela inicial (limpa os caches do servidor e da TV)
       card("8,0,2,1", "btn-atualizar.png", go(d ? { a: "inicio", d, x: Date.now() } : { a: "inicio", x: Date.now() })),
       card("10,0,2,1", "btn-sair.png", d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" })),
-      card("0,1,4,3", "card-tv.png", go({ a: "cats", k: "live", t }), { id: "tv", focus: true }),
-      card("4,1,4,3", "card-filmes.png", go({ a: "cats", k: "vod", t })),
-      card("8,1,4,3", "card-series.png", go({ a: "cats", k: "series", t })),
+      card("0,1,4,3", "card-tv.png", go({ a: "cats", k: "live", t }), { id: "tv", focus: true, ...selo(qtd.live) }),
+      card("4,1,4,3", "card-filmes.png", go({ a: "cats", k: "vod", t }), selo(qtd.vod)),
+      card("8,1,4,3", "card-series.png", go({ a: "cats", k: "series", t }), selo(qtd.series)),
       { type: "default", layout: "0,4,3,2", image: resumoImg(lst.length, vivos, jogos === null), imageFiller: "fit", color: "transparent", action: lst.length ? todos : "none" },
       ...destaques,
     ] }, ...paginaContinuar(hist, cred, t)],
@@ -1799,6 +1808,13 @@ type ItemBusca = { k: "live" | "vod" | "series"; id: string; nome: string; n: st
 const cacheBusca = new Map<string, { em: number; v: ItemBusca[] }>();
 const normBusca = (t: string) => semAcento(String(t ?? "")).replace(/[^a-z0-9]+/g, " ").trim();
 const ACOES_BUSCA = { live: "get_live_streams", vod: "get_vod_streams", series: "get_series" } as const;
+// quantidade de canais/filmes/séries por usuário (aparece nos cartões da tela inicial)
+const _contagem = new Map<string, { t: number; v: Record<string, number> }>();
+function anotarContagem(u: string, k: string, n: number) {
+  const c = _contagem.get(u) ?? { t: Date.now(), v: {} };
+  c.v[k] = n; c.t = Date.now(); _contagem.set(u, c);
+}
+const fmtQtd = (n?: number) => (n ? n.toLocaleString("pt-BR") : undefined);
 async function catalogoBusca(cred: Cred, k: ItemBusca["k"]): Promise<ItemBusca[]> {
   const chaveC = `${cred.u}|${k}`;
   const c = cacheBusca.get(chaveC);
@@ -1813,6 +1829,7 @@ async function catalogoBusca(cred: Cred, k: ItemBusca["k"]): Promise<ItemBusca[]
       ext: String(x.container_extension ?? ""), cat: String(x.category_id ?? ""),
     };
   }).filter((x) => x.n && x.id && x.id !== "undefined");
+  anotarContagem(cred.u, k, v.length);
   if (cacheBusca.size > 60) cacheBusca.clear();
   cacheBusca.set(chaveC, { em: Date.now(), v });
   return v;
