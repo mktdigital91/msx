@@ -590,6 +590,7 @@ async function paginar(
   layout: string,
   kind: string,
   ext?: string,
+  voltar = { title: "‹   CATEGORIAS", titleFooter: "Voltar às categorias" },
 ) {
   const ini = pg * POR_PAGINA;
   const itens = todos.slice(ini, ini + POR_PAGINA).map(montar) as any[];
@@ -599,7 +600,7 @@ async function paginar(
   if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${total}`, color: VID.n, action: proxima(pg - 1) });
   if (!todos.length) itens.push({ title: "Nada encontrado", action: "none" });
   // botão fixo no topo para voltar às categorias (volta para a tela anterior, sem recarregar)
-  itens.unshift({ title: "‹   CATEGORIAS", titleFooter: "Voltar às categorias", color: VID.voltar, action: "back" });
+  itens.unshift({ ...voltar, color: VID.voltar, action: "back" });
   return lista(titulo, itens, layout, {}, ext ?? `${todos.length} itens`, kind);
 }
 const nota = (v: unknown) => { const n = Number(v); return n > 0 ? n.toFixed(1) : undefined; };
@@ -826,6 +827,13 @@ async function tratar(url: URL) {
   if (a === "home") return await home(t, cred.u, d ?? (await aparelhoDoToken(t)));
   if (a === "jogos") return await telaJogos(t);
   if (a === "jogo") return await telaJogo(cred, t, url.searchParams.get("n1") ?? "", url.searchParams.get("n2") ?? "");
+  if (a === "busca") return await telaBusca(cred, t, url.searchParams.get("k") ?? "", (url.searchParams.get("q") ?? "").slice(0, 30), url.searchParams.get("f") ?? "", url.searchParams.get("m") ?? "");
+  if (a === "buscatodos") {
+    const k = url.searchParams.get("k") ?? "", texto = (url.searchParams.get("q") ?? "").slice(0, 30);
+    const todos = await resultadosBusca(cred, k, texto);
+    const prox = (n: number) => go({ a: "buscatodos", t, ...(k ? { k } : {}), q: texto, pg: n });
+    return paginar(`Pesquisa: ${xmlMsx(texto.toUpperCase())}`, todos, pg, (x) => itemBusca(x, cred, t), prox, "0,0,4,1", k || "live", `${todos.length} resultados`, { title: "‹   PESQUISA", titleFooter: "Voltar ao teclado" });
+  }
 
   const TIPOS = {
     live: { nome: "TV ao vivo", cats: "get_live_categories", itens: "get_live_streams", cor: COR.tv, solido: "#5B3FD9", icone: "live-tv" },
@@ -843,6 +851,7 @@ async function tratar(url: URL) {
     const linha = (nome: string, ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, color: VID.n, action: go({ a: "itens", k: tipoQ, t, c: cid, cn: cid ? nome : "" }) });
     const itens: any[] = [
       { ...linha("Todos", "apps", "", `Todo o catálogo de ${T.nome.toLowerCase()}`), focus: true },
+      { title: "{ico:search}  PESQUISAR", titleFooter: `Procurar em ${T.nome}`, color: VID.ouro, action: go({ a: "busca", t, k: tipoQ, q: "", f: "kA" }) },
       ...(tipoQ === "live" ? [{ ...linha("FAVORITOS", "star", "fav", "Seus canais favoritos"), title: CORACAO + "FAVORITOS" }] : []),
       ...lst.map((x: any) => { const nome = limparNome(String(x.category_name)); return linha(nome, iconeDoNome(nome, "play"), x.category_id, T.nome); }),
     ];
@@ -1171,7 +1180,9 @@ async function home(t: string, quem: string, d: string | null = null) {
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,2,1", image: LOGO, imageFiller: "fit" },
-      { type: "space", layout: "2,0,6,1", headline: `Olá, ${usuario}`, text: venc ? `{col:msx-white-soft}Plano ativo · ${venc}` : "{col:msx-white-soft}Bom te ver por aqui" },
+      { type: "space", layout: "2,0,4,1", headline: `Olá, ${usuario}`, text: venc ? `{col:msx-white-soft}Plano ativo · ${venc}` : "{col:msx-white-soft}Bom te ver por aqui" },
+      // Pesquisar em tudo (canais, filmes e séries)
+      card("6,0,2,1", "btn-pesquisar.png", go({ a: "busca", t, q: "", f: "kA" })),
       // Atualizar: recarrega a configuração do painel e a tela inicial (limpa os caches do servidor e da TV)
       card("8,0,2,1", "btn-atualizar.png", go(d ? { a: "inicio", d, x: Date.now() } : { a: "inicio", x: Date.now() })),
       card("10,0,2,1", "btn-sair.png", d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" })),
@@ -1183,6 +1194,110 @@ async function home(t: string, quem: string, d: string | null = null) {
     ] }],
   };
 }
+
+// ---------- Pesquisa inteligente: teclado próprio na tela, resultados aparecem a cada letra ----------
+// O teclado do MSX só devolve o texto ao confirmar; aqui cada tecla é um botão que recarrega a tela
+// (replace:content, sem encher o histórico) com o texto novo e os resultados já filtrados.
+type ItemBusca = { k: "live" | "vod" | "series"; id: string; nome: string; n: string; icon: string; ext: string; cat: string };
+const cacheBusca = new Map<string, { em: number; v: ItemBusca[] }>();
+const normBusca = (t: string) => semAcento(String(t ?? "")).replace(/[^a-z0-9]+/g, " ").trim();
+const ACOES_BUSCA = { live: "get_live_streams", vod: "get_vod_streams", series: "get_series" } as const;
+async function catalogoBusca(cred: Cred, k: ItemBusca["k"]): Promise<ItemBusca[]> {
+  const chaveC = `${cred.u}|${k}`;
+  const c = cacheBusca.get(chaveC);
+  if (c && Date.now() - c.em < 10 * 60 * 1000) return c.v; // guardado: as próximas letras não buscam de novo
+  const dados = await api(cred, `&action=${ACOES_BUSCA[k]}`);
+  const v: ItemBusca[] = ((Array.isArray(dados) ? dados : []) as any[]).map((x) => {
+    const nome = limparNome(String(x.name ?? ""));
+    return {
+      k, nome, n: normBusca(nome),
+      id: String(k === "series" ? x.series_id : x.stream_id),
+      icon: String((k === "series" ? x.cover : x.stream_icon) ?? ""),
+      ext: String(x.container_extension ?? ""), cat: String(x.category_id ?? ""),
+    };
+  }).filter((x) => x.n && x.id && x.id !== "undefined");
+  if (cacheBusca.size > 60) cacheBusca.clear();
+  cacheBusca.set(chaveC, { em: Date.now(), v });
+  return v;
+}
+// todas as palavras digitadas precisam aparecer no nome; começo do nome vale mais, depois começo de palavra
+function filtrarBusca(lst: ItemBusca[], qn: string): ItemBusca[] {
+  const pal = qn.split(" ").filter(Boolean);
+  if (!pal.length) return [];
+  const out: { x: ItemBusca; p: number }[] = [];
+  for (const x of lst) {
+    if (!pal.every((w) => x.n.includes(w))) continue;
+    const p = x.n.startsWith(qn) ? 0 : (" " + x.n).includes(" " + pal[0]) ? 1 : 2;
+    out.push({ x, p });
+  }
+  out.sort((a, b) => a.p - b.p || a.x.nome.length - b.x.nome.length || a.x.nome.localeCompare(b.x.nome));
+  return out.map((o) => o.x);
+}
+async function resultadosBusca(cred: Cred, k: string, texto: string) {
+  const tipos: ItemBusca["k"][] = k === "live" || k === "vod" || k === "series" ? [k] : ["live", "vod", "series"];
+  const listas = await Promise.all(tipos.map((tp) => catalogoBusca(cred, tp)));
+  return filtrarBusca(listas.flat(), normBusca(texto));
+}
+function itemBusca(x: ItemBusca, cred: Cred, t: string) {
+  if (x.k === "live") {
+    return { ...canalItem({ name: x.nome, stream_id: x.id, stream_icon: x.icon || undefined }, cred, t, x.cat, false), enumerate: false, titleFooter: "TV ao vivo" };
+  }
+  if (x.k === "vod") {
+    return { title: x.nome, titleFooter: "Filme", truncation: "title", color: VID.n, icon: "movie", iconSize: "small", playerLabel: x.nome, action: tocar("movie", cred, x.id, x.ext || "mp4", "o filme"), properties: { "trigger:back": "quiet" } };
+  }
+  return { title: x.nome, titleFooter: "Série", truncation: "title", color: VID.n, icon: "video-library", iconSize: "small", action: go({ a: "serie", t, s: x.id }) };
+}
+const NOME_SECAO: Record<string, string> = { live: "TV ao vivo", vod: "Filmes", series: "Séries" };
+// troca a tela de pesquisa por outra (cada letra), sem criar uma entrada nova no "voltar"
+const rp = (o: Record<string, string | number>) => RC()?.cap && RC()?.relay
+  ? `replace:content:busca:request:interaction:${q({ ...o, rl: 1 })}@${PLUGIN}`
+  : `replace:content:busca:${SELF()}?${q(o)}`;
+async function telaBusca(cred: Cred, t: string, k: string, texto: string, foco: string, modo: string) {
+  const base = (qq: string, f: string, m = modo) => ({ a: "busca", t, ...(k ? { k } : {}), q: qq, f, ...(m === "n" ? { m } : {}) });
+  const secao = NOME_SECAO[k] ?? "tudo";
+  const letras = modo === "n" ? "1234567890".split("") : "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  const teclas: any[] = letras.map((L) => ({ id: "k" + L, title: L, acao: rp(base((texto + L.toLowerCase()).slice(0, 30), "k" + L)) }));
+  while (teclas.length < 26) teclas.push(null); // números: completa a grade
+  teclas.push(
+    { id: "kmodo", title: modo === "n" ? "ABC" : "123", acao: rp(base(texto, "kmodo", modo === "n" ? "" : "n")) },
+    { id: "kesp", title: "␣", footer: "Espaço", acao: rp(base(texto && !texto.endsWith(" ") ? (texto + " ").slice(0, 30) : texto, "kesp")) },
+    { id: "kapg", title: "⌫", footer: "Apagar", acao: rp(base(texto.slice(0, -1), "kapg")) },
+    { id: "klimpar", title: "✕", footer: "Limpar", acao: rp(base("", "klimpar")) },
+  );
+  const focoValido = teclas.some((x) => x && x.id === foco) ? foco : "kA";
+  const itensTeclado = teclas.map((x, i) => x && ({
+    id: x.id, type: "default", layout: `${i % 6},${1 + Math.floor(i / 6)},1,1`, color: VID.n,
+    title: x.title, titleFooter: x.footer, alignment: "center", centration: "title", action: x.acao,
+    focus: x.id === focoValido ? true : undefined,
+  })).filter(Boolean);
+
+  let achados: ItemBusca[] = [];
+  let erro = "";
+  if (normBusca(texto)) {
+    try { achados = await resultadosBusca(cred, k, texto); }
+    catch (e) { if (e instanceof RelayNeed) throw e; erro = "Não foi possível consultar a lista agora"; }
+  }
+  const VAGAS = 10; // 2 colunas x 5 linhas à direita
+  const mostrar = achados.length > VAGAS ? achados.slice(0, VAGAS - 1) : achados;
+  const res: any[] = mostrar.map((x, i) => ({ ...itemBusca(x, cred, t), type: "default", layout: `${6 + (i % 2) * 3},${1 + Math.floor(i / 2)},3,1`, focus: undefined }));
+  if (achados.length > VAGAS) {
+    res.push({ type: "default", layout: "9,5,3,1", color: VID.ouro, title: `Ver todos (${achados.length})`, titleFooter: "Lista completa", alignment: "center", action: go({ a: "buscatodos", t, ...(k ? { k } : {}), q: texto }) });
+  }
+  const aviso = erro || (!normBusca(texto) ? "Digite com o teclado ao lado; os resultados aparecem aqui." : achados.length ? "" : "Nada encontrado com esse nome.");
+  return {
+    type: "pages", flag: "busca", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + (FUNDO[k] ?? "bg-tv.jpg"),
+    pages: [{ items: [
+      camadaFundo(FUNDO[k] ?? "bg-tv.jpg"),
+      { type: "space", layout: "0,0,6,1", headline: `{col:msx-white}${texto ? xmlMsx(texto.toUpperCase()) : "{col:msx-white-soft}Pesquisar"}{col:msx-yellow}_`, text: `{col:msx-white-soft}Pesquisar em ${secao}` },
+      { type: "space", layout: "6,0,6,1", alignment: "right", text: achados.length ? `{col:msx-white-soft}${achados.length} resultado${achados.length > 1 ? "s" : ""}` : "" },
+      ...itensTeclado,
+      ...(aviso ? [{ type: "space", layout: "6,1,6,2", offset: "0.3,0,-0.3,0", text: `{col:msx-white-soft}${aviso}` }] : []),
+      ...res,
+    ] }],
+  };
+}
+// o MSX interpreta {…} no texto: tira as chaves do que foi digitado
+const xmlMsx = (t: string) => t.replace(/[{}]/g, "");
 
 const jogoAcao = (j: Jogo, t: string) => go({ a: "jogo", t, n1: j.casa.nome, n2: j.fora.nome });
 
