@@ -98,6 +98,10 @@
   var FUNDOS = { live: 'bg-tv.jpg', vod: 'bg-filmes.jpg', series: 'bg-series.jpg' };
   var IMG = 'https://mktdigital91.github.io/msx/msx/img/';
   // cores e imagens do tema escolhido no painel (vêm junto com o catálogo)
+  var TEMAS_PLUGIN = {
+    classico: { img: 'https://mktdigital91.github.io/msx/msx/img/', n: 'rgba(10,12,28,0.62)', ouro: 'rgba(245,180,0,0.32)' },
+    onix: { img: 'https://mktdigital91.github.io/msx/msx/img/temas/onix/', n: 'rgba(18,17,21,0.72)', ouro: 'rgba(214,178,94,0.30)' }
+  };
   function aplicarTema(tm) { if (tm.img) { IMG = tm.img; } if (tm.n) { VID_N = tm.n; } if (tm.ouro) { VID_OURO = tm.ouro; } }
   function chaveCat() { return BUSCA.t.slice(-32) + '|' + BUSCA.k; }
   function acaoBusca(cmd) { return 'replace:content:busca:request:interaction:busca/' + cmd + '@' + PLUGIN; }
@@ -204,7 +208,12 @@
   }
   function tratarBusca(cmd, callback) {
     var p = cmd.split('/');
-    if (p[0] === 'abrir') { BUSCA.k = p[1] === '-' ? '' : p[1]; BUSCA.t = p.slice(2).join('/'); BUSCA.q = ''; BUSCA.modo = ''; BUSCA.foco = 'kA'; }
+    if (p[0] === 'abrir') {
+      BUSCA.k = p[1] === '-' ? '' : p[1];
+      // formato novo: abrir/seção/tema/token (o fundo já abre no tema certo)
+      if (p.length >= 4 && (p[2] === 'onix' || p[2] === 'classico')) { aplicarTema(TEMAS_PLUGIN[p[2]]); BUSCA.t = p.slice(3).join('/'); } else { BUSCA.t = p.slice(2).join('/'); }
+      BUSCA.q = ''; BUSCA.modo = ''; BUSCA.foco = 'kA';
+    }
     else if (p[0] === 't' && p[1]) { if (BUSCA.q.length < 30) { BUSCA.q += p[1].toLowerCase(); } BUSCA.foco = 'k' + p[1]; }
     else if (p[0] === 'esp') { if (BUSCA.q && BUSCA.q.charAt(BUSCA.q.length - 1) !== ' ') { BUSCA.q += ' '; } BUSCA.foco = 'kesp'; }
     else if (p[0] === 'apg') { BUSCA.q = BUSCA.q.slice(0, -1); BUSCA.foco = 'kapg'; }

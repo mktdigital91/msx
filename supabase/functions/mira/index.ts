@@ -1495,16 +1495,16 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
   const ult = cred ? hist.find((h) => h.tipo !== "live" && emAndamento(h)) : undefined;
   const blocosHome: any[] = [
     { type: "default", layout: "4,4,4,2", color: "transparent", imageFiller: "fit", action: go({ a: "guiahome", t }),
-      image: blocoImg({ t: "Guia de Programação", a1: "O que está passando agora", a2: "Globo, SBT, Record, SporTV, ESPN…", i: "live" }) },
+      image: blocoImg({ t: "Guia de Programação", a1: "Veja o que está passando agora", i: "live" }) },
   ];
+  const nCapas = new Set(hist.filter((h) => h.tipo !== "live" && emAndamento(h) && h.icone).map((h) => h.icone)).size;
   if (cred && ult) {
     const pct = ult.dur ? Math.round((ult.pos / ult.dur) * 100) : 0;
     const ic = itemContinuar(ult, cred, t) as any;
     blocosHome.push({ ...ic, title: undefined, titleFooter: undefined, type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit",
-      image: blocoImg({ t: "Continuar assistindo", a1: ult.nome, a2: `${pct ? pct + "% · " : ""}parou em ${fmtTempo(ult.pos)}`, p: pct, i: ult.tipo === "ep" ? "series" : "movie", c: ult.icone ? 1 : 0 }) });
-    const nCapas = new Set(hist.filter((h) => h.tipo !== "live" && emAndamento(h) && h.icone).map((h) => h.icone)).size;
+      image: blocoImg({ t: "Continuar assistindo", a2: nCapas >= 2 ? `${nCapas} em andamento` : `${pct ? pct + "% · " : ""}parou em ${fmtTempo(ult.pos)}`, p: pct, i: ult.tipo === "ep" ? "series" : "movie", c: ult.icone ? 1 : 0 }) });
     const capa = nCapas >= 2 ? `${SELF()}?${q({ a: "capas", t, th: TEMA, h: Math.floor(Date.now() / 600_000) })}` : ult.icone;
-    if (capa) blocosHome.push({ type: "space", layout: "8,4,4,2", offset: "2.3,0.2,-2.75,-0.4", image: capa, imageFiller: "fit", enable: false });
+    if (capa) blocosHome.push({ type: "space", layout: "8,4,4,2", offset: "2.42,0.33,-2.94,-0.66", image: capa, imageFiller: "fit", enable: false });
   } else {
     blocosHome.push({ type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit", action: go({ a: "cats", k: "vod", t }),
       image: blocoImg({ t: "Continuar assistindo", a1: "Nada começado ainda", a2: "Escolha um filme ou série", i: "movie" }) });
@@ -1551,7 +1551,7 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       ...qtdTxt(0, qtd.live), ...qtdTxt(4, qtd.vod), ...qtdTxt(8, qtd.series),
       { type: "default", layout: "0,4,4,2", image: `${SELF()}?${q({ a: "jgif", d: diaLocal(), h: Math.floor(Date.now() / 1800_000), th: TEMA })}`, imageFiller: "fit", color: "transparent", action: lst.length ? todos : "[]" },
       { type: "space", layout: "0,4,4,2", offset: "0,1.08,0,-1.12", alignment: "center", enable: false,
-        text: "{col:msx-white}Jogos de hoje{br}" + (jogos === null ? "{col:msx-white-soft}Placar indisponível agora" : lst.length ? `{col:msx-white}${lst.length} partida${lst.length > 1 ? "s" : ""}${vivos ? `  |  {col:${TEMA === "onix" ? "msx-yellow" : "msx-red"}}${vivos} ao vivo{col:msx-white}` : ""}{br}{col:msx-white-soft}Ver todos  ›` : "{col:msx-white-soft}Nenhuma partida hoje") },
+        text: (jogos === null ? "{col:msx-white-soft}Placar indisponível agora" : lst.length ? `{col:msx-white}${lst.length} jogos hoje${vivos ? `  |  {col:${TEMA === "onix" ? "msx-yellow" : "msx-red"}}${vivos} ao vivo{col:msx-white}` : ""}{br}{col:msx-white-soft}Ver todos  ›` : "{col:msx-white-soft}Nenhuma partida hoje") },
       ...destaques,
       ...blocosHome,
     ] }, ...paginaContinuar(hist, cred, t)],
@@ -2041,7 +2041,7 @@ function itemBusca(x: ItemBusca, cred: Cred, t: string) {
   }
   return { title: x.nome, titleFooter: "Série", truncation: "title", color: VID.n, icon: "video-library", iconSize: "small", action: go({ a: "serie", t, s: x.id }) };
 }
-const abrirBusca = (t: string, k: string) => `content:request:interaction:busca/abrir/${k || "-"}/${t}@${PLUGIN}`;
+const abrirBusca = (t: string, k: string) => `content:request:interaction:busca/abrir/${k || "-"}/${TEMA}/${t}@${PLUGIN}`;
 const NOME_SECAO: Record<string, string> = { live: "TV ao vivo", vod: "Filmes", series: "Séries" };
 // troca a tela de pesquisa por outra (cada letra), sem criar uma entrada nova no "voltar"
 const rp = (o: Record<string, string | number>) => RC()?.cap && RC()?.relay
@@ -2105,8 +2105,8 @@ async function jogosGif(): Promise<Uint8Array | null> {
   const prio = (l: string) => { const n = semAcento(l); const i = ORDEM.findIndex((r) => r.test(n)); return i < 0 ? 99 : i; };
   const vistos = new Set<string>();
   const jogos = ((await jogosDoDia(5000)) ?? [])
-    .filter((j) => LIGAS_TOP.test(semAcento(j.liga)) && j.casa.logo && j.fora.logo && j.estado !== "post")
-    .sort((a, b) => prio(a.liga) - prio(b.liga) || (a.estado === "in" ? -1 : 0) - (b.estado === "in" ? -1 : 0) || a.quando - b.quando)
+    .filter((j) => LIGAS_TOP.test(semAcento(j.liga)) && j.casa.logo && j.fora.logo)
+    .sort((a, b) => prio(a.liga) - prio(b.liga) || ({ in: 0, pre: 1, post: 2 } as any)[a.estado] - ({ in: 0, pre: 1, post: 2 } as any)[b.estado] || a.quando - b.quando)
     .filter((j) => { const k = semAcento(j.casa.nome + "|" + j.fora.nome); if (vistos.has(k)) return false; vistos.add(k); return true; })
     .slice(0, 12);
   if (jogos.length < 2) return null;
@@ -2134,7 +2134,9 @@ async function jogosGif(): Promise<Uint8Array | null> {
     const f = fundo.clone();
     f.composite(l1, 140 - l1.width / 2, 46 + (110 - l1.height) / 2);
     f.composite(l2, W - 140 - l2.width / 2, 46 + (110 - l2.height) / 2);
-    const vs = Img.renderText(_fonte!, 40, "x", destaque); f.composite(vs, W / 2 - vs.width / 2, 80);
+    const temPlacar = j.estado !== "pre" && j.casa.gols !== "" && j.fora.gols !== "";
+    const vs = Img.renderText(_fonte!, temPlacar ? 46 : 40, temPlacar ? `${j.casa.gols}  x  ${j.fora.gols}` : "x", temPlacar ? 0xFFFFFFFF : destaque);
+    f.composite(vs, W / 2 - vs.width / 2, temPlacar ? 74 : 80);
     const nome = (t: string) => Img.renderText(_fonte!, 22, t.length > 14 ? t.slice(0, 13) + "…" : t, 0xFFFFFFFF);
     const n1 = nome(j.casa.nome), n2 = nome(j.fora.nome);
     f.composite(n1, Math.max(24, 140 - n1.width / 2), 160); f.composite(n2, Math.min(W - 24 - n2.width, W - 140 - n2.width / 2), 160);
@@ -2160,10 +2162,10 @@ function blocoSvg(g: URLSearchParams) {
     + `<rect x="6" y="6" width="${W - 12}" height="${H - 12}" rx="26" fill="url(#g)" stroke="${ouro}" stroke-opacity="${onix ? ".75" : ".35"}" stroke-width="2"/>`
     + (comCapa ? "" : `<g transform="translate(${W - 230} 70) scale(8)" fill="${ouro}" fill-opacity=".12"><path d="${ic}"/></g>`)
     + `<rect x="${xt}" y="40" width="64" height="64" rx="18" fill="${ouro}" fill-opacity=".16" stroke="${ouro}" stroke-opacity=".8" stroke-width="2"/><g transform="translate(${xt + 14} 54) scale(1.5)" fill="${ouro}"><path d="${ic}"/></g>`
-    + `<rect x="${xt}" y="${H - 150}" width="44" height="5" rx="2.5" fill="${ouro}"/>`
-    + `<text x="${xt}" y="${H - 104}" font-size="40" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">${xml(tit)}</text>`
-    + (l1 ? `<text x="${xt}" y="${H - 68}" font-size="24" font-weight="700" fill="#fff" fill-opacity=".9" font-family="Arial, Helvetica, sans-serif">${xml(l1)}</text>` : "")
-    + (l2 ? `<text x="${xt}" y="${H - 38}" font-size="20" font-weight="600" fill="#fff" fill-opacity=".62" font-family="Arial, Helvetica, sans-serif">${xml(l2)}</text>` : "")
+    + `<rect x="${xt}" y="${H - 136}" width="40" height="5" rx="2.5" fill="${ouro}"/>`
+    + `<text x="${xt}" y="${H - 96}" font-size="31" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">${xml(tit)}</text>`
+    + (l1 ? `<text x="${xt}" y="${H - 64}" font-size="20" font-weight="700" fill="#fff" fill-opacity=".9" font-family="Arial, Helvetica, sans-serif">${xml(l1)}</text>` : "")
+    + (l2 ? `<text x="${xt}" y="${l1 ? H - 38 : H - 64}" font-size="18" font-weight="600" fill="#fff" fill-opacity=".62" font-family="Arial, Helvetica, sans-serif">${xml(l2)}</text>` : "")
     + (pct ? `<rect x="${xt}" y="${H - 26}" width="${larg}" height="5" rx="2.5" fill="#fff" fill-opacity=".18"/><rect x="${xt}" y="${H - 26}" width="${Math.round(larg * pct / 100)}" height="5" rx="2.5" fill="${ouro}"/>` : "")
     + `</svg>`;
 }
