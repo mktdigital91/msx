@@ -3,6 +3,7 @@
 // O endereço (DNS) do provedor fica AQUI, no Supabase, e não no GitHub público.
 // Usuário/senha vêm da TV, viram um token criptografado (30 dias) e não são guardados.
 import { AsyncLocalStorage } from "node:async_hooks";
+import { Image as Img, GIF, Frame } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 
 const PROVEDOR = { host: "horizonmult.site", protocolo: "http" };
 const POR_PAGINA = 60;
@@ -1463,7 +1464,7 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       card("0,1,4,3", "card-tv.png", go({ a: "cats", k: "live", t }), { id: "tv", focus: true, ...selo(qtd.live) }),
       card("4,1,4,3", "card-filmes.png", go({ a: "cats", k: "vod", t }), selo(qtd.vod)),
       card("8,1,4,3", "card-series.png", go({ a: "cats", k: "series", t }), selo(qtd.series)),
-      { type: "default", layout: "0,4,3,2", image: IMG + "jogos.gif", imageFiller: "fit", color: "transparent", action: lst.length ? todos : "none" },
+      { type: "default", layout: "0,4,3,2", image: `${SELF()}?${q({ a: "jgif", d: diaLocal(), h: Math.floor(Date.now() / 1800_000), th: TEMA })}`, imageFiller: "fit", color: "transparent", action: lst.length ? todos : "none" },
       { type: "space", layout: "0,4,3,2", offset: "0.25,0.95,-0.4,-0.95", enable: false, headline: "Jogos de hoje",
         text: jogos === null ? "{col:msx-white-soft}Placar indisponível agora" : lst.length ? `{col:msx-white}${lst.length} partida${lst.length > 1 ? "s" : ""}${vivos ? ` · {col:msx-red}${vivos} ao vivo{col:msx-white}` : ""}{br}{col:msx-white-soft}Ver todos  ›` : "{col:msx-white-soft}Nenhuma partida hoje" },
       ...destaques,
@@ -1995,6 +1996,46 @@ async function telaBusca(cred: Cred, t: string, k: string, texto: string, foco: 
 // o MSX interpreta {…} no texto: tira as chaves do que foi digitado
 const xmlMsx = (t: string) => t.replace(/[{}]/g, "");
 
+// ---------- "Jogos de hoje" animado com as logos dos times de hoje (ligas principais) ----------
+const LIGAS_TOP = /brasileir|serie a do brasil|champions|libertadores|sul.?americana|sudamericana|conmebol|copa do brasil|espanhol|la ?liga|ingl|premier|amistos/;
+const _jgif = new Map<string, { em: number; v: Uint8Array }>();
+let _fonte: Uint8Array | null = null;
+async function jogosGif(): Promise<Uint8Array | null> {
+  const chaveG = `${diaLocal()}|${TEMA}|${Math.floor(Date.now() / 1800_000)}`;
+  const c = _jgif.get(chaveG); if (c) return c.v;
+  const jogos = ((await jogosDoDia(5000)) ?? []).filter((j) => LIGAS_TOP.test(semAcento(j.liga)) && j.casa.logo && j.fora.logo && j.estado !== "post").slice(0, 8);
+  if (jogos.length < 2) return null;
+  if (!_fonte) _fonte = new Uint8Array(await (await fetch(IMG + "fontes/DejaVuSans-Bold.ttf")).arrayBuffer());
+  const logo = async (u: string) => { try { const im = await Img.decode(new Uint8Array(await (await fetch(u, { signal: AbortSignal.timeout(4000) })).arrayBuffer())); return im.contain(120, 120); } catch { return null; } };
+  const W = 600, H = 380;
+  const onix = TEMA === "onix";
+  const fundo = new Img(W, H).fill((x: number, y: number) => {
+    const t = y / H; const r = onix ? 22 - t * 12 : 20 - t * 10, g = onix ? 19 - t * 10 : 24 - t * 12, b = onix ? 14 - t * 6 : 52 - t * 30;
+    return Img.rgbaToColor(Math.round(r), Math.round(g), Math.round(b), 255);
+  });
+  const destaque = onix ? 0xD6B25EFF : 0xF5B400FF;
+  const frames: Frame[] = [];
+  for (const j of jogos) {
+    const [l1, l2] = await Promise.all([logo(j.casa.logo), logo(j.fora.logo)]);
+    if (!l1 || !l2) continue;
+    const f = fundo.clone();
+    f.composite(l1, 120 - l1.width / 2, 40 + (120 - l1.height) / 2);
+    f.composite(l2, W - 120 - l2.width / 2, 40 + (120 - l2.height) / 2);
+    const vs = Img.renderText(_fonte!, 40, "x", destaque); f.composite(vs, W / 2 - vs.width / 2, 78);
+    const nome = (t: string) => Img.renderText(_fonte!, 22, t.length > 14 ? t.slice(0, 13) + "…" : t, 0xFFFFFFFF);
+    const n1 = nome(j.casa.nome), n2 = nome(j.fora.nome);
+    f.composite(n1, Math.max(8, 120 - n1.width / 2), 168); f.composite(n2, Math.min(W - 8 - n2.width, W - 120 - n2.width / 2), 168);
+    const liga = Img.renderText(_fonte!, 16, (j.liga + (j.status ? "  ·  " + j.status : "")).toUpperCase().slice(0, 48), destaque);
+    f.composite(liga, W / 2 - liga.width / 2, 12);
+    frames.push(Frame.from(f, 2200));
+  }
+  if (frames.length < 2) return null;
+  const v = await new GIF(frames, -1).encode(70);
+  if (_jgif.size > 4) _jgif.clear();
+  _jgif.set(chaveG, { em: Date.now(), v });
+  return v;
+}
+
 const jogoAcao = (j: Jogo, t: string) => go({ a: "jogo", t, n1: j.casa.nome, n2: j.fora.nome });
 
 async function telaJogos(t: string) {
@@ -2131,6 +2172,12 @@ Deno.serve(async (req: Request) => {
       const g = u0.searchParams;
       const svg = cartaoSvg(g.get("k") ?? "live", g.get("t") ?? "", g.get("s") ?? "", g.get("i") ?? "play", g.get("f") === "p");
       return new Response(svg, { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
+    }
+    if (req.method === "GET" && u0.searchParams.get("a") === "jgif") { // sem jogos das ligas principais (ou erro): GIF fixo dos times
+      let gif: Uint8Array | null = null;
+      try { gif = await jogosGif(); } catch { gif = null; }
+      if (!gif) return new Response(null, { status: 302, headers: { location: IMG + "jogos.gif", "cache-control": "public, max-age=600" } });
+      return new Response(gif, { headers: { "access-control-allow-origin": "*", "content-type": "image/gif", "cache-control": "public, max-age=1800" } });
     }
     if (req.method === "GET" && u0.searchParams.get("a") === "av") {
       const g = u0.searchParams;
