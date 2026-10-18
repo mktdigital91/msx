@@ -698,12 +698,15 @@ async function paginar(
   const itens = todos.slice(ini, ini + POR_PAGINA).map(montar) as any[];
   if (itens.length) itens[0] = { ...itens[0], focus: true }; // foco no 1º item, não no botão de categorias
   const total = Math.ceil(todos.length / POR_PAGINA);
-  if (ini + POR_PAGINA < todos.length) itens.push({ title: "Próxima página", titleFooter: `${pg + 2} de ${total}`, color: VID.n, action: proxima(pg + 1) });
+  if (ini + POR_PAGINA < todos.length) {
+    const prox = proxima(pg + 1).replace(/^content:/, "replace:content:pag:");
+    itens.push({ title: "Carregando mais…", titleFooter: `${pg + 2} de ${total}`, color: VID.n, action: prox, selection: { action: prox } });
+  }
   if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${total}`, color: VID.n, action: proxima(pg - 1) });
   if (!todos.length) itens.push({ title: "Nada encontrado", action: "none" });
   // botão fixo no topo para voltar às categorias (volta para a tela anterior, sem recarregar)
   itens.unshift({ ...voltar, color: VID.voltar, action: "back" }, ...topo);
-  return lista(titulo, itens, layout, {}, ext ?? `${todos.length} itens`, kind);
+  return { ...(lista(titulo, itens, layout, {}, ext ?? `${todos.length} itens`, kind) as any), flag: "pag" };
 }
 const nota = (v: unknown) => { const n = Number(v); return n > 0 ? n.toFixed(1) : undefined; };
 
@@ -790,6 +793,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
       "control:action": lista,
       "info:headline": nome,
       "info:text": guia.player || "TV Ao Vivo",
+      "progress:color": COR.destaque,
       "button:content:icon": "list",
       "button:content:action": lista,
       "button:content:focus": true,
@@ -1747,13 +1751,18 @@ function ordenar(lst: any[], o: string) {
   return c;
 }
 // tocar um episódio (lista da temporada, detalhes da série, Continuar assistindo)
+// visual do player para filmes e episódios: barra de progresso na cor do tema e painel com capa e nome
+const visualPlayer = (nome: string, sub: string, capa: string) => ({
+  "progress:color": COR.destaque, "control:type": "extended",
+  "info:headline": nome, "info:text": sub || " ", ...(capa ? { "info:image": capa } : {}),
+});
 function epAcao(cred: Cred, t: string, serie: string, sn: string, temp: string, e: any, capa = "", emLista = true) {
   const rot = `${sn} T${temp}E${e.episode_num}`;
   return {
     action: tocar("series", cred, e.id, e.container_extension || "mp4", "o episódio", { t, tp: "ep", nome: rot, icone: String(e.info?.movie_image || capa || ""), extra: { serie, sn, temp: String(temp), ep: String(e.episode_num) } }),
     playerLabel: rot,
     // na lista da temporada, ao terminar um episódio o MSX passa para o próximo item (o próximo episódio)
-    properties: { "trigger:back": "quiet", ...(emLista ? { "trigger:end": "player:next" } : {}), ...retomar("ep", e.id, quem(cred)) },
+    properties: { "trigger:back": "quiet", ...visualPlayer(rot, String(e.title ?? ""), String(e.info?.movie_image || capa || "")), ...(emLista ? { "trigger:end": "player:next" } : {}), ...retomar("ep", e.id, quem(cred)) },
   };
 }
 const youtubeId = (v: unknown) => {
@@ -1783,7 +1792,7 @@ async function telaFilme(cred: Cred, t: string, s: string) {
   const h = hist.find((x) => x.item_id === String(s));
   const andamento = !!h && emAndamento(h);
   const play = tocar("movie", cred, s, String(md.container_extension || "mp4"), "o filme", { t, tp: "filme", nome, icone: capa });
-  const props = { "trigger:back": "quiet", ...retomar("filme", s, quem(cred)) };
+  const props = { "trigger:back": "quiet", ...visualPlayer(nome, meta, capa), ...retomar("filme", s, quem(cred)) };
   const yt = youtubeId(inf.youtube_trailer);
   const botoes: any[] = [
     botao("3,4,3,1", "play-arrow", andamento ? "Continuar" : "Assistir", andamento ? `de ${fmtTempo(h!.pos)}` : " ", play, { playerLabel: nome, properties: props, color: VID.ouro, focus: true }),
