@@ -14,15 +14,21 @@
     font-size: 44px; line-height: 72px; font-weight: 800; }
   #cartao h1 { margin: 0 0 10px; font-size: 34px; font-weight: 700; }
   #cartao p { margin: 0; font-size: 24px; color: rgba(255,255,255,.75); }
-  #carregando { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%;
-    border: 6px solid rgba(255,255,255,.18); border-top-color: #7C5CFF; display: none; -webkit-animation: gira 1s linear infinite; animation: gira 1s linear infinite; }
+  /* carregando: logo Gold Play com anel dourado girando */
+  #carregando { position: absolute; left: 50%; top: 50%; width: 150px; height: 150px; margin: -95px 0 0 -75px; display: none; }
+  #carregando .anel { position: absolute; left: 0; top: 0; width: 150px; height: 150px; box-sizing: border-box; border-radius: 50%;
+    border: 4px solid rgba(214,178,94,.15); border-top-color: #F0D696; border-right-color: #D6B25E; -webkit-animation: gira 1.1s linear infinite; animation: gira 1.1s linear infinite; }
+  #carregando img { position: absolute; left: 30px; top: 30px; width: 90px; height: 90px; object-fit: contain; -webkit-animation: pulsa 1.6s ease-in-out infinite; animation: pulsa 1.6s ease-in-out infinite; }
+  #carregando span { position: absolute; left: -60px; right: -60px; top: 168px; text-align: center; color: rgba(255,255,255,.8); font-size: 22px; letter-spacing: .08em; }
+  @-webkit-keyframes pulsa { 50% { opacity: .55; -webkit-transform: scale(.94); } }
+  @keyframes pulsa { 50% { opacity: .55; transform: scale(.94); } }
   @-webkit-keyframes gira { to { -webkit-transform: rotate(360deg); } }
   @keyframes gira { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
 <video id="v" autoplay></video>
-<div id="carregando"></div>
+<div id="carregando"><div class="anel"></div><img src="img/logo-goldplay.png" alt=""><span>Carregando…</span></div>
 <div id="dbg" style="position:absolute;left:8px;bottom:8px;max-width:92%;z-index:9;display:none;padding:4px 8px;background:rgba(0,0,0,.6);color:#9f9;font:14px/18px monospace;white-space:pre-wrap"></div>
 <div id="aviso"><div id="cartao"><div class="ico">!</div><h1 id="titulo">Não foi possível reproduzir</h1><p>Tente novamente em instantes.</p><p id="det" style="margin-top:14px;font-size:18px;color:rgba(255,255,255,.45)"></p></div></div>
 <script src="//msx.benzac.de/js/tvx-plugin.min.js"></script>

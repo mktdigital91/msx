@@ -235,8 +235,25 @@
     }, 3000);
   }
 
+  // splash: aparece na hora em que o app abre e é trocado pela tela inicial assim que ela fica pronta
+  var telaPronta = null;
+  var SPLASH = { type: 'pages', flag: 'splash', transparent: 0, background: 'https://mktdigital91.github.io/msx/msx/img/splash.gif',
+    pages: [{ items: [{ type: 'space', layout: '0,0,12,6', offset: '-1,-1,2,2', image: 'https://mktdigital91.github.io/msx/msx/img/splash.gif', imageFiller: 'cover', enable: false },
+      { type: 'default', layout: '0,0,1,1', offset: '-5,-5,0,0', color: 'transparent', action: 'none', focus: true }] }] };
   function abrir(id, callback, acao) {
     idAparelho = id;
+    var original = callback, entregue = false, splashMostrado = false;
+    var t0 = new Date().getTime();
+    // só mostra o splash se a tela inicial demorar mais que um instante
+    var temporizador = setTimeout(function () { if (!entregue) { splashMostrado = true; original(SPLASH); } }, 250);
+    var entregar = function (tela) {
+      entregue = true; clearTimeout(temporizador);
+      if (!splashMostrado) { original(tela); return; }
+      telaPronta = tela;
+      // deixa a animação rodar pelo menos ~1,8 s antes de trocar
+      setTimeout(function () { try { TVXInteractionPlugin.executeAction('replace:content:splash:request:interaction:pronto@' + PLUGIN); } catch (e) { } }, Math.max(0, 1800 - (new Date().getTime() - t0)));
+    };
+    callback = entregar;
     pedirRelay('a=' + (acao || 'inicio') + '&d=' + encodeURIComponent(id) + '&rl=1', null, 0, function (tela) {
       callback(tela);
       // tela de login (traz o item do QR code) => fica esperando o celular
@@ -255,6 +272,7 @@
       if (dataId && String(dataId).indexOf('busca/') === 0) { tratarBusca(String(dataId).slice(6), callback); return; }
       if (dataId && String(dataId).indexOf('busca/') !== 0) { BUSCA.aberta = false; }
       // qualquer outro id é uma tela do app (texto da consulta): passa pelo relay
+      if (dataId === 'pronto') { var tp = telaPronta; telaPronta = null; callback(tp || falha('Abra o app de novo')); return; }
       if (dataId !== 'init' && dataId !== 'sair') {
         if (!dataId) { callback(null); return; }
         var qs = String(dataId); if (qs.indexOf('rl=1') < 0) { qs += '&rl=1'; }
