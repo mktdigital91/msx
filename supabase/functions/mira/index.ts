@@ -501,6 +501,8 @@ function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Re
     return {
       type: "list", headline, extension: extensao, transparent: 2, ready: { action: "quiet" },
       background: FUNDO_CFG || IMG + (FUNDO[kind] ?? "bg-tv.jpg"),
+      // o "background" da raiz não aparece; a camada "underlay" fica atrás de cada página da lista
+      underlay: { items: [camadaFundo(FUNDO[kind] ?? "bg-tv.jpg")] },
       template: { type: "default", color: COR.vidro, ...extra, layout: `0,0,${w},${h}` },
       items,
     };
@@ -657,6 +659,8 @@ function textoEpg(v: Prog[] | undefined) {
 
 // ---------- TV ao vivo dentro do player: OK abre a lista de canais (com EPG) por cima do vídeo ----------
 const CORACAO = "{col:msx-red}♥{col:msx-white}  ";
+// coração do player: cheio e vermelho quando é favorito (sintaxe de cor do MSX: "{COR}:{ÍCONE}")
+const iconeFav = (fav: boolean) => (fav ? "msx-red:favorite" : "favorite-border");
 function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string, painel = false, atual = "", cn = "", n = 0, epg?: Prog[], favs?: Set<string>) {
   const nome = limparNome(String(x.name));
   const guia = textoEpg(epg);
@@ -665,7 +669,8 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
   const ativo = painel && String(x.stream_id) === atual;
   const ehFav = !!favs?.has(String(x.stream_id));
   const favAcao = pn({ a: "fav", t, c, cn, s: x.stream_id, n: nome, i: String(x.stream_icon ?? "") });
-  const inicioAcao = `[quiet|${go({ a: "home", t })}]`;
+  // amarelo: para o vídeo e abre a tela inicial do Gold Play ("home" do MSX só mostra a cena principal/menu)
+  const inicioAcao = `[player:eject|${go({ a: "home", t })}]`;
   const visual = painel
     ? { color: ativo ? VID.ouro : VID.n }
     : { image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)", icon: logo ? undefined : "live-tv", iconSize: "small", color: VID.n };
@@ -690,11 +695,11 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
       "control:retune": "retain",
       "button:forward:key": "red",
       // o botão "eject" do MSX só aceita foco e atalho (não ação): o verde fica no "rewind"
-      "button:rewind:icon": ehFav ? "favorite" : "favorite-border",
+      "button:rewind:icon": iconeFav(ehFav),
       "button:rewind:action": favAcao,
       "button:rewind:key": "green",
       "button:speed:icon": "home",
-      "button:speed:action": "home",
+      "button:speed:action": inicioAcao,
       "button:speed:key": "yellow",
       "button:forward:icon": "apps",
       "button:forward:action": pn({ a: "pcats", t, s: x.stream_id }),
@@ -879,8 +884,9 @@ async function tratar(url: URL) {
     const s = url.searchParams.get("s") ?? "";
     const cn = url.searchParams.get("cn") ?? "";
     let avisoFav = "";
+    let agoraFav = false;
     if (a === "fav") {
-      const agoraFav = await alternarFavorito(cred.u, s, url.searchParams.get("n") ?? "Canal", url.searchParams.get("i") ?? "");
+      agoraFav = await alternarFavorito(cred.u, s, url.searchParams.get("n") ?? "Canal", url.searchParams.get("i") ?? "");
       avisoFav = agoraFav ? "adicionado aos favoritos" : "removido dos favoritos";
     }
     const dados = c === "fav" ? await favoritosDe(cred.u) : await api(cred, `&action=get_live_streams${c ? "&category_id=" + encodeURIComponent(c) : ""}`);
@@ -901,7 +907,12 @@ async function tratar(url: URL) {
     const canais = todos.map((x: any, i: number) => ({ x, i })).filter((o: any) => o.i !== idx)
       .map((o: any) => ({ ...canalItem(o.x, cred, t, c, true, s, cn, o.i + 1, ep.get(String(o.x.stream_id)), favs), focus: undefined }));
     const fixo = atualCanal ? [{ ...canalItem(atualCanal, cred, t, c, true, s, cn, idx + 1, ep.get(s), favs), action: "back", focus: true, ...(avisoFav ? { titleFooter: "Canal " + avisoFav } : {}) }] : [];
+    // depois de favoritar, troca o coração do player na hora (as propriedades do canal só valem ao abrir o vídeo)
+    const atualizaCoracao = a === "fav" && atualCanal
+      ? { ready: { action: "player:button:rewind:setup", data: { icon: iconeFav(agoraFav), action: alternar, key: "green" } } }
+      : {};
     return {
+      ...atualizaCoracao,
       type: "list", transparent: 2, headline: "Canais  {col:msx-red}●{col:msx-white-soft} Categorias  {col:msx-green}●{col:msx-white-soft} Favoritar  {col:msx-yellow}●{col:msx-white-soft} Início ",
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
       items: [{ ...navegar, focus: !atualCanal ? true : undefined }, ...fixo, ...canais],
@@ -1153,6 +1164,8 @@ async function home(t: string, quem: string, d: string | null = null) {
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,2,1", image: LOGO, imageFiller: "fit" },
       { type: "space", layout: "2,0,6,1", headline: `Olá, ${usuario}`, text: venc ? `{col:msx-white-soft}Plano ativo · ${venc}` : "{col:msx-white-soft}Bom te ver por aqui" },
+      // Atualizar: recarrega a configuração do painel e a tela inicial (limpa os caches do servidor e da TV)
+      card("8,0,2,1", "btn-atualizar.png", go(d ? { a: "inicio", d, x: Date.now() } : { a: "inicio", x: Date.now() })),
       card("10,0,2,1", "btn-sair.png", d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" })),
       card("0,1,4,3", "card-tv.png", go({ a: "cats", k: "live", t }), { id: "tv", focus: true }),
       card("4,1,4,3", "card-filmes.png", go({ a: "cats", k: "vod", t })),

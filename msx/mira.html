@@ -128,6 +128,8 @@
         var qs = String(dataId); if (qs.indexOf('rl=1') < 0) { qs += '&rl=1'; }
         // telas só de leitura ficam guardadas 3 min: voltar para uma lista já vista abre na hora
         var cacheavel = !/(^|&)a=(fav|login|sair|inicio|ver|in|form)(&|$)/.test(qs);
+        // Atualizar (tela inicial com x=) ou favoritar: telas guardadas ficaram velhas
+        if (/(^|&)a=fav(&|$)/.test(qs) || (/(^|&)a=inicio(&|$)/.test(qs) && /(^|&)x=/.test(qs))) { telas = {}; }
         var c = cacheavel ? telas[qs] : null;
         if (c && new Date().getTime() - c.t < 180000) { callback(c.v); return; }
         pedirRelay(qs, null, 0, function (tela) {
