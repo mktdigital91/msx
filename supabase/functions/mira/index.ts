@@ -494,8 +494,17 @@ const FUNDO: Record<string, string> = { live: "bg-tv.jpg", vod: "bg-filmes.jpg",
 // O MSX ignora o "background" da raiz nessas telas; então o fundo vira um item de tela cheia atrás dos blocos.
 const camadaFundo = (img: string) => ({ type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", image: FUNDO_CFG || IMG + img, imageFiller: "cover", enable: false });
 // Monta uma lista como páginas (grade 12x6) para poder ter o fundo em cada página.
+const ROLAGEM_VERTICAL = true; // listas rolam para baixo (false = páginas laterais, como antes)
 function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Record<string, unknown> = {}, extensao?: string, kind = "") {
   const [, , w, h] = layout.split(",").map(Number);
+  if (ROLAGEM_VERTICAL) {
+    return {
+      type: "list", headline, extension: extensao, transparent: 2, ready: { action: "quiet" },
+      background: FUNDO_CFG || IMG + (FUNDO[kind] ?? "bg-tv.jpg"),
+      template: { type: "default", color: COR.vidro, ...extra, layout: `0,0,${w},${h}` },
+      items,
+    };
+  }
   const cols = Math.max(1, Math.floor(12 / w)), rows = Math.max(1, Math.floor(6 / h)), porPg = cols * rows;
   const fundo = camadaFundo(FUNDO[kind] ?? "bg-tv.jpg");
   const pages: unknown[] = [];
