@@ -340,7 +340,15 @@ async function favoritosDe(u: string): Promise<Fav[]> {
   try {
     const r = await fetch(`${REST_FAV()}?usuario=eq.${encodeURIComponent(u)}&select=stream_id,nome,icone&order=criado.desc&limit=400`, { headers: cab(), signal: AbortSignal.timeout(6000) });
     const j = await r.json();
-    return Array.isArray(j) ? j.map((x: any) => ({ stream_id: String(x.stream_id), name: String(x.nome), stream_icon: x.icone || undefined })) : [];
+    return Array.isArray(j) ? j.map((x: any) => ({ stream_id: String(x.stream_id), name: String(x.nome), stream_icon: x.icone || undefined })).filter((x) => !x.stream_id.includes(":")) : [];
+  } catch { return []; }
+}
+// filmes ("v") e séries ("s") favoritos, guardados como "v:id" / "s:id"
+async function favoritosVod(u: string, p: "v" | "s"): Promise<Fav[]> {
+  try {
+    const r = await fetch(`${REST_FAV()}?usuario=eq.${encodeURIComponent(u)}&stream_id=like.${p}:*&select=stream_id,nome,icone&order=criado.desc&limit=400`, { headers: cab(), signal: AbortSignal.timeout(6000) });
+    const j = await r.json();
+    return Array.isArray(j) ? j.map((x: any) => ({ stream_id: String(x.stream_id).slice(2), name: String(x.nome), stream_icon: x.icone || undefined })) : [];
   } catch { return []; }
 }
 // liga/desliga o favorito; devolve true se agora é favorito
@@ -759,6 +767,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
     ? { color: ativo ? VID.ouro : VID.n }
     : { image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)", icon: logo ? undefined : "live-tv", iconSize: "small", color: VID.n };
   return {
+    ...(!painel && favs?.has(String(x.stream_id)) ? { tag: "♥", tagColor: "msx-red" } : {}),
     title: (ativo ? "▶  " : "") + (favs?.has(String(x.stream_id)) ? CORACAO : "") + nome, titleFooter: guia.linha || "TV Ao Vivo", truncation: "title|titleFooter",
     ...visual,
     focus: ativo ? true : undefined, enumerate: !painel,
@@ -1037,9 +1046,10 @@ async function tratar(url: URL) {
       { ...linha("Todos", "apps", "", `Todo o catálogo de ${T.nome.toLowerCase()}`), focus: true },
       { title: "{ico:search}  PESQUISAR", titleFooter: `Procurar em ${T.nome}`, color: VID.ouro, action: abrirBusca(t, tipoQ) },
       ...(tipoQ === "live" ? [
-        { ...linha("FAVORITOS", "star", "fav", "Seus canais favoritos"), title: CORACAO + "FAVORITOS" },
+        { ...linha("Canais favoritos", "star", "fav", "Seus canais favoritos"), title: CORACAO + "CANAIS FAVORITOS" },
         { ...linha("Últimos vistos", "history", "ult", "Os canais que você assistiu por último"), title: "{ico:history}  ÚLTIMOS VISTOS" },
       ] : [
+        { ...linha(tipoQ === "vod" ? "Filmes favoritos" : "Séries favoritas", "star", "fav", tipoQ === "vod" ? "Os filmes que você favoritou" : "As séries que você favoritou"), title: CORACAO + (tipoQ === "vod" ? "FILMES FAVORITOS" : "SÉRIES FAVORITAS") },
         { title: "{ico:play-circle-outline}  CONTINUAR ASSISTINDO", titleFooter: "De onde você parou", color: VID.n, action: go({ a: "continuar", t, k: tipoQ }) },
         { title: "{ico:fiber-new}  ADICIONADOS RECENTEMENTE", titleFooter: "Os últimos que chegaram", color: VID.n, action: go({ a: "itens", k: tipoQ, t, c: "", cn: "Recentes", o: "rec" }) },
         { title: "{ico:star}  MAIS BEM AVALIADOS", titleFooter: "Pela nota", color: VID.n, action: go({ a: "itens", k: tipoQ, t, c: "", cn: "Mais bem avaliados", o: "nota" }) },
@@ -1059,7 +1069,9 @@ async function tratar(url: URL) {
     if (regra.protege && c && c !== "fav" && c !== "ult" && (await catsAdultas(cred, tipoQ)).has(c)) {
       if (regra.infantil || url.searchParams.get("pk") !== (await chaveAdulto(t, c, regra.pin))) return aviso("Protegido", "Esta categoria pede a senha do controle parental.");
     }
-    const dados = c === "fav" && tipoQ === "live" ? await favoritosDe(quem(cred))
+    const favVod = tipoQ === "live" ? null : new Set((await favoritosVod(quem(cred), tipoQ === "vod" ? "v" : "s")).map((f) => f.stream_id));
+    const dados = c === "fav" && tipoQ !== "live" ? (await favoritosVod(quem(cred), tipoQ === "vod" ? "v" : "s")).map((f) => ({ name: f.name, stream_id: f.stream_id, series_id: f.stream_id, stream_icon: f.stream_icon, cover: f.stream_icon }))
+      : c === "fav" && tipoQ === "live" ? await favoritosDe(quem(cred))
       : c === "ult" && tipoQ === "live" ? await ultimosCanais(quem(cred))
       : await api(cred, `&action=${T.itens}${c && c !== "fav" && c !== "ult" ? "&category_id=" + encodeURIComponent(c) : ""}`);
     const o = tipoQ === "live" ? "" : (url.searchParams.get("o") ?? "");
@@ -1078,11 +1090,16 @@ async function tratar(url: URL) {
       return paginar("Canais", todos, pg, (x) => canalItem(x, cred, t, c, false, "", url.searchParams.get("cn") ?? "", 0, ep.get(String(x.stream_id)), favs), prox, "0,0,4,1", tipoQ);
     }
     const voltar = { title: "‹   CATEGORIAS", titleFooter: "Voltar às categorias" };
-    if (tipoQ === "vod") return paginar(cnQ || "Filmes", todos, pg, (x) => cartaoFilme(x, t), prox, "0,0,2,3", tipoQ, undefined, voltar, [botaoOrdem]);
-    return paginar(cnQ || "Séries", todos, pg, (x) => cartaoSerie(x, t), prox, "0,0,2,3", tipoQ, undefined, voltar, [botaoOrdem]);
+    if (tipoQ === "vod") return paginar(cnQ || "Filmes", todos, pg, (x) => cartaoFilme(x, t, favVod ?? undefined), prox, "0,0,2,3", tipoQ, undefined, voltar, [botaoOrdem]);
+    return paginar(cnQ || "Séries", todos, pg, (x) => cartaoSerie(x, t, favVod ?? undefined), prox, "0,0,2,3", tipoQ, undefined, voltar, [botaoOrdem]);
   }
 
   if (a === "filme") return await telaFilme(cred, t, url.searchParams.get("s") ?? "");
+  if (a === "favvod") { // favoritar filme ("v") ou série ("s") pela tela de detalhes
+    const tp = url.searchParams.get("tp") === "s" ? "s" : "v", s = url.searchParams.get("s") ?? "";
+    await alternarFavorito(quem(cred), `${tp}:${s}`, url.searchParams.get("n") ?? "", url.searchParams.get("i") ?? "");
+    return tp === "v" ? await telaFilme(cred, t, s) : await telaSerie(cred, t, s);
+  }
 
   if (a === "continuar") {
     const k = url.searchParams.get("k") ?? "";
@@ -1660,20 +1677,33 @@ async function telaGuia(cred: Cred, t: string, s: string, nome: string, voltar: 
 }
 
 // ---------- Filmes e séries: cartões, detalhes, episódios e Continuar assistindo ----------
-const cartaoFilme = (x: any, t: string) => {
+// favoritado: coração vermelho no canto superior direito (no lugar da nota)
+const seloFav = (fav: boolean, n?: string) => (fav ? { tag: "♥", tagColor: "msx-red" } : { tag: n, tagColor: COR.destaque });
+const cartaoFilme = (x: any, t: string, favs?: Set<string>) => {
   const nome = limparNome(String(x.name));
   return {
     title: nome, image: x.stream_icon || cartao("vod", nome, "Filme", "movie", true), imageFiller: "cover", color: COR.vidro,
-    tag: nota(x.rating), tagColor: COR.destaque, action: go({ a: "filme", t, s: x.stream_id }),
+    ...seloFav(!!favs?.has(String(x.stream_id)), nota(x.rating)), action: go({ a: "filme", t, s: x.stream_id }),
   };
 };
-const cartaoSerie = (x: any, t: string) => {
+const cartaoSerie = (x: any, t: string, favs?: Set<string>) => {
   const nome = limparNome(String(x.name));
   return {
     title: nome, image: x.cover || cartao("series", nome, "Série", "series", true), imageFiller: "cover", color: COR.vidro,
-    tag: nota(x.rating), tagColor: COR.destaque, action: go({ a: "serie", t, s: x.series_id }),
+    ...seloFav(!!favs?.has(String(x.series_id ?? x.stream_id)), nota(x.rating)), action: go({ a: "serie", t, s: x.series_id ?? x.stream_id }),
   };
 };
+// troca a tela de detalhes por ela mesma atualizada (favoritar), sem criar entrada no "voltar"
+const rpDet = (o: Record<string, string | number>) => RC()?.cap && RC()?.relay
+  ? `replace:content:det:request:interaction:${q({ ...o, rl: 1 })}@${PLUGIN}`
+  : `replace:content:det:${SELF()}?${q(o)}`;
+// distribui os botões na faixa de 9 colunas à direita da capa (o primeiro é maior)
+function arrumarBotoes(bs: any[], y: number) {
+  const resto = bs.length > 1 ? Math.floor(6 / (bs.length - 1)) : 0;
+  let x = 3;
+  bs.forEach((b, i) => { const w = i === 0 ? (bs.length > 1 ? 3 : 4) : Math.max(2, resto); b.layout = `${x},${y},${w},1`; x += w; });
+  return bs;
+}
 // ordem das listas de filmes/séries: padrão do provedor → recentes → nota → A–Z
 const ORDENS: Record<string, string> = { "": "Padrão", rec: "Recentes", nota: "Nota", az: "A–Z" };
 const PROX_ORDEM: Record<string, string> = { "": "rec", rec: "nota", nota: "az", az: "" };
@@ -1729,9 +1759,12 @@ async function telaFilme(cred: Cred, t: string, s: string) {
   ];
   // "Do início": guarda a posição, mas não retoma
   if (andamento) botoes.push(botao("6,4,3,1", "replay", "Do início", "Começar de novo", play, { playerLabel: nome, properties: { ...props, "resume:position": "none" } }));
-  if (yt) botoes.push(botao(`${andamento ? 9 : 6},4,3,1`, "movie", "Trailer", "YouTube", `video:plugin:http://msx.benzac.de/plugins/youtube.html?id=${yt}`, { playerLabel: `Trailer · ${nome}` }));
+  const ehFav = (await favoritosVod(quem(cred), "v")).some((f) => f.stream_id === String(s));
+  botoes.push(botao("0,0,1,1", ehFav ? "favorite" : "favorite-border", ehFav ? "Favorito" : "Favoritar", ehFav ? "Tirar dos favoritos" : "Guardar nos favoritos", rpDet({ a: "favvod", t, tp: "v", s, n: nome, i: capa }), ehFav ? { title: `{col:msx-red}{ico:favorite}{col:msx-white}  Favorito` } : {}));
+  if (yt) botoes.push(botao("0,0,1,1", "movie", "Trailer", "YouTube", `video:plugin:http://msx.benzac.de/plugins/youtube.html?id=${yt}`, { playerLabel: `Trailer · ${nome}` }));
+  arrumarBotoes(botoes, 4);
   return {
-    type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-filmes.jpg"),
+    type: "pages", flag: "det", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-filmes.jpg"),
     pages: [{ items: [
       ...fundoDetalhe(imgOk(inf.backdrop_path), "bg-filmes.jpg"),
       { type: "space", layout: "0,0,3,5", offset: "0.1,0.1,-0.2,-0.2", image: capa, imageFiller: "fit" },
@@ -1772,7 +1805,10 @@ async function telaSerie(cred: Cred, t: string, s: string) {
   const yt = youtubeId(inf.youtube_trailer);
   const botoes: any[] = [];
   if (alvo) botoes.push(botao("3,3,5,1", "play-arrow", alvo.rotulo, alvo.rodape, "", { ...epAcao(cred, t, s, nome, alvo.temp, alvo.e, capa, false), color: VID.ouro, focus: true }));
-  if (yt) botoes.push(botao("8,3,4,1", "movie", "Trailer", "YouTube", `video:plugin:http://msx.benzac.de/plugins/youtube.html?id=${yt}`, { playerLabel: `Trailer · ${nome}` }));
+  const ehFav = (await favoritosVod(quem(cred), "s")).some((f) => f.stream_id === String(s));
+  botoes.push(botao("0,0,1,1", ehFav ? "favorite" : "favorite-border", ehFav ? "Favorita" : "Favoritar", ehFav ? "Tirar dos favoritos" : "Guardar nos favoritos", rpDet({ a: "favvod", t, tp: "s", s, n: nome, i: capa }), ehFav ? { title: `{col:msx-red}{ico:favorite}{col:msx-white}  Favorita` } : {}));
+  if (yt) botoes.push(botao("0,0,1,1", "movie", "Trailer", "YouTube", `video:plugin:http://msx.benzac.de/plugins/youtube.html?id=${yt}`, { playerLabel: `Trailer · ${nome}` }));
+  arrumarBotoes(botoes, 3);
   // temporadas: até 18 botões (2 linhas de 9); com mais, o último abre a lista completa
   const muitas = numeros.length > 18;
   const visiveis = muitas ? numeros.slice(0, 17) : numeros;
@@ -1782,7 +1818,7 @@ async function telaSerie(cred: Cred, t: string, s: string) {
   }));
   if (muitas) temps.push({ type: "default", layout: "11,5,1,1", color: VID.voltar, alignment: "center", centration: "title", title: "Todas", action: go({ a: "serie", t, s, n: "*" }) });
   return {
-    type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-series.jpg"),
+    type: "pages", flag: "det", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-series.jpg"),
     pages: [{ items: [
       ...fundoDetalhe(imgOk(inf.backdrop_path), "bg-series.jpg"),
       { type: "space", layout: "0,0,3,5", offset: "0.1,0.1,-0.2,-0.2", image: capa, imageFiller: "fit" },
