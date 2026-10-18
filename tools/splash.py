@@ -1,9 +1,9 @@
 # Gera msx/img/splash.gif: logo Gold Play com zoom suave e brilho dourado passando (960x540)
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
-W, H, N = 960, 540, 28
+W, H, N = 960, 540, 60
 logo = Image.open("msx/img/logo-goldplay.png").convert("RGBA")
-logo.thumbnail((300, 280))
+logo.thumbnail((225, 210))
 y, x = np.mgrid[0:H, 0:W]
 d = np.sqrt((x - W / 2) ** 2 + (y - H / 2) ** 2) / 520
 base = np.clip(1 - d, 0, 1) ** 2
@@ -30,5 +30,5 @@ for i in range(N):
     dr.rounded_rectangle([W / 2 - 90, py + lg.height + 40, W / 2 + 90, py + lg.height + 44], 2, fill=(60, 52, 40, 255))
     dr.rounded_rectangle([W / 2 - 90, py + lg.height + 40, W / 2 - 90 + 180 * t, py + lg.height + 44], 2, fill=(214, 178, 94, 255))
     quadros.append(im.convert("RGB").quantize(128, method=Image.Quantize.MEDIANCUT))
-quadros[0].save("msx/img/splash.gif", save_all=True, append_images=quadros[1:] + [quadros[-1]] * 1, duration=[60] * (N - 1) + [60, 1200], loop=0, optimize=True)
+quadros[0].save("msx/img/splash.gif", save_all=True, append_images=quadros[1:] + [quadros[-1]] * 1, duration=[60] * (N - 1) + [60, 1500], optimize=True)
 print("ok")

@@ -245,13 +245,13 @@
     var original = callback, entregue = false, splashMostrado = false;
     var t0 = new Date().getTime();
     // só mostra o splash se a tela inicial demorar mais que um instante
-    var temporizador = setTimeout(function () { if (!entregue) { splashMostrado = true; original(SPLASH); } }, 250);
+    var temporizador = setTimeout(function () { if (!entregue) { splashMostrado = true; original(SPLASH); } }, 0);
     var entregar = function (tela) {
       entregue = true; clearTimeout(temporizador);
       if (!splashMostrado) { original(tela); return; }
       telaPronta = tela;
-      // deixa a animação rodar pelo menos ~1,8 s antes de trocar
-      setTimeout(function () { try { TVXInteractionPlugin.executeAction('replace:content:splash:request:interaction:pronto@' + PLUGIN); } catch (e) { } }, Math.max(0, 1800 - (new Date().getTime() - t0)));
+      // deixa a animação rodar pelo menos ~4 s antes de trocar
+      setTimeout(function () { try { TVXInteractionPlugin.executeAction('replace:content:splash:request:interaction:pronto@' + PLUGIN); } catch (e) { } }, Math.max(0, 4200 - (new Date().getTime() - t0)));
     };
     callback = entregar;
     pedirRelay('a=' + (acao || 'inicio') + '&d=' + encodeURIComponent(id) + '&rl=1', null, 0, function (tela) {
