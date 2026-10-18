@@ -1314,13 +1314,17 @@ async function jogoSvg(g: URLSearchParams) {
   const st = limparNome(g.get("s") ?? "").slice(0, 18);
   const liga = limparNome(g.get("l") ?? "").slice(0, 24).toUpperCase();
   const canais = (g.get("c") ?? "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 80);
-  const logoH: string | null = null, logoF: string | null = null; // logos embutidas não aparecem na TV: sempre a bolinha com a sigla
+  // logos embutidas no SVG não aparecem na TV; quando a tela põe a logo por cima (item à parte), aqui fica só o disco branco
+  const lg = g.get("lg") ?? "";
+  const logoH: string | null = lg.includes("h") ? "" : null, logoF: string | null = lg.includes("f") ? "" : null;
   const linha = (y: number, p: string, logo: string | null) => {
     const [nome = "", sigla = "", cor = "475569", gols = "", v = ""] = (g.get(p) ?? "").split("|");
     const apaga = k === "post" && v !== "1";
     const n = limparNome(nome); const longo = n.length > 14; const nm = n.length > 23 ? n.slice(0, 22) + "…" : n;
     const c = /^[0-9a-f]{6}$/i.test(cor) ? cor : "475569";
-    const escudo = logo
+    const escudo = logo === ""
+      ? `<circle cx="74" cy="${y}" r="38" fill="#fff" fill-opacity=".96"/>`
+      : logo
       ? `<circle cx="74" cy="${y}" r="38" fill="#fff" fill-opacity=".94"/><image href="${logo}" x="48" y="${y - 26}" width="52" height="52" preserveAspectRatio="xMidYMid meet"/><circle cx="74" cy="${y}" r="37" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2"/>`
       : `<circle cx="74" cy="${y}" r="38" fill="#${c}"/><circle cx="74" cy="${y}" r="38" fill="url(#bri)"/><circle cx="74" cy="${y}" r="37" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>`
         + `<text x="74" y="${y + 9}" text-anchor="middle" font-size="${sigla.length > 3 ? 20 : 25}" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">${xml(sigla)}</text>`;
@@ -1352,7 +1356,7 @@ async function jogoSvg(g: URLSearchParams) {
     + `<rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="0" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="2"/></svg>`;
 }
 const timeTxt = (t: Time) => [t.nome, t.sigla, t.cor, t.gols, t.venceu ? "1" : ""].join("|");
-const jogoImg = (j: Jogo) => `${SELF()}?${q({
+const jogoImg = (j: Jogo, lg = "") => `${SELF()}?${q({ ...(lg ? { lg } : {}),
   a: "jg", k: j.estado, s: j.status, l: j.liga, h: timeTxt(j.casa), f: timeTxt(j.fora), c: j.transmissao,
 })}`;
 
@@ -1416,9 +1420,15 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
   const todos = go({ a: "jogos", t });
   const card = (layout: string, img: string, acao: string, extra: Record<string, unknown> = {}) =>
     ({ type: "default", layout, image: im(img), imageFiller: "fit", color: "transparent", action: acao, ...extra });
-  const destaques = lst.slice(0, 3).map((j, i) => ({
-    type: "default", layout: `${3 + i * 3},4,3,2`, image: jogoImg(j), imageFiller: "fit", color: "transparent", action: jogoAcao(j, t),
-  }));
+  // cartões dos jogos: logo de cada time (da API) posta por cima do disco branco do cartão
+  const destaques: any[] = [];
+  lst.slice(0, 3).forEach((j, i) => {
+    const x = 3 + i * 3, lg = (j.casa.logo ? "h" : "") + (j.fora.logo ? "f" : "");
+    destaques.push({ type: "default", layout: `${x},4,3,2`, image: jogoImg(j, lg), imageFiller: "fit", color: "transparent", action: jogoAcao(j, t) });
+    const logo = (url: string, dy: number) => ({ type: "space", layout: `${x},4,1,1`, offset: `0.2125,${dy},-0.6875,-0.722`, image: url, imageFiller: "fit", enable: false });
+    if (j.casa.logo) destaques.push(logo(j.casa.logo, 0.711));
+    if (j.fora.logo) destaques.push(logo(j.fora.logo, 1.111));
+  });
   return {
     type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-tv.jpg"),
     pages: [{ items: [
@@ -1436,7 +1446,9 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       card("0,1,4,3", "card-tv.png", go({ a: "cats", k: "live", t }), { id: "tv", focus: true, ...selo(qtd.live) }),
       card("4,1,4,3", "card-filmes.png", go({ a: "cats", k: "vod", t }), selo(qtd.vod)),
       card("8,1,4,3", "card-series.png", go({ a: "cats", k: "series", t }), selo(qtd.series)),
-      { type: "default", layout: "0,4,3,2", image: resumoImg(lst.length, vivos, jogos === null), imageFiller: "fit", color: "transparent", action: lst.length ? todos : "none" },
+      { type: "default", layout: "0,4,3,2", image: IMG + "jogos.gif", imageFiller: "fit", color: "transparent", action: lst.length ? todos : "none" },
+      { type: "space", layout: "0,4,3,2", offset: "0.25,0.95,-0.4,-0.95", enable: false, headline: "Jogos de hoje",
+        text: jogos === null ? "{col:msx-white-soft}Placar indisponível agora" : lst.length ? `{col:msx-white}${lst.length} partida${lst.length > 1 ? "s" : ""}${vivos ? ` · {col:msx-red}${vivos} ao vivo{col:msx-white}` : ""}{br}{col:msx-white-soft}Ver todos  ›` : "{col:msx-white-soft}Nenhuma partida hoje" },
       ...destaques,
     ] }, ...paginaContinuar(hist, cred, t)],
   };
