@@ -1694,7 +1694,7 @@ const fundoDetalhe = (img: string, padrao: string) => img
   ? [{ type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", image: img, imageFiller: "cover", enable: false }, { type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", color: "rgba(6,7,18,0.78)", enable: false }]
   : [camadaFundo(padrao)];
 const botao = (layout: string, icone: string, titulo: string, rodape: string, acao: string, extra: Record<string, unknown> = {}) =>
-  ({ type: "default", layout, icon: icone, title: titulo, titleFooter: rodape, color: VID.n, action: acao, ...extra });
+  ({ type: "default", layout, title: `{ico:${icone}}  ${titulo}`, titleFooter: rodape, color: VID.n, action: acao, ...extra });
 
 async function telaFilme(cred: Cred, t: string, s: string) {
   const [info, hist] = await Promise.all([api(cred, `&action=get_vod_info&vod_id=${encodeURIComponent(s)}`), historicoDe(quem(cred), ["filme"], 80)]);
@@ -1702,7 +1702,7 @@ async function telaFilme(cred: Cred, t: string, s: string) {
   const nome = limparNome(String(inf.name || md.name || "Filme"));
   const capa = imgOk(inf.cover_big) || imgOk(inf.movie_image) || cartao("vod", nome, "Filme", "movie", true);
   const ano = String(inf.releasedate || inf.release_date || "").slice(0, 4);
-  const dur = inf.duration_secs ? fmtTempo(Number(inf.duration_secs)) : txtMsx(inf.duration);
+  const dur = inf.duration_secs ? fmtTempo(Number(inf.duration_secs)) : /^\d+$/.test(String(inf.duration ?? "").trim()) ? fmtTempo(Number(inf.duration) * 60) : txtMsx(inf.duration);
   const n = nota(inf.rating);
   const meta = [ano, dur, n ? `★ ${n}` : "", txtMsx(inf.genre).slice(0, 50)].filter(Boolean).join("   ·   ");
   const sinopse = txtMsx(inf.plot || inf.description) || "Sem sinopse.";
@@ -1713,7 +1713,7 @@ async function telaFilme(cred: Cred, t: string, s: string) {
   const props = { "trigger:back": "quiet", ...retomar("filme", s, quem(cred)) };
   const yt = youtubeId(inf.youtube_trailer);
   const botoes: any[] = [
-    botao("3,4,3,1", "play-arrow", andamento ? "Continuar" : "Assistir", andamento ? `de ${fmtTempo(h!.pos)}` : dur || "Filme", play, { playerLabel: nome, properties: props, color: VID.ouro, focus: true }),
+    botao("3,4,3,1", "play-arrow", andamento ? "Continuar" : "Assistir", andamento ? `de ${fmtTempo(h!.pos)}` : " ", play, { playerLabel: nome, properties: props, color: VID.ouro, focus: true }),
   ];
   // "Do início": guarda a posição, mas não retoma
   if (andamento) botoes.push(botao("6,4,3,1", "replay", "Do início", "Começar de novo", play, { playerLabel: nome, properties: { ...props, "resume:position": "none" } }));
