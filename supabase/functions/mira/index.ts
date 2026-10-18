@@ -648,7 +648,7 @@ function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Re
   return { type: "pages", headline, extension: extensao, transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im(FUNDO[kind] ?? "bg-tv.jpg"), pages };
 }
 function aviso(titulo: string, msg: string, voltar?: unknown[]) {
-  return lista(titulo, [{ title: msg, action: "none" }, ...(voltar ?? [])], "0,0,12,1");
+  return lista(titulo, [{ title: msg, action: "[]" }, ...(voltar ?? [])], "0,0,12,1");
 }
 // Tela única de login: à esquerda o QR code / código para entrar pelo celular, à direita usuário e senha na TV.
 function telaLogin(codigo: string | null, d: string | null, msg?: string, u = "", p = "", auto = false, mac = "") {
@@ -667,9 +667,9 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
       { id: "atualizar", type: "default", layout: "10,0,2,1", image: im("btn-atualizar.png"), imageFiller: "fit", color: "transparent", action: go(base({ a: "inicio", x: Date.now() })) },
       // ---- lado esquerdo: pelo celular ----
       { type: "space", layout: "0,1,3,3", offset: "0,0.4,0,-0.15", image: im("login-qr.png"), imageFiller: "cover" },
-      { id: "qr", type: "default", layout: "0,1,3,3", offset: "0.15,0.57,-0.3,-0.45", color: "transparent", image: qr, imageFiller: "fit", action: "none" },
+      { id: "qr", type: "default", layout: "0,1,3,3", offset: "0.15,0.57,-0.3,-0.45", color: "transparent", image: qr, imageFiller: "fit", action: "[]" },
       { type: "space", layout: "3,1,3,2", offset: "0,0.4,0,-0.15", image: im("login-codigo.png"), imageFiller: "cover" },
-      { type: "default", layout: "3,1,3,2", offset: "0,0.25,0,-0.3", color: "transparent", titleHeader: "Código celular:", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Válido por: 24h", action: "none" },
+      { type: "default", layout: "3,1,3,2", offset: "0,0.25,0,-0.3", color: "transparent", titleHeader: "Código celular:", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Válido por: 24h", action: "[]" },
       { type: "space", layout: "3,3,3,1", offset: "-0.1,0.38,0.2,0.15", image: im("login-novo.png"), imageFiller: "fit" },
       { type: "default", layout: "3,3,3,1", offset: "-0.1,0.27,0.2,0.15", color: "transparent", alignment: "center", title: "Novo código", titleFooter: "Gerar outro QR code", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
       { type: "space", layout: "0,5,6,1", text: `{col:msx-white-soft}Número do MAC: {col:msx-white}${mac || "indisponível"}` },
@@ -729,7 +729,7 @@ async function paginar(
     itens.push({ title: "Carregando mais…", titleFooter: `${pg + 2} de ${total}`, color: VID.n, action: prox, selection: { action: prox } });
   }
   if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${total}`, color: VID.n, action: proxima(pg - 1) });
-  if (!todos.length) itens.push({ title: "Nada encontrado", action: "none" });
+  if (!todos.length) itens.push({ title: "Nada encontrado", action: "[]" });
   // botão fixo no topo para voltar às categorias (volta para a tela anterior, sem recarregar)
   itens.unshift({ ...voltar, color: VID.voltar, action: "back" }, ...topo);
   return { ...(lista(titulo, itens, layout, {}, ext ?? `${todos.length} itens`, kind) as any), flag: "pag" };
@@ -1201,7 +1201,7 @@ async function tratar(url: URL) {
     const favs = new Set((await favoritosDe(quem(cred))).map((f) => f.stream_id));
     const nParam = url.searchParams.get("n") ?? "", iParam = url.searchParams.get("i") ?? "";
     const atualCanal: any = todos.find((x: any) => String(x.stream_id) === s) ?? (a === "fav" && nParam ? { name: nParam, stream_id: s, stream_icon: iParam } : undefined);
-    const alternar = atualCanal ? pn({ a: "fav", t, c, cn, s, n: limparNome(String(atualCanal.name)), i: String(atualCanal.stream_icon ?? "") }) : "none";
+    const alternar = atualCanal ? pn({ a: "fav", t, c, cn, s, n: limparNome(String(atualCanal.name)), i: String(atualCanal.stream_icon ?? "") }) : "[]";
     const canais = todos.map((x: any, i: number) => ({ x, i })).filter((o: any) => o.i !== idx)
       .map((o: any) => ({ ...canalItem(o.x, cred, t, c, true, s, cn, o.i + 1, ep.get(String(o.x.stream_id)), favs), focus: undefined }));
     const fixo = atualCanal ? [{ ...canalItem(atualCanal, cred, t, c, true, s, cn, idx + 1, ep.get(s), favs), action: "back", focus: true, ...(avisoFav ? { titleFooter: "Canal " + avisoFav } : {}) }] : [];
@@ -1548,7 +1548,7 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       card("4,1,4,3", "card-filmes.png", go({ a: "cats", k: "vod", t }), selo(qtd.vod)),
       card("8,1,4,3", "card-series.png", go({ a: "cats", k: "series", t }), selo(qtd.series)),
       ...qtdTxt(0, qtd.live), ...qtdTxt(4, qtd.vod), ...qtdTxt(8, qtd.series),
-      { type: "default", layout: "0,4,4,2", image: `${SELF()}?${q({ a: "jgif", d: diaLocal(), h: Math.floor(Date.now() / 1800_000), th: TEMA })}`, imageFiller: "fit", color: "transparent", action: lst.length ? todos : "none" },
+      { type: "default", layout: "0,4,4,2", image: `${SELF()}?${q({ a: "jgif", d: diaLocal(), h: Math.floor(Date.now() / 1800_000), th: TEMA })}`, imageFiller: "fit", color: "transparent", action: lst.length ? todos : "[]" },
       { type: "space", layout: "0,4,4,2", offset: "0,1.08,0,-1.12", alignment: "center", enable: false,
         text: "{col:msx-white}Jogos de hoje{br}" + (jogos === null ? "{col:msx-white-soft}Placar indisponível agora" : lst.length ? `{col:msx-white}${lst.length} partida${lst.length > 1 ? "s" : ""}${vivos ? `  |  {col:${TEMA === "onix" ? "msx-yellow" : "msx-red"}}${vivos} ao vivo{col:msx-white}` : ""}{br}{col:msx-white-soft}Ver todos  ›` : "{col:msx-white-soft}Nenhuma partida hoje") },
       ...destaques,
@@ -1755,10 +1755,10 @@ async function telaGuia(cred: Cred, t: string, s: string, nome: string, voltar: 
     itens.push({
       title: `${agora ? "{col:msx-yellow}AGORA{col:msx-white}  " : ""}${fmtHora(x.ini)} – ${fmtHora(x.fim)}${d !== hoje ? `  (${d})` : ""}   ${x.titulo}`,
       titleFooter: x.desc ? (x.desc.length > 110 ? x.desc.slice(0, 107) + "…" : x.desc) : " ", truncation: "title|titleFooter",
-      color: agora ? VID.ouro : VID.n, action: "none", ...(agora ? { focus: true } : {}),
+      color: agora ? VID.ouro : VID.n, action: "[]", ...(agora ? { focus: true } : {}),
     });
   });
-  if (!progs.length) itens.push({ title: "Sem programação disponível para este canal", action: "none" });
+  if (!progs.length) itens.push({ title: "Sem programação disponível para este canal", action: "[]" });
   return { type: "list", transparent: 2, headline: `Guia · ${nome}`, extension: progs.length ? `${progs.length} programas` : "", template: { type: "default", layout: "0,0,8,1", color: COR.vidro }, items: itens };
 }
 
@@ -2288,7 +2288,7 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
   const topo = [
     camadaFundo("bg-tv.jpg"),
     { type: "space", layout: "0,0,12,1", headline: `${j.casa.nome} x ${j.fora.nome}`, text: `{col:msx-white-soft}${j.liga} · ${j.status}` },
-    { type: "default", layout: "0,1,4,3", image: jogoImg(j), imageFiller: "fit", color: "transparent", action: "none" },
+    { type: "default", layout: "0,1,4,3", image: jogoImg(j), imageFiller: "fit", color: "transparent", action: "[]" },
   ];
   let cat: Catalogo | null = null;
   try { cat = await catalogoAoVivo(cred); } catch { /* sem catálogo: mostra só o aviso */ }
@@ -2325,7 +2325,7 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
     return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-tv.jpg"), pages: [{ items: [...topo, ...assistir, ...extra] }] };
   }
   const onde = j.canaisLista.length ? `Este jogo passa em ${j.canaisLista.join(" · ")}` : "A programação não informou onde passa";
-  const aviso1 = { ...linhaVidro(0, {}), title: "Canal não encontrado para este jogo", titleFooter: cat ? onde : "Não foi possível consultar seus canais agora", action: "none", truncation: "title|titleFooter" };
+  const aviso1 = { ...linhaVidro(0, {}), title: "Canal não encontrado para este jogo", titleFooter: cat ? onde : "Não foi possível consultar seus canais agora", action: "[]", truncation: "title|titleFooter" };
   const opcoes = [
     ...abrirEventos.map((e) => ({ ...e, layout: "4,2,8,1", focus: true })),
     { ...linhaVidro(abrirEventos.length ? 2 : 1, {}), focus: !abrirEventos.length, title: "TV ao vivo", titleFooter: "Procurar o canal nas categorias", action: go({ a: "cats", k: "live", t }) },

@@ -16,7 +16,7 @@
 
   function falha(msg) {
     return { type: 'list', headline: 'Gold Play', template: { type: 'separate', layout: '0,0,12,1', color: 'msx-glass' },
-      items: [{ title: msg, action: 'none', color: 'msx-red' }] };
+      items: [{ title: msg, action: '[]', color: 'msx-red' }] };
   }
   function pedir(url, ok, erro) {
     var x = new XMLHttpRequest();
@@ -152,7 +152,7 @@
       title: nome, titleFooter: 'TV ao vivo', truncation: 'title', color: VID_N,
       image: icone || undefined, imageWidth: 1, imageFiller: 'fit', icon: icone ? undefined : 'live-tv', iconSize: 'small',
       playerLabel: nome, properties: props,
-      action: live ? 'video:plugin:' + live.player + '?f=' + encodeURIComponent(b64url(fontes)) + '&m=' + encodeURIComponent('o canal') + '&h=' + encodeURIComponent(b64url(reg)) : 'none'
+      action: live ? 'video:plugin:' + live.player + '?f=' + encodeURIComponent(b64url(fontes)) + '&m=' + encodeURIComponent('o canal') + '&h=' + encodeURIComponent(b64url(reg)) : '[]'
     };
   }
   function telaBusca() {
@@ -239,13 +239,13 @@
   var telaPronta = null;
   var SPLASH = { type: 'pages', flag: 'splash', transparent: 0, background: 'https://mktdigital91.github.io/msx/msx/img/splash.gif',
     pages: [{ items: [{ type: 'space', layout: '0,0,12,6', offset: '-1,-1,2,2', image: 'https://mktdigital91.github.io/msx/msx/img/splash.gif', imageFiller: 'cover', enable: false },
-      { type: 'default', layout: '0,0,1,1', offset: '-5,-5,0,0', color: 'transparent', action: 'none', focus: true }] }] };
-  function abrir(id, callback, acao) {
+      { type: 'default', layout: '0,0,1,1', offset: '-5,-5,0,0', color: 'transparent', action: '[]', focus: true }] }] };
+  function abrir(id, callback, acao, semSplash) {
     idAparelho = id;
     var original = callback, entregue = false, splashMostrado = false;
     var t0 = new Date().getTime();
     // só mostra o splash se a tela inicial demorar mais que um instante
-    var temporizador = setTimeout(function () { if (!entregue) { splashMostrado = true; original(SPLASH); } }, 0);
+    var temporizador = semSplash ? null : setTimeout(function () { if (!entregue) { splashMostrado = true; original(SPLASH); } }, 0);
     var entregar = function (tela) {
       entregue = true; clearTimeout(temporizador);
       if (!splashMostrado) { original(tela); return; }
@@ -272,7 +272,9 @@
       if (dataId && String(dataId).indexOf('busca/') === 0) { tratarBusca(String(dataId).slice(6), callback); return; }
       if (dataId && String(dataId).indexOf('busca/') !== 0) { BUSCA.aberta = false; }
       // qualquer outro id é uma tela do app (texto da consulta): passa pelo relay
-      if (dataId === 'pronto') { var tp = telaPronta; telaPronta = null; callback(tp || falha('Abra o app de novo')); return; }
+      // a tela inicial entrou no lugar do splash; ao voltar para ela (Voltar / Home do menu), o MSX pede de novo:
+      // na primeira vez entrega a que já veio; depois carrega a tela inicial de novo (atualizada, sem splash)
+      if (dataId === 'pronto') { if (telaPronta) { var tp = telaPronta; telaPronta = null; callback(tp); } else { abrir(idAparelho || TVXSettings.ID || 'sem-id', callback, 'inicio', true); } return; }
       if (dataId !== 'init' && dataId !== 'sair') {
         if (!dataId) { callback(null); return; }
         var qs = String(dataId); if (qs.indexOf('rl=1') < 0) { qs += '&rl=1'; }
