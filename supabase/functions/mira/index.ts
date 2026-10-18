@@ -2100,7 +2100,9 @@ async function telaGuiaHome(cred: Cred, t: string) {
   const cat = await catalogoAoVivo(cred);
   const escolhidos: CanalProv[] = [];
   for (const re of REDES) {
-    const c = cat.canais.filter((x) => re.test(semAcento(x.nome))).sort((a, b) => b.qual - a.qual)[0];
+    // prefere a versão comum de SP (as 4K/FHDR/H265 costumam vir sem guia)
+    const nota = (x: CanalProv) => { const n = semAcento(x.nome); return (/\b(4k|uhd|fhdr|h265|hevc)\b/.test(n) ? -10 : 0) + (/\bsp\b/.test(n) ? 3 : 0) + x.qual; };
+    const c = cat.canais.filter((x) => re.test(semAcento(x.nome))).sort((a, b) => nota(b) - nota(a))[0];
     if (c && !escolhidos.includes(c)) escolhidos.push(c);
   }
   const ep = await epgVarios(cred, escolhidos.map((c) => c.id), 2500);
