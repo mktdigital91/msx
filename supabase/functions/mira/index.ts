@@ -1402,7 +1402,7 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
     const tarefa = Promise.all((["live", "vod", "series"] as const).map((k) => catalogoBusca(cred, k).catch(() => null)));
     if (er?.waitUntil) er.waitUntil(tarefa);
   }
-  const selo = (n?: number) => (fmtQtd(n) ? { tag: fmtQtd(n), tagColor: TEMA === "onix" ? "msx-yellow" : "msx-white" } : {});
+  const selo = (n?: number) => (fmtQtd(n) ? { tag: fmtQtd(n), tagColor: COR.destaque } : {});
   const dias = vence !== null ? diasPara(vence) : null;
   const dataVence = vence !== null ? new Date(vence).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" }) : "";
   const renovar = CONTATO ? `{br}{col:msx-white}Renove: ${CONTATO}` : "{br}{col:msx-white-soft}Fale com seu revendedor";
