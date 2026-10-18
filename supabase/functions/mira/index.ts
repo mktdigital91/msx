@@ -2,7 +2,7 @@
 // A TV não consegue ler o provedor direto; esta função lê e devolve telas prontas para o MSX.
 // O endereço (DNS) do provedor fica AQUI, no Supabase, e não no GitHub público.
 // Usuário/senha vêm da TV, viram um token criptografado (30 dias) e não são guardados.
-
+import { AsyncLocalStorage } from "node:async_hooks";
 
 const PROVEDOR = { host: "horizonmult.site", protocolo: "http" };
 const POR_PAGINA = 60;
@@ -22,6 +22,21 @@ let FUNDO_CFG = ""; // imagem de fundo escolhida no painel (vazio = fundos padr�
 const COR = { tv: "rgba(124,92,255,0.40)", vod: "rgba(244,63,142,0.38)", series: "rgba(34,211,238,0.32)", vidro: "rgba(14,16,36,0.55)", destaque: "#7C5CFF" };
 
 const BASE_PROV = `${PROVEDOR.protocolo}://${PROVEDOR.host}`; // reserva, se o painel/banco não responder
+
+// ---------- relay: provedores que bloqueiam o servidor mas aceitam a TV ----------
+// A TV (plugin) busca no provedor e devolve o texto; o servidor monta as telas como sempre.
+type Rel = { cap: boolean; rel: Map<string, string | null>; need: Set<string>; relay: boolean };
+const ALS = new AsyncLocalStorage<Rel>();
+const RC = () => ALS.getStore();
+class RelayNeed extends Error { constructor() { super("relay"); } }
+const urlPlayer = (b: string, u: string, p: string, extra = "") => `${b}/player_api.php?username=${encodeURIComponent(u)}&password=${encodeURIComponent(p)}${extra}`;
+async function dnsAtivas(): Promise<{ id: string; b: string }[]> {
+  try {
+    const r = await fetch(`${SB()}/rest/v1/dns?ativo=eq.true&select=id,host,protocolo,porta&order=prioridade`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+    const l = await r.json();
+    return Array.isArray(l) ? l.map((d) => ({ id: d.id as string, b: `${d.protocolo}://${d.host}${d.porta ? ":" + d.porta : ""}` })) : [];
+  } catch { return []; }
+}
 
 // ---------- painel: DNS por usuário, acessos, bloqueio e personalização (tudo vem do banco) ----------
 const SB = () => Deno.env.get("SUPABASE_URL") ?? "";
@@ -131,15 +146,17 @@ async function chave() {
   _chave = await crypto.subtle.importKey("raw", h, "AES-GCM", false, ["encrypt", "decrypt"]);
   return _chave;
 }
-async function criarToken(u: string, p: string, v?: number) {
+// r = sessão que precisa do relay pela TV; pv = login ainda não conferido (a TV confere na primeira tela)
+async function criarToken(u: string, p: string, v?: number, pv = false) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const dados = new TextEncoder().encode(JSON.stringify({ u, p, v, e: Date.now() + VALIDADE_MS }));
+  const r = (RC()?.rel.size ?? 0) > 0 ? 1 : 0;
+  const dados = new TextEncoder().encode(JSON.stringify({ u, p, v, e: Date.now() + VALIDADE_MS, ...(r ? { r } : {}), ...(pv ? { pv: 1 } : {}) }));
   const c = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await chave(), dados));
   const t = new Uint8Array(iv.length + c.length);
   t.set(iv); t.set(c, iv.length);
   return b64(t);
 }
-type Cred = { u: string; p: string; b?: string; bloq?: boolean; v?: number };
+type Cred = { u: string; p: string; b?: string; bloq?: boolean; v?: number; r?: boolean; pv?: boolean };
 async function lerToken(t: string | null): Promise<Cred | null> {
   if (!t) return null;
   try {
@@ -148,7 +165,8 @@ async function lerToken(t: string | null): Promise<Cred | null> {
     const o = JSON.parse(new TextDecoder().decode(d));
     if (!(o.e > Date.now())) return null;
     const x = await infoUsuario(o.u);
-    return { u: o.u, p: o.p, v: o.v, b: x.b, bloq: x.bloq };
+    const cx = RC(); if (cx && o.r) cx.relay = true;
+    return { u: o.u, p: o.p, v: o.v, b: x.b, bloq: x.bloq, r: !!o.r, pv: !!o.pv };
   } catch {
     return null;
   }
@@ -156,10 +174,20 @@ async function lerToken(t: string | null): Promise<Cred | null> {
 
 // ---------- provedor ----------
 async function api(cred: Cred, extra = "") {
-  const url = `${cred.b ?? BASE_PROV}/player_api.php?username=${encodeURIComponent(cred.u)}&password=${encodeURIComponent(cred.p)}${extra}`;
-  const r = await fetch(url, { signal: AbortSignal.timeout(20000), headers: { "user-agent": "Mozilla/5.0" } });
-  if (!r.ok) throw new Error("provedor respondeu " + r.status);
-  const txt = await r.text();
+  const url = urlPlayer(cred.b ?? BASE_PROV, cred.u, cred.p, extra);
+  const c = RC();
+  if (c?.rel.has(url)) { // a TV já buscou este endereço
+    const tx = c.rel.get(url);
+    if (tx === null || tx === undefined) throw new Error("provedor indisponível");
+    try { return JSON.parse(tx); } catch { return null; }
+  }
+  if (c?.cap && cred.r) { c.need.add(url); throw new RelayNeed(); } // sessão que só funciona pela TV
+  let txt: string;
+  try {
+    const r = await fetch(url, { signal: AbortSignal.timeout(20000), headers: { "user-agent": "Mozilla/5.0" } });
+    if (!r.ok) throw new Error("provedor respondeu " + r.status);
+    txt = await r.text();
+  } catch (e) { c?.need.add(url); throw e; } // o servidor não alcança: a TV pode tentar
   try { return JSON.parse(txt); } catch { return null; } // provedor devolve vazio/HTML com login inválido
 }
 // Confere usuário e senha. Tenta a DNS do usuário (ou a principal); se falhar, testa as outras DNS ativas
@@ -189,6 +217,32 @@ async function autenticar(u: string, p: string, baseInicial: string): Promise<{ 
     }
   } catch { /* sem alternativas */ }
   return { ok: false, b: baseInicial, erroProv };
+}
+// Login aceito sem conferência (o servidor não alcança o provedor): a TV confere em todas as DNS ativas,
+// o servidor escolhe a que aceitou, fixa para o usuário e troca o token. Devolve null se nenhuma aceitou.
+async function resolverPv(cred: Cred, d: string | null, t: string): Promise<{ cred: Cred; t: string } | null> {
+  const c = RC();
+  if (!cred.pv || !c?.cap) return { cred, t };
+  const lista = await dnsAtivas();
+  const bases = [...new Set([cred.b ?? BASE_PROV, ...lista.map((x) => x.b)])];
+  const faltam = bases.map((b) => urlPlayer(b, cred.u, cred.p)).filter((x) => !c.rel.has(x));
+  if (faltam.length) { faltam.forEach((x) => c.need.add(x)); throw new RelayNeed(); }
+  for (const b of bases) {
+    const tx = c.rel.get(urlPlayer(b, cred.u, cred.p));
+    let j: any = null; try { j = tx ? JSON.parse(tx) : null; } catch { /* não é JSON */ }
+    if (j?.user_info && Number(j.user_info.auth) === 1) {
+      const id = lista.find((x) => x.b === b)?.id ?? null;
+      await fixarDnsDoUsuario(cred.u, id);
+      c.relay = true;
+      const novo = await criarToken(cred.u, cred.p);
+      const dev = d ?? (await aparelhoDoToken(t));
+      if (dev) await salvarSessao(dev, novo);
+      return { cred: { ...cred, b, r: true, pv: false }, t: novo };
+    }
+  }
+  const dev = d ?? (await aparelhoDoToken(t));
+  if (dev) await apagarSessao(dev);
+  return null;
 }
 const urlFluxo = (tipo: string, c: Cred, id: string | number, ext?: string) =>
   `${c.b ?? BASE_PROV}/${tipo}/${encodeURIComponent(c.u)}/${encodeURIComponent(c.p)}/${id}${ext ? "." + ext : ""}`;
@@ -326,11 +380,13 @@ async function parear(corpo: { c?: string; m?: string; u?: string; p?: string })
   const x = await infoUsuario(u);
   if (x.bloq) return { ok: false, erro: "bloqueado" };
   const au = await autenticar(u, p, x.b);
-  if (!au.ok) return { ok: false, erro: au.erroProv ? "provedor" : "credenciais" };
+  // algum servidor não respondeu ao nosso servidor: aceita agora e a TV confere na primeira tela
+  const provisorio = !au.ok && (RC()?.need.size ?? 0) > 0;
+  if (!au.ok && !provisorio) return { ok: false, erro: au.erroProv ? "provedor" : "credenciais" };
   info = au.info;
   await registrarAcesso(u, aparelho, "login", porMac ? "mac" : "codigo", porMac ? mac : null);
   if (au.dnsId) await fixarDnsDoUsuario(u, au.dnsId);
-  await salvarSessao(aparelho, await criarToken(u, p));
+  await salvarSessao(aparelho, await criarToken(u, p, undefined, provisorio));
   if (!porMac) await apagarCodigo(codigo);
   return { ok: true, usuario: u };
 }
@@ -411,7 +467,10 @@ const VID = { n: "rgba(10,12,28,0.62)", ouro: "rgba(245,180,0,0.32)", voltar: "r
 const SELF = () => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira`;
 const q = (o: Record<string, string | number>) =>
   Object.entries(o).map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join("&");
-const go = (o: Record<string, string | number>) => `content:${SELF()}?${q(o)}`;
+// sessão em relay: os botões passam pelo plugin da TV (que busca no provedor); as demais abrem direto
+const go = (o: Record<string, string | number>) => RC()?.cap && RC()?.relay
+  ? `content:request:interaction:${q({ ...o, rl: 1 })}@${PLUGIN}`
+  : `content:${SELF()}?${q(o)}`;
 // endereço do vídeo passando pelo servidor: a TV (e qualquer mensagem de erro) não vê o DNS nem usuário/senha do provedor
 const fluxo = (tipo: string, t: string, id: string | number, ext: string) => `${SELF()}/v/${tipo}/${t}/${encodeURIComponent(String(id))}.${ext.replace(/[^a-z0-9]/gi, "")}`;
 // toca pelo player próprio (msx/player.html): erro em português e sem mostrar nenhum link; canais tentam .ts e depois .m3u8
@@ -551,6 +610,7 @@ async function epgDe(cred: { u: string; p: string }, id: string): Promise<Prog[]
 // busca a programação de vários canais em paralelo, sem passar do tempo-limite
 async function epgVarios(cred: { u: string; p: string }, ids: string[], limiteMs = 2500, paralelo = 20) {
   const out = new Map<string, Prog[]>();
+  if (RC()?.relay) return out; // pela TV, cada guia seria uma ida e volta: fica sem guia
   const fila = [...ids];
   const fim = Date.now() + limiteMs;
   const trabalhador = async () => {
@@ -595,7 +655,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
     focus: ativo ? true : undefined, enumerate: !painel,
     playerLabel: nome,
     action: tocar("live", cred, x.stream_id, "ts", "o canal"),
-    properties: {
+    properties: RC()?.relay ? { "trigger:back": "quiet" } : {
       "control:type": "extended",
       "control:transparent": true,
       "control:action": lista,
@@ -663,8 +723,14 @@ async function tratar(url: URL) {
     const cr = await lerToken(tk);
     if (tk && cr) {
       if (cr.bloq) { await apagarSessao(d); return telaCelular(await codigoDoAparelho(d), d, "Acesso bloqueado. Fale com o suporte."); }
+      let tkx: string = tk;
+      if (cr.pv) {
+        const rv = await resolverPv(cr, d, tk);
+        if (!rv) return telaCelular(await codigoDoAparelho(d), d, "Usuário ou senha incorretos. Entre de novo pelo celular.");
+        tkx = rv.t;
+      }
       await registrarAcesso(cr.u, d, "sessao");
-      return await home(tk, cr.u, d);
+      return await home(tkx, cr.u, d);
     }
     if (d && url.searchParams.get("r")) await fetch(`${REST_COD()}?aparelho=eq.${encodeURIComponent(d)}`, { method: "DELETE", headers: cab() }).catch(() => {});
     return telaCelular(await codigoDoAparelho(d), d);
@@ -703,8 +769,14 @@ async function tratar(url: URL) {
     const x = await infoUsuario(u);
     if (x.bloq) return telaEntrar("Acesso bloqueado. Fale com o suporte.", d, u, "");
     const au = await autenticar(u, p, x.b);
+    const cx = RC()!;
+    if (!au.ok && cx.need.size) { // o servidor não alcança algum provedor: a TV tenta por ele
+      if (cx.cap) throw new RelayNeed();
+      return { action: `content:request:interaction:${q({ a: "login", u, p, d: d ?? "", rl: 1 })}@${PLUGIN}` };
+    }
     if (!au.ok) return telaEntrar(au.erroProv ? "Provedor indisponível. Tente de novo." : "Usuário ou senha incorretos", d, u, "");
     info = au.info;
+    if (cx.rel.size > 0) cx.relay = true;
     const exp = info.user_info.exp_date ? new Date(Number(info.user_info.exp_date) * 1000).toLocaleDateString("pt-BR") : "sem data";
     await registrarAcesso(u, d, "login", "tv", (await tvDoAparelho(d))?.mac ?? null);
     if (au.dnsId) await fixarDnsDoUsuario(u, au.dnsId);
@@ -713,10 +785,15 @@ async function tratar(url: URL) {
     return await home(tk, `${u} · vence ${exp}`, d);
   }
 
-  const cred = await lerToken(url.searchParams.get("t"));
+  let cred = await lerToken(url.searchParams.get("t"));
   if (!cred) return telaEntrar("Sessão expirada, entre de novo", d);
   if (cred.bloq) return telaEntrar("Acesso bloqueado. Fale com o suporte.", d);
-  const t = url.searchParams.get("t")!;
+  let t = url.searchParams.get("t")!;
+  if (cred.pv) {
+    const rv = await resolverPv(cred, d, t);
+    if (!rv) return telaEntrar("Usuário ou senha incorretos", d);
+    cred = rv.cred; t = rv.t;
+  }
   const c = url.searchParams.get("c") ?? "";
 
   if (a === "home") return await home(t, cred.u, d ?? (await aparelhoDoToken(t)));
@@ -1184,10 +1261,12 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
+  const u0 = new URL(req.url);
+  const ctx: Rel = { cap: u0.searchParams.get("rl") === "1", rel: new Map(), need: new Set(), relay: false };
+  return await ALS.run(ctx, async () => {
   try {
     _ctx = { ip: (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim(), ua: req.headers.get("user-agent") ?? "" };
     await carregarConfig();
-    const u0 = new URL(req.url);
     const mv = u0.pathname.match(/\/v\/(live|movie|series)\/([\w-]+)\/([^/]+)\.(\w+)$/);
     if (mv) {
       const cred = await lerToken(mv[2]);
@@ -1206,11 +1285,17 @@ Deno.serve(async (req: Request) => {
     }
     if (req.method === "POST") {
       const b = await req.json().catch(() => ({}));
+      if (ctx.cap) { // a TV devolve o que buscou no provedor: { rel: { url: texto | null } }
+        for (const [k, v] of Object.entries((b as any)?.rel ?? {})) ctx.rel.set(k, typeof v === "string" ? v : null);
+        return new Response(JSON.stringify(await tratar(u0)), { headers: CORS });
+      }
       return new Response(JSON.stringify(await parear(b)), { headers: CORS });
     }
-    const corpo = await tratar(new URL(req.url));
+    const corpo = await tratar(u0);
     return new Response(JSON.stringify(corpo), { headers: CORS });
   } catch (e) {
+    if (e instanceof RelayNeed) return new Response(JSON.stringify({ __relay: [...ctx.need] }), { headers: CORS });
     return new Response(JSON.stringify(aviso("Erro", "Algo falhou: " + String((e as Error).message ?? e))), { headers: CORS });
   }
+  });
 });
