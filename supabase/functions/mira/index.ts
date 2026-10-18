@@ -1500,9 +1500,10 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
   if (cred && ult) {
     const pct = ult.dur ? Math.round((ult.pos / ult.dur) * 100) : 0;
     const ic = itemContinuar(ult, cred, t) as any;
-    blocosHome.push({ ...ic, title: undefined, titleFooter: undefined, type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit",
+    // com vários em andamento, o card abre a lista para escolher; com um só, continua direto
+    blocosHome.push({ ...ic, ...(nCapas >= 2 ? { action: go({ a: "continuar", t }), playerLabel: undefined, properties: undefined } : {}), title: undefined, titleFooter: undefined, type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit",
       image: blocoImg({ t: "Continuar assistindo", a2: nCapas >= 2 ? `${nCapas} em andamento` : `${pct ? pct + "% · " : ""}parou em ${fmtTempo(ult.pos)}`, p: nCapas >= 2 ? 0 : pct, i: ult.tipo === "ep" ? "series" : "movie", c: ult.icone ? 1 : 0 }) });
-    const capa = nCapas >= 2 ? `${SELF()}?${q({ a: "capas", t, th: TEMA, h: Math.floor(Date.now() / 600_000) })}` : ult.icone;
+    const capa = nCapas >= 2 ? `${SELF()}?${q({ a: "capas", v: 2, t, th: TEMA, h: Math.floor(Date.now() / 600_000) })}` : ult.icone;
     if (capa) blocosHome.push({ type: "space", layout: "8,4,4,2", offset: "2.42,0.33,-2.94,-0.66", image: capa, imageFiller: "fit", enable: false });
   } else {
     blocosHome.push({ type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit", action: go({ a: "cats", k: "vod", t }),
