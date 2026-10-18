@@ -23,8 +23,42 @@ let FUNDO_CFG = ""; // imagem de fundo escolhida no painel (vazio = fundos padr�
 // ---------- temas do app (painel > Personalizar app) ----------
 // "classico": o visual colorido original; "onix": preto com dourado
 let TEMA = "classico";
+let TEMA_PAINEL = "classico"; // o escolhido no painel; cada TV pode trocar pelo botão Temas
+let _cfgCores: any = {};
+// aplica um tema (imagens + cores) para a resposta atual
+function usarTema(tm: string) {
+  TEMA = tm === "onix" ? "onix" : "classico";
+  // o Ônix tem cores próprias; no Clássico valem as cores escolhidas no painel
+  Object.assign(COR, TEMA === "onix" ? COR_ONIX : COR_CLASSICO);
+  Object.assign(VID, TEMA === "onix" ? VID_ONIX : VID_CLASSICO);
+  const c = _cfgCores;
+  if (TEMA === "classico" && c) {
+    COR.tv = rgba(c.cor_tv, 0.40) ?? COR.tv;
+    COR.vod = rgba(c.cor_filmes, 0.38) ?? COR.vod;
+    COR.series = rgba(c.cor_series, 0.32) ?? COR.series;
+    COR.vidro = rgba(c.cor_vidro, 0.55) ?? COR.vidro;
+    if (/^#[0-9a-f]{6}$/i.test(c.cor_destaque ?? "")) COR.destaque = c.cor_destaque;
+  }
+}
+// tema escolhido na própria TV (aparelho) — guardado no banco, lido com cache curto
+const _temaAp = new Map<string, { t: number; v: string }>();
+async function temaDoAparelho(d: string | null): Promise<string> {
+  if (!d) return "";
+  const c = _temaAp.get(d); if (c && Date.now() - c.t < 60_000) return c.v;
+  let v = "";
+  try {
+    const r = await fetch(`${SB()}/rest/v1/aparelho_cfg?aparelho=eq.${encodeURIComponent(d)}&select=tema&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(3000) });
+    const j = await r.json(); v = Array.isArray(j) && j[0]?.tema ? String(j[0].tema) : "";
+  } catch { /* usa o do painel */ }
+  _temaAp.set(d, { t: Date.now(), v }); return v;
+}
+async function salvarTemaAparelho(d: string, tema: string) {
+  await fetch(`${SB()}/rest/v1/aparelho_cfg?on_conflict=aparelho`, { method: "POST", headers: { ...sbh(), prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ aparelho: d, tema: tema || null, atualizado: new Date().toISOString() }), signal: AbortSignal.timeout(4000) });
+  _temaAp.set(d, { t: Date.now(), v: tema });
+}
+const _apToken = new Map<string, string | null>();
 const TEMAS: Record<string, { pasta: string; arquivos: Set<string> }> = {
-  onix: { pasta: "temas/onix/", arquivos: new Set(["bg-tv.jpg", "bg-filmes.jpg", "bg-series.jpg", "card-tv.png", "card-filmes.png", "card-series.png", "btn-sair.png", "btn-atualizar.png", "btn-pesquisar.png", "login-qr.png", "login-codigo.png", "login-campo.png", "login-entrar.png", "login-novo.png"]) },
+  onix: { pasta: "temas/onix/", arquivos: new Set(["bg-tv.jpg", "bg-filmes.jpg", "bg-series.jpg", "card-tv.png", "card-filmes.png", "card-series.png", "btn-sair.png", "btn-atualizar.png", "btn-pesquisar.png", "login-qr.png", "login-codigo.png", "login-campo.png", "login-entrar.png", "login-novo.png", "btn-temas.png"]) },
 };
 // endereço de uma imagem do app no tema ativo (cai na versão clássica se o tema não tiver a peça)
 const im = (nome: string) => { const t = TEMAS[TEMA]; return IMG + (t && t.arquivos.has(nome) ? t.pasta : "") + nome; };
@@ -138,17 +172,9 @@ async function carregarConfig() {
     const j = await r.json(); const c = Array.isArray(j) ? j[0] : null; if (!c) return;
     if (c.logo_url && /^https:\/\//.test(c.logo_url)) LOGO = c.logo_url;
     FUNDO_CFG = c.fundo_url && /^https:\/\//.test(c.fundo_url) ? c.fundo_url : "";
-    TEMA = c.tema_app === "onix" ? "onix" : "classico";
-    // o Ônix tem cores próprias; no Clássico valem as cores escolhidas no painel
-    Object.assign(COR, TEMA === "onix" ? COR_ONIX : COR_CLASSICO);
-    Object.assign(VID, TEMA === "onix" ? VID_ONIX : VID_CLASSICO);
-    if (TEMA === "classico") {
-      COR.tv = rgba(c.cor_tv, 0.40) ?? COR.tv;
-      COR.vod = rgba(c.cor_filmes, 0.38) ?? COR.vod;
-      COR.series = rgba(c.cor_series, 0.32) ?? COR.series;
-      COR.vidro = rgba(c.cor_vidro, 0.55) ?? COR.vidro;
-      if (/^#[0-9a-f]{6}$/i.test(c.cor_destaque ?? "")) COR.destaque = c.cor_destaque;
-    }
+    TEMA_PAINEL = c.tema_app === "onix" ? "onix" : "classico";
+    _cfgCores = c;
+    usarTema(TEMA_PAINEL);
     CONTATO = String(c.extra?.contato ?? "").replace(/[{}]/g, "").trim().slice(0, 60);
     const dias = Number(c.extra?.aviso_dias); AVISO_DIAS = Number.isFinite(dias) && dias >= 0 && dias <= 60 ? Math.round(dias) : 5;
   } catch { /* mantém o que já estava */ }
@@ -1033,6 +1059,20 @@ async function tratar(url: URL) {
     return await telaGuia(cred, t, s, limparNome(url.searchParams.get("n") ?? "Canal"), pn({ a: "painel", t, c: cc, cn, s }));
   }
   if (a === "jogos") return await telaJogos(t);
+  if (a === "temas" || a === "tema") {
+    const dev = d ?? (await aparelhoDoToken(t));
+    if (a === "tema" && dev) { await salvarTemaAparelho(dev, url.searchParams.get("v") ?? ""); usarTema((url.searchParams.get("v") ?? "") || TEMA_PAINEL); return await home(t, cred.u, dev, false); }
+    const atual = dev ? await temaDoAparelho(dev) : "";
+    const opc = [
+      { id: "", nome: "Padrão do app", desc: `O tema escolhido no painel (${TEMA_PAINEL === "onix" ? "Ônix" : "Clássico"})`, img: IMG + (TEMA_PAINEL === "onix" ? "temas/onix/" : "") + "card-tv.png" },
+      { id: "classico", nome: "Clássico", desc: "Colorido, com gradientes", img: IMG + "card-tv.png" },
+      { id: "onix", nome: "Ônix", desc: "Preto com dourado, elegante", img: IMG + "temas/onix/card-tv.png" },
+    ];
+    return lista("Temas", opc.map((o) => ({
+      title: (o.id === atual ? "{col:msx-yellow}●{col:msx-white}  " : "") + o.nome, titleFooter: o.desc, image: o.img, imageWidth: 2, imageFiller: "fit", color: VID.n,
+      action: go(dev ? { a: "tema", t, v: o.id, d: dev } : { a: "tema", t, v: o.id }), ...(o.id === atual ? { focus: true } : {}),
+    })), "0,0,12,1", {}, "Vale só para esta TV");
+  }
   if (a === "guiahome") return await telaGuiaHome(cred, t, pg);
   if (a === "jogo") return await telaJogo(cred, t, url.searchParams.get("n1") ?? "", url.searchParams.get("n2") ?? "");
   if (a === "buscadados") { const kk = url.searchParams.get("k") ?? ""; return await buscaDados(cred, t, kk, await filtroAdulto(cred, kk)); }
@@ -1487,14 +1527,15 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,2,1", image: LOGO, imageFiller: "fit" },
       // saudação com o perfil: OK abre "Quem está assistindo?" (trocar ou criar perfis)
-      { type: "default", layout: "2,0,4,1", color: "transparent", image: perfil ? avatar(perfil) : undefined, imageWidth: perfil ? 1 : undefined, imageFiller: "fit",
+      { type: "default", layout: "2,0,3,1", color: "transparent", image: perfil ? avatar(perfil) : undefined, imageWidth: perfil ? 1 : undefined, imageFiller: "fit",
         title: `Olá, ${perfil?.nome ?? usuario}`, titleFooter: subtitulo.replace("{br}", "  ·  "), truncation: "titleFooter",
         action: go(d ? { a: "perfis", t, d } : { a: "perfis", t }) },
       // Pesquisar em tudo (canais, filmes e séries)
-      card("6,0,2,1", "btn-pesquisar.png", abrirBusca(t, "")),
+      card("5,0,1,1", "btn-temas.png", go(d ? { a: "temas", t, d } : { a: "temas", t }), { offset: "0,0,0.75,0" }),
+      card("5,0,1,1", "btn-pesquisar.png", abrirBusca(t, ""), { offset: "1.75,0,0.75,0" }),
       // Atualizar: recarrega a configuração do painel e a tela inicial (limpa os caches do servidor e da TV)
-      card("8,0,2,1", "btn-atualizar.png", go(d ? { a: "inicio", d, x: Date.now() } : { a: "inicio", x: Date.now() })),
-      card("10,0,2,1", "btn-sair.png", d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" })),
+      card("5,0,1,1", "btn-atualizar.png", go(d ? { a: "inicio", d, x: Date.now() } : { a: "inicio", x: Date.now() }), { offset: "3.5,0,0.75,0" }),
+      card("5,0,1,1", "btn-sair.png", d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" }), { offset: "5.25,0,0.75,0" }),
       card("0,1,4,3", "card-tv.png", go({ a: "cats", k: "live", t }), { id: "tv", focus: true, ...selo(qtd.live) }),
       card("4,1,4,3", "card-filmes.png", go({ a: "cats", k: "vod", t }), selo(qtd.vod)),
       card("8,1,4,3", "card-series.png", go({ a: "cats", k: "series", t }), selo(qtd.series)),
@@ -2292,6 +2333,15 @@ Deno.serve(async (req: Request) => {
   try {
     _ctx = { ip: (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim(), ua: req.headers.get("user-agent") ?? "" };
     await carregarConfig();
+    {
+      let dev = idOk(u0.searchParams.get("d"));
+      const tk = u0.searchParams.get("t");
+      if (!dev && tk) {
+        if (!_apToken.has(tk)) { if (_apToken.size > 500) _apToken.clear(); _apToken.set(tk, await aparelhoDoToken(tk)); }
+        dev = _apToken.get(tk) ?? null;
+      }
+      usarTema((await temaDoAparelho(dev)) || (u0.searchParams.get("th") ?? "") || TEMA_PAINEL);
+    }
     const mv = u0.pathname.match(/\/v\/(live|movie|series)\/([\w-]+)\/([^/]+)\.(\w+)$/);
     if (mv) {
       const cred = await lerToken(mv[2]);

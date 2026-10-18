@@ -278,9 +278,9 @@
         var qs = String(dataId); if (qs.indexOf('rl=1') < 0) { qs += '&rl=1'; }
         // telas só de leitura ficam guardadas 3 min: voltar para uma lista já vista abre na hora
         // telas que mostram o progresso (Continuar assistindo, detalhes, início) sempre vêm frescas
-        var cacheavel = !/(^|&)a=(fav|favvod|login|sair|inicio|ver|in|form|home|continuar|filme|cats|pcats|perfil|perfis|perfisger|perfiledit|perfilcor|perfilinf|perfildel|perfildelok|guia)(&|$)/.test(qs) && !(/(^|&)a=serie(&|$)/.test(qs) && !/(^|&)n=/.test(qs));
+        var cacheavel = !/(^|&)a=(fav|favvod|login|sair|inicio|ver|in|form|home|continuar|filme|cats|pcats|perfil|perfis|perfisger|perfiledit|perfilcor|perfilinf|perfildel|perfildelok|guia|temas|tema)(&|$)/.test(qs) && !(/(^|&)a=serie(&|$)/.test(qs) && !/(^|&)n=/.test(qs));
         // Atualizar (tela inicial com x=) ou favoritar: telas guardadas ficaram velhas
-        if (/(^|&)a=(fav|favvod|perfil|perfildelok)(&|$)/.test(qs) || (/(^|&)a=inicio(&|$)/.test(qs) && /(^|&)x=/.test(qs))) { telas = {}; }
+        if (/(^|&)a=(fav|favvod|perfil|perfildelok|tema)(&|$)/.test(qs) || (/(^|&)a=inicio(&|$)/.test(qs) && /(^|&)x=/.test(qs))) { telas = {}; }
         var c = cacheavel ? telas[qs] : null;
         if (c && new Date().getTime() - c.t < 180000) { callback(c.v); return; }
         pedirRelay(qs, null, 0, function (tela) {
