@@ -911,11 +911,19 @@ async function tratar(url: URL) {
     const atualizaCoracao = a === "fav" && atualCanal
       ? { ready: { action: "player:button:rewind:setup", data: { icon: iconeFav(agoraFav), action: alternar, key: "green" } } }
       : {};
+    // Fora da barra do player, as teclas coloridas só valem em itens da tela aberta (como o vermelho já fazia):
+    // por isso a primeira linha tem os três botões lado a lado, cada um com a sua tecla.
+    const ehFavAtual = favs.has(s);
+    const botoes = [
+      { ...navegar, layout: "0,0,3,1", title: "{col:msx-red}●{col:msx-white}  Categorias", truncation: "titleFooter", focus: !atualCanal ? true : undefined },
+      { layout: "0,0,3,1", title: `{col:msx-green}●{col:msx-white}  ${ehFavAtual ? "Desfavoritar" : "Favoritar"}`, titleFooter: atualCanal ? "Canal que está tocando" : "Nenhum canal tocando", key: "green", color: VID.voltar, action: alternar },
+      { layout: "0,0,2,1", title: "{col:msx-yellow}●{col:msx-white}  Início", titleFooter: "Parar e voltar", key: "yellow", color: VID.voltar, action: `[player:eject|${go({ a: "home", t })}]` },
+    ];
     return {
       ...atualizaCoracao,
-      type: "list", transparent: 2, headline: "Canais  {col:msx-red}●{col:msx-white-soft} Categorias  {col:msx-green}●{col:msx-white-soft} Favoritar  {col:msx-yellow}●{col:msx-white-soft} Início ",
+      type: "list", transparent: 2, headline: "Canais",
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [{ ...navegar, focus: !atualCanal ? true : undefined }, ...fixo, ...canais],
+      items: [...botoes, ...fixo, ...canais],
     };
   }
 
