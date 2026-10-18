@@ -1395,9 +1395,10 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       if (Number.isFinite(exp) && exp > 0) { vence = exp * 1000; await salvarVence(usuario, i); }
     } catch (e) { if (e instanceof RelayNeed) throw e; }
   }
-  const qtd = cred ? (_contagem.get(cred.u)?.v ?? {}) : {};
-  const velho = cred && (!_contagem.get(cred.u) || Date.now() - _contagem.get(cred.u)!.t > 6 * 3600_000);
-  if (cred && velho && !cred.r) {
+  const cont = cred ? await contagemDe(cred.u) : null;
+  const qtd = cont?.v ?? {};
+  const velho = cred && (!cont || Date.now() - cont.t > 6 * 3600_000);
+  if (cred && velho) {
     const er = (globalThis as any).EdgeRuntime;
     const tarefa = Promise.all((["live", "vod", "series"] as const).map((k) => catalogoBusca(cred, k).catch(() => null)));
     if (er?.waitUntil) er.waitUntil(tarefa);
@@ -1812,7 +1813,20 @@ const ACOES_BUSCA = { live: "get_live_streams", vod: "get_vod_streams", series: 
 const _contagem = new Map<string, { t: number; v: Record<string, number> }>();
 function anotarContagem(u: string, k: string, n: number) {
   const c = _contagem.get(u) ?? { t: Date.now(), v: {} };
+  if (c.v[k] === n && Date.now() - c.t < 3600_000) return;
   c.v[k] = n; c.t = Date.now(); _contagem.set(u, c);
+  // guarda no banco: outra instância do servidor também mostra
+  fetch(`${SB()}/rest/v1/usuarios_app?usuario=eq.${encodeURIComponent(u)}`, { method: "PATCH", headers: sbh(), body: JSON.stringify({ contagem: { ...c.v, em: Date.now() } }), signal: AbortSignal.timeout(4000) }).catch(() => {});
+}
+async function contagemDe(u: string): Promise<{ t: number; v: Record<string, number> } | null> {
+  const m = _contagem.get(u);
+  if (m) return m;
+  try {
+    const r = await fetch(`${SB()}/rest/v1/usuarios_app?usuario=eq.${encodeURIComponent(u)}&select=contagem&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+    const j = await r.json(); const c = Array.isArray(j) ? j[0]?.contagem : null;
+    if (c && typeof c === "object") { const o = { t: Number(c.em) || 0, v: c }; _contagem.set(u, o); return o; }
+  } catch { /* sem contagem */ }
+  return null;
 }
 const fmtQtd = (n?: number) => (n ? n.toLocaleString("pt-BR") : undefined);
 async function catalogoBusca(cred: Cred, k: ItemBusca["k"]): Promise<ItemBusca[]> {
