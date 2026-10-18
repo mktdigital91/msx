@@ -6,7 +6,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { Image as Img, GIF, Frame } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 
 const PROVEDOR = { host: "horizonmult.site", protocolo: "http" };
-const POR_PAGINA = 60;
+const POR_PAGINA = 36; // menos capas por página: abre e pagina mais rápido
 const VALIDADE_MS = 30 * 24 * 3600 * 1000;
 const INPUT = "http://msx.benzac.de/interaction/input.html";
 
@@ -196,8 +196,18 @@ async function lerToken(t: string | null): Promise<Cred | null> {
 }
 
 // ---------- provedor ----------
+const _apiCache = new Map<string, { em: number; v: unknown }>();
+const CACHEAVEL = /action=get_(live|vod|series)_(streams|categories)|action=get_series(&|$)/;
 async function api(cred: Cred, extra = "") {
   const url = urlPlayer(cred.b ?? BASE_PROV, cred.u, cred.p, extra);
+  // listas e categorias ficam guardadas 10 min: trocar de página ou voltar não busca de novo
+  const guardado = CACHEAVEL.test(extra) ? _apiCache.get(url) : undefined;
+  if (guardado && Date.now() - guardado.em < 10 * 60_000) return guardado.v;
+  const v = await apiBuscar(cred, url);
+  if (CACHEAVEL.test(extra) && v) { if (_apiCache.size > 80) _apiCache.clear(); _apiCache.set(url, { em: Date.now(), v }); }
+  return v;
+}
+async function apiBuscar(cred: Cred, url: string) {
   const c = RC();
   if (c?.rel.has(url)) { // a TV já buscou este endereço
     const tx = c.rel.get(url);
@@ -1703,14 +1713,14 @@ const seloFav = (fav: boolean, n?: string) => (fav ? { tag: "♥", tagColor: "ms
 const cartaoFilme = (x: any, t: string, favs?: Set<string>) => {
   const nome = limparNome(String(x.name));
   return {
-    title: nome, image: x.stream_icon || cartao("vod", nome, "Filme", "movie", true), imageFiller: "cover", color: COR.vidro,
+    title: x.stream_icon ? undefined : nome, image: x.stream_icon || cartao("vod", nome, "Filme", "movie", true), imageFiller: "cover", color: COR.vidro, wrapperColor: COR.vidro,
     ...seloFav(!!favs?.has(String(x.stream_id)), nota(x.rating)), action: go({ a: "filme", t, s: x.stream_id }),
   };
 };
 const cartaoSerie = (x: any, t: string, favs?: Set<string>) => {
   const nome = limparNome(String(x.name));
   return {
-    title: nome, image: x.cover || cartao("series", nome, "Série", "series", true), imageFiller: "cover", color: COR.vidro,
+    title: x.cover ? undefined : nome, image: x.cover || cartao("series", nome, "Série", "series", true), imageFiller: "cover", color: COR.vidro, wrapperColor: COR.vidro,
     ...seloFav(!!favs?.has(String(x.series_id ?? x.stream_id)), nota(x.rating)), action: go({ a: "serie", t, s: x.series_id ?? x.stream_id }),
   };
 };
