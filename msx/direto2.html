@@ -52,11 +52,11 @@
 
   function page(lines) {
     var items = [];
-    for (var i = 0; i < lines.length; i++) { items.push({ label: lines[i] }); }
+    for (var i = 0; i < lines.length; i++) { items.push({ title: lines[i], action: 'none' }); }
     return {
       type: 'list',
-      headline: 'Gold Play - teste direto da TV',
-      template: { type: 'button', layout: '0,0,12,1', icon: 'blank', color: 'msx-glass' },
+      headline: 'Gold Play - teste direto v2',
+      template: { type: 'separate', layout: '0,0,12,1', color: 'msx-glass' },
       items: items
     };
   }
@@ -67,7 +67,12 @@
     this.handleEvent = function () { };
     this.handleData = function () { };
     this.handleRequest = function (id, data, cb) {
-      if (id === 'init') { runTests(function (l) { cb(page(l)); }); }
+      if (id === 'init') {
+        var sent = false;
+        var send = function (l) { if (sent) { return; } sent = true; cb(page(l)); };
+        runTests(send);
+        setTimeout(function () { send(['Tempo esgotado: nenhum teste respondeu']); }, 15000);
+      }
       else { cb(null); }
     };
   }
