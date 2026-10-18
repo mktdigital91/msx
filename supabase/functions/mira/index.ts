@@ -1453,7 +1453,7 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
     const ic = itemContinuar(ult, cred, t) as any;
     blocosHome.push({ ...ic, title: undefined, titleFooter: undefined, type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit",
       image: blocoImg({ t: "Continuar assistindo", a1: ult.nome, a2: `${pct ? pct + "% · " : ""}parou em ${fmtTempo(ult.pos)}`, p: pct, i: ult.tipo === "ep" ? "series" : "movie", c: ult.icone ? 1 : 0 }) });
-    if (ult.icone) blocosHome.push({ type: "space", layout: "8,4,4,2", offset: "2.45,0.42,-3.05,-0.95", image: ult.icone, imageFiller: "fit", enable: false });
+    if (ult.icone) blocosHome.push({ type: "space", layout: "8,4,4,2", offset: "2.5,0.2,-2.75,-0.4", image: ult.icone, imageFiller: "fit", enable: false });
   } else {
     blocosHome.push({ type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit", action: go({ a: "cats", k: "vod", t }),
       image: blocoImg({ t: "Continuar assistindo", a1: "Nada começado ainda", a2: "Escolha um filme ou série", i: "movie" }) });
