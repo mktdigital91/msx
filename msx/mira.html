@@ -52,15 +52,19 @@
       var r;
       try { r = JSON.parse(x.responseText); } catch (e) { erro(); return; }
       if (r && r.__relay && rodada < 4) {
-        var urls = r.__relay, falta = urls.length, novo = rel || {};
+        var urls = r.__relay, falta = urls.length, novo = rel || {}, prox = 0;
         if (!falta) { erro(); return; }
-        urls.forEach(function (u) {
+        // no máximo 8 buscas ao mesmo tempo na TV
+        var vez = function () {
+          if (prox >= urls.length) { return; }
+          var u = urls[prox++];
           buscarNaTV(u, function (t) {
             novo[u] = t;
             falta--;
-            if (falta === 0) { pedirRelay(qs, novo, rodada + 1, ok, erro); }
+            if (falta === 0) { pedirRelay(qs, novo, rodada + 1, ok, erro); } else { vez(); }
           });
-        });
+        };
+        for (var k = 0; k < 8 && k < urls.length; k++) { vez(); }
         return;
       }
       ok(r);

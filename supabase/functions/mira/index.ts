@@ -471,6 +471,10 @@ const q = (o: Record<string, string | number>) =>
 const go = (o: Record<string, string | number>) => RC()?.cap && RC()?.relay
   ? `content:request:interaction:${q({ ...o, rl: 1 })}@${PLUGIN}`
   : `content:${SELF()}?${q(o)}`;
+// o mesmo para painéis do player (panel:): em relay passam pelo plugin da TV
+const pn = (o: Record<string, string | number>) => RC()?.cap && RC()?.relay
+  ? `panel:request:interaction:${q({ ...o, rl: 1 })}@${PLUGIN}`
+  : `panel:${SELF()}?${q(o)}`;
 // endereço do vídeo passando pelo servidor: a TV (e qualquer mensagem de erro) não vê o DNS nem usuário/senha do provedor
 const fluxo = (tipo: string, t: string, id: string | number, ext: string) => `${SELF()}/v/${tipo}/${t}/${encodeURIComponent(String(id))}.${ext.replace(/[^a-z0-9]/gi, "")}`;
 // toca pelo player próprio (msx/player.html): erro em português e sem mostrar nenhum link; canais tentam .ts e depois .m3u8
@@ -610,7 +614,13 @@ async function epgDe(cred: { u: string; p: string }, id: string): Promise<Prog[]
 // busca a programação de vários canais em paralelo, sem passar do tempo-limite
 async function epgVarios(cred: { u: string; p: string }, ids: string[], limiteMs = 2500, paralelo = 20) {
   const out = new Map<string, Prog[]>();
-  if (RC()?.relay) return out; // pela TV, cada guia seria uma ida e volta: fica sem guia
+  const rc = RC();
+  if (rc?.relay) { // pela TV: pede todos os guias de uma vez (uma só ida e volta)
+    if (!rc.cap) return out;
+    const cr = cred as Cred;
+    const faltam = ids.filter((id) => { const k = cacheEpg.get(id); return !(k && Date.now() - k.em < 5 * 60 * 1000); }).map((id) => urlPlayer(cr.b ?? BASE_PROV, cr.u, cr.p, `&action=get_short_epg&stream_id=${encodeURIComponent(id)}&limit=3`)).filter((u) => !rc.rel.has(u));
+    if (faltam.length) { faltam.forEach((u) => rc.need.add(u)); throw new RelayNeed(); }
+  }
   const fila = [...ids];
   const fim = Date.now() + limiteMs;
   const trabalhador = async () => {
@@ -641,10 +651,10 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
   const nome = limparNome(String(x.name));
   const guia = textoEpg(epg);
   const logo = x.stream_icon || undefined;
-  const lista = `panel:${SELF()}?${q({ a: "painel", t, c, cn, s: x.stream_id })}`;
+  const lista = pn({ a: "painel", t, c, cn, s: x.stream_id });
   const ativo = painel && String(x.stream_id) === atual;
   const ehFav = !!favs?.has(String(x.stream_id));
-  const favAcao = `panel:${SELF()}?${q({ a: "fav", t, c, cn, s: x.stream_id, n: nome, i: String(x.stream_icon ?? "") })}`;
+  const favAcao = pn({ a: "fav", t, c, cn, s: x.stream_id, n: nome, i: String(x.stream_icon ?? "") });
   const inicioAcao = `[quiet|${go({ a: "home", t })}]`;
   const visual = painel
     ? { color: ativo ? VID.ouro : VID.n }
@@ -655,7 +665,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
     focus: ativo ? true : undefined, enumerate: !painel,
     playerLabel: nome,
     action: tocar("live", cred, x.stream_id, "ts", "o canal"),
-    properties: RC()?.relay ? { "trigger:back": "quiet" } : {
+    properties: {
       "control:type": "extended",
       "control:transparent": true,
       "control:action": lista,
@@ -676,7 +686,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
       "button:speed:action": inicioAcao,
       "button:speed:key": "yellow",
       "button:forward:icon": "apps",
-      "button:forward:action": `panel:${SELF()}?${q({ a: "pcats", t, s: x.stream_id })}`,
+      "button:forward:action": pn({ a: "pcats", t, s: x.stream_id }),
       "button:rewind:display": false,
     },
   };
@@ -872,12 +882,12 @@ async function tratar(url: URL) {
     const navegar = {
       title: "‹   CATEGORIAS", titleFooter: `Atual: ${cn || "Todos os canais"}`, key: "red",
       color: VID.voltar,
-      action: `panel:${SELF()}?${q({ a: "pcats", t, s })}`,
+      action: pn({ a: "pcats", t, s }),
     };
     const favs = new Set((await favoritosDe(cred.u)).map((f) => f.stream_id));
     const nParam = url.searchParams.get("n") ?? "", iParam = url.searchParams.get("i") ?? "";
     const atualCanal: any = todos.find((x: any) => String(x.stream_id) === s) ?? (a === "fav" && nParam ? { name: nParam, stream_id: s, stream_icon: iParam } : undefined);
-    const alternar = atualCanal ? `panel:${SELF()}?${q({ a: "fav", t, c, cn, s, n: limparNome(String(atualCanal.name)), i: String(atualCanal.stream_icon ?? "") })}` : "none";
+    const alternar = atualCanal ? pn({ a: "fav", t, c, cn, s, n: limparNome(String(atualCanal.name)), i: String(atualCanal.stream_icon ?? "") }) : "none";
     const canais = todos.map((x: any, i: number) => ({ x, i })).filter((o: any) => o.i !== idx)
       .map((o: any) => ({ ...canalItem(o.x, cred, t, c, true, s, cn, o.i + 1, ep.get(String(o.x.stream_id)), favs), focus: undefined }));
     const fixo = atualCanal ? [{ ...canalItem(atualCanal, cred, t, c, true, s, cn, idx + 1, ep.get(s), favs), action: "back", focus: true, ...(avisoFav ? { titleFooter: "Canal " + avisoFav } : {}) }] : [];
@@ -896,7 +906,7 @@ async function tratar(url: URL) {
     const item = (nome: string, cid: string, titulo = nome) => ({
       title: titulo, titleFooter: "TV ao vivo", truncation: "title",
       color: VID.n,
-      action: `panel:${SELF()}?${q({ a: "painel", t, c: cid, cn: cid ? nome : "", s })}`,
+      action: pn({ a: "painel", t, c: cid, cn: cid ? nome : "", s }),
     });
     return {
       type: "list", transparent: 2, headline: "Categorias", extension: `${lst.length}`,
