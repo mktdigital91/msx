@@ -1425,7 +1425,9 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
     const tarefa = Promise.all((["live", "vod", "series"] as const).map((k) => catalogoBusca(cred, k).catch(() => null)));
     if (er?.waitUntil) er.waitUntil(tarefa);
   }
-  const selo = (n?: number) => (fmtQtd(n) ? { tag: fmtQtd(n), tagColor: COR.destaque } : {});
+  const selo = (_n?: number) => ({});
+  // quantidade escrita no canto inferior direito do cartão
+  const qtdTxt = (x: number, n?: number) => (fmtQtd(n) ? [{ type: "space", layout: `${x},1,4,3`, offset: "0,1.95,-0.45,-1.95", alignment: "right", enable: false, text: `{col:${TEMA === "onix" ? "msx-yellow" : "msx-white"}}${fmtQtd(n)}` }] : []);
   const dias = vence !== null ? diasPara(vence) : null;
   const dataVence = vence !== null ? new Date(vence).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" }) : "";
   const renovar = CONTATO ? `{br}{col:msx-white}Renove: ${CONTATO}` : "{br}{col:msx-white-soft}Fale com seu revendedor";
@@ -1464,9 +1466,10 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       card("0,1,4,3", "card-tv.png", go({ a: "cats", k: "live", t }), { id: "tv", focus: true, ...selo(qtd.live) }),
       card("4,1,4,3", "card-filmes.png", go({ a: "cats", k: "vod", t }), selo(qtd.vod)),
       card("8,1,4,3", "card-series.png", go({ a: "cats", k: "series", t }), selo(qtd.series)),
+      ...qtdTxt(0, qtd.live), ...qtdTxt(4, qtd.vod), ...qtdTxt(8, qtd.series),
       { type: "default", layout: "0,4,3,2", image: `${SELF()}?${q({ a: "jgif", d: diaLocal(), h: Math.floor(Date.now() / 1800_000), th: TEMA })}`, imageFiller: "fit", color: "transparent", action: lst.length ? todos : "none" },
-      { type: "space", layout: "0,4,3,2", offset: "0.25,0.95,-0.4,-0.95", enable: false, headline: "Jogos de hoje",
-        text: jogos === null ? "{col:msx-white-soft}Placar indisponível agora" : lst.length ? `{col:msx-white}${lst.length} partida${lst.length > 1 ? "s" : ""}${vivos ? ` · {col:msx-red}${vivos} ao vivo{col:msx-white}` : ""}{br}{col:msx-white-soft}Ver todos  ›` : "{col:msx-white-soft}Nenhuma partida hoje" },
+      { type: "space", layout: "0,4,3,2", offset: "0.25,1.05,-0.4,-1.05", enable: false,
+        text: "{col:msx-white}Jogos de hoje{br}" + (jogos === null ? "{col:msx-white-soft}Placar indisponível agora" : lst.length ? `{col:msx-white}${lst.length} partida${lst.length > 1 ? "s" : ""}${vivos ? ` · {col:msx-red}${vivos} ao vivo{col:msx-white}` : ""}{br}{col:msx-white-soft}Ver todos  ›` : "{col:msx-white-soft}Nenhuma partida hoje") },
       ...destaques,
     ] }, ...paginaContinuar(hist, cred, t)],
   };
@@ -1869,13 +1872,13 @@ function anotarContagem(u: string, k: string, n: number) {
 }
 async function contagemDe(u: string): Promise<{ t: number; v: Record<string, number> } | null> {
   const m = _contagem.get(u);
-  if (m) return m;
+  if (m && m.v.live && m.v.vod && m.v.series) return m;
   try {
     const r = await fetch(`${SB()}/rest/v1/usuarios_app?usuario=eq.${encodeURIComponent(u)}&select=contagem&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
     const j = await r.json(); const c = Array.isArray(j) ? j[0]?.contagem : null;
-    if (c && typeof c === "object") { const o = { t: Number(c.em) || 0, v: c }; _contagem.set(u, o); return o; }
+    if (c && typeof c === "object") { const o = { t: Number(c.em) || 0, v: { ...c, ...(m?.v ?? {}) } }; _contagem.set(u, o); return o; }
   } catch { /* sem contagem */ }
-  return null;
+  return m ?? null;
 }
 const fmtQtd = (n?: number) => (n ? n.toLocaleString("pt-BR") : undefined);
 async function catalogoBusca(cred: Cred, k: ItemBusca["k"]): Promise<ItemBusca[]> {
@@ -2003,16 +2006,27 @@ let _fonte: Uint8Array | null = null;
 async function jogosGif(): Promise<Uint8Array | null> {
   const chaveG = `${diaLocal()}|${TEMA}|${Math.floor(Date.now() / 1800_000)}`;
   const c = _jgif.get(chaveG); if (c) return c.v;
-  const jogos = ((await jogosDoDia(5000)) ?? []).filter((j) => LIGAS_TOP.test(semAcento(j.liga)) && j.casa.logo && j.fora.logo && j.estado !== "post").slice(0, 8);
+  const ORDEM = [/brasileir|serie a do brasil/, /copa do brasil/, /libertadores/, /sul.?americana|sudamericana|conmebol/, /champions/, /ingl|premier/, /espanhol|la ?liga/, /amistos/];
+  const prio = (l: string) => { const n = semAcento(l); const i = ORDEM.findIndex((r) => r.test(n)); return i < 0 ? 99 : i; };
+  const vistos = new Set<string>();
+  const jogos = ((await jogosDoDia(5000)) ?? [])
+    .filter((j) => LIGAS_TOP.test(semAcento(j.liga)) && j.casa.logo && j.fora.logo && j.estado !== "post")
+    .sort((a, b) => prio(a.liga) - prio(b.liga) || (a.estado === "in" ? -1 : 0) - (b.estado === "in" ? -1 : 0) || a.quando - b.quando)
+    .filter((j) => { const k = semAcento(j.casa.nome + "|" + j.fora.nome); if (vistos.has(k)) return false; vistos.add(k); return true; })
+    .slice(0, 12);
   if (jogos.length < 2) return null;
   if (!_fonte) _fonte = new Uint8Array(await (await fetch(IMG + "fontes/DejaVuSans-Bold.ttf")).arrayBuffer());
   const logo = async (u: string) => { try { const im = await Img.decode(new Uint8Array(await (await fetch(u, { signal: AbortSignal.timeout(4000) })).arrayBuffer())); return im.contain(120, 120); } catch { return null; } };
   const W = 600, H = 380;
   const onix = TEMA === "onix";
-  const fundo = new Img(W, H).fill((x: number, y: number) => {
-    const t = y / H; const r = onix ? 22 - t * 12 : 20 - t * 10, g = onix ? 19 - t * 10 : 24 - t * 12, b = onix ? 14 - t * 6 : 52 - t * 30;
-    return Img.rgbaToColor(Math.round(r), Math.round(g), Math.round(b), 255);
-  });
+  // fundo do tema (a mesma imagem das telas), escurecido embaixo para o texto do app
+  let fundo: Img;
+  try {
+    const bg = await Img.decode(new Uint8Array(await (await fetch(im("bg-tv.jpg"), { signal: AbortSignal.timeout(5000) })).arrayBuffer()));
+    fundo = (bg as Img).cover(W, H);
+  } catch { fundo = new Img(W, H).fill(onix ? 0x15130FFF : 0x141838FF); }
+  const sombra = new Img(W, H).fill((_x: number, y: number) => Img.rgbaToColor(0, 0, 0, Math.round(Math.min(1, Math.max(0, (y / H - 0.45) / 0.55)) * 170)));
+  fundo.composite(sombra, 0, 0);
   const destaque = onix ? 0xD6B25EFF : 0xF5B400FF;
   const frames: Frame[] = [];
   for (const j of jogos) {
