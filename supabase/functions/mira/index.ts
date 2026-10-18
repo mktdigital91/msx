@@ -1212,16 +1212,15 @@ async function tratar(url: URL) {
     // Fora da barra do player, as teclas coloridas só valem em itens da tela aberta (como o vermelho já fazia):
     // por isso a primeira linha tem os três botões lado a lado, cada um com a sua tecla.
     const ehFavAtual = favs.has(s);
+    const casinha = { title: "{col:msx-yellow}{ico:home}{col:msx-white}  Início", titleFooter: "Voltar à tela inicial", key: "yellow", color: VID.voltar, action: `[player:eject|${go({ a: "home", t })}]` };
     const botoes = [
-      { ...navegar, layout: "0,0,7,1", title: "{col:msx-red}●{col:msx-white}  Categorias", truncation: "titleFooter", focus: !atualCanal ? true : undefined },
-      // o amarelo precisa de um item com a tecla: fica só um quadradinho com a casinha
-      { layout: "0,0,1,1", title: "{col:msx-yellow}{ico:home}", alignment: "center", centration: "title", key: "yellow", color: VID.voltar, action: `[player:eject|${go({ a: "home", t })}]` },
+      { ...navegar, layout: "0,0,8,1", title: "{col:msx-red}●{col:msx-white}  Categorias", truncation: "titleFooter", focus: !atualCanal ? true : undefined },
     ];
     return {
       ...atualizaCoracao,
-      type: "list", transparent: 2, headline: "Canais   {col:msx-red}●{col:msx-white-soft} Categorias   {col:msx-yellow}●{col:msx-white-soft} Início",
+      type: "list", transparent: 2, headline: "Canais{tb}{tb}{col:msx-red}●{col:msx-white-soft} Categorias      {col:msx-yellow}●{col:msx-white-soft} Início",
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [...botoes, ...fixo, ...canais],
+      items: [...botoes, ...fixo, ...canais, casinha],
     };
   }
 
