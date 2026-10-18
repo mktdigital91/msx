@@ -1453,7 +1453,7 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
     const ic = itemContinuar(ult, cred, t) as any;
     blocosHome.push({ ...ic, title: undefined, titleFooter: undefined, type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit",
       image: blocoImg({ t: "Continuar assistindo", a1: ult.nome, a2: `${pct ? pct + "% · " : ""}parou em ${fmtTempo(ult.pos)}`, p: pct, i: ult.tipo === "ep" ? "series" : "movie", c: ult.icone ? 1 : 0 }) });
-    if (ult.icone) blocosHome.push({ type: "space", layout: "8,4,4,2", offset: "2.75,0.32,-3.05,-0.72", image: ult.icone, imageFiller: "fit", enable: false });
+    if (ult.icone) blocosHome.push({ type: "space", layout: "8,4,4,2", offset: "2.45,0.42,-3.05,-0.95", image: ult.icone, imageFiller: "fit", enable: false });
   } else {
     blocosHome.push({ type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit", action: go({ a: "cats", k: "vod", t }),
       image: blocoImg({ t: "Continuar assistindo", a1: "Nada começado ainda", a2: "Escolha um filme ou série", i: "movie" }) });
@@ -2100,10 +2100,10 @@ async function jogosGif(): Promise<Uint8Array | null> {
 // bloco da tela inicial (Guia de Programação / Continuar assistindo): cartão desenhado no tema
 function blocoSvg(g: URLSearchParams) {
   const W = 640, H = 360, onix = g.get("th") === "onix";
-  const tit = limparNome(g.get("t") ?? "").slice(0, 30), l1 = limparNome(g.get("a1") ?? "").slice(0, 34), l2 = limparNome(g.get("a2") ?? "").slice(0, 40);
+  const tit = limparNome(g.get("t") ?? "").slice(0, 30), l1 = limparNome(g.get("a1") ?? "").slice(0, 34), l2 = String(g.get("a2") ?? "").replace(/[<>&"]/g, "").slice(0, 40);
   const pct = Math.max(0, Math.min(100, Number(g.get("p")) || 0)), ic = ICONES[g.get("i") ?? "play"] ?? ICONES.play, comCapa = g.get("c") === "1";
   const c1 = onix ? "#1C1A1E" : "#2A2160", c2 = onix ? "#0E0D10" : "#121433", ouro = onix ? "#D6B25E" : "#F5B400";
-  const xt = 40, larg = comCapa ? W - 250 : W - 80;
+  const xt = 40, larg = comCapa ? W - 290 : W - 80;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs>`
     + `<rect x="6" y="6" width="${W - 12}" height="${H - 12}" rx="26" fill="url(#g)" stroke="${ouro}" stroke-opacity="${onix ? ".75" : ".35"}" stroke-width="2"/>`
     + (comCapa ? "" : `<g transform="translate(${W - 230} 70) scale(8)" fill="${ouro}" fill-opacity=".12"><path d="${ic}"/></g>`)
