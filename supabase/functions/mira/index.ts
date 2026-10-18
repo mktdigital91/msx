@@ -624,8 +624,9 @@ async function epgDe(cred: { u: string; p: string }, id: string): Promise<Prog[]
 async function epgVarios(cred: { u: string; p: string }, ids: string[], limiteMs = 2500, paralelo = 20) {
   const out = new Map<string, Prog[]>();
   const rc = RC();
-  if (rc?.relay) { // pela TV: pede todos os guias de uma vez (uma só ida e volta)
+  if (rc?.relay) { // pela TV: pede os guias dos primeiros canais de uma vez (uma só ida e volta)
     if (!rc.cap) return out;
+    ids = ids.slice(0, 16);
     const cr = cred as Cred;
     const faltam = ids.filter((id) => { const k = cacheEpg.get(id); return !(k && Date.now() - k.em < 5 * 60 * 1000); }).map((id) => urlPlayer(cr.b ?? BASE_PROV, cr.u, cr.p, `&action=get_short_epg&stream_id=${encodeURIComponent(id)}&limit=3`)).filter((u) => !rc.rel.has(u));
     if (faltam.length) { faltam.forEach((u) => rc.need.add(u)); throw new RelayNeed(); }
@@ -688,15 +689,15 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
       "trigger:back": "quiet",
       "control:retune": "retain",
       "button:forward:key": "red",
-      "button:eject:icon": ehFav ? "favorite" : "favorite-border",
-      "button:eject:action": favAcao,
-      "button:eject:key": "green",
+      // o botão "eject" do MSX só aceita foco e atalho (não ação): o verde fica no "rewind"
+      "button:rewind:icon": ehFav ? "favorite" : "favorite-border",
+      "button:rewind:action": favAcao,
+      "button:rewind:key": "green",
       "button:speed:icon": "home",
-      "button:speed:action": inicioAcao,
+      "button:speed:action": "home",
       "button:speed:key": "yellow",
       "button:forward:icon": "apps",
       "button:forward:action": pn({ a: "pcats", t, s: x.stream_id }),
-      "button:rewind:display": false,
     },
   };
 }

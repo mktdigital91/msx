@@ -28,16 +28,31 @@
     x.send();
   }
   var PLUGIN = 'https://mktdigital91.github.io/msx/msx/mira.html';
+  var telas = {};
 
   // Servidores que não deixam o Supabase falar com eles: o servidor pede, a TV busca no provedor
   // e devolve o texto; o servidor então monta a tela. Até 4 idas e voltas por tela.
+  // Listas grandes (milhares de canais) são enxugadas antes de subir: só os campos que o servidor usa.
+  var CAMPOS = ['num', 'name', 'stream_type', 'stream_id', 'stream_icon', 'category_id', 'category_name', 'container_extension', 'rating', 'rating_5based', 'cover', 'series_id', 'is_adult'];
+  function enxugar(txt) {
+    if (txt.length < 120000 || txt.charAt(0) !== '[') { return txt; }
+    try {
+      var arr = JSON.parse(txt), out = [];
+      for (var i = 0; i < arr.length; i++) {
+        var o = {}, a = arr[i];
+        for (var k = 0; k < CAMPOS.length; k++) { if (a && a[CAMPOS[k]] !== undefined) { o[CAMPOS[k]] = a[CAMPOS[k]]; } }
+        out.push(o);
+      }
+      return JSON.stringify(out);
+    } catch (e) { return txt; }
+  }
   function buscarNaTV(url, cb) {
     var x = new XMLHttpRequest(), feito = false;
     function fim(t) { if (!feito) { feito = true; cb(t); } }
     try {
       x.open('GET', url, true);
       x.timeout = 12000;
-      x.onload = function () { fim(x.status >= 200 && x.status < 300 ? (x.responseText || '') : null); };
+      x.onload = function () { fim(x.status >= 200 && x.status < 300 ? enxugar(x.responseText || '') : null); };
       x.onerror = function () { fim(null); };
       x.ontimeout = function () { fim(null); };
       x.send();
@@ -111,7 +126,18 @@
       if (dataId !== 'init' && dataId !== 'sair') {
         if (!dataId) { callback(null); return; }
         var qs = String(dataId); if (qs.indexOf('rl=1') < 0) { qs += '&rl=1'; }
-        pedirRelay(qs, null, 0, function (tela) { callback(tela); }, function () { callback(falha('Sem conexão com o servidor')); });
+        // telas só de leitura ficam guardadas 3 min: voltar para uma lista já vista abre na hora
+        var cacheavel = !/(^|&)a=(fav|login|sair|inicio|ver|in|form)(&|$)/.test(qs);
+        var c = cacheavel ? telas[qs] : null;
+        if (c && new Date().getTime() - c.t < 180000) { callback(c.v); return; }
+        pedirRelay(qs, null, 0, function (tela) {
+          if (cacheavel && tela && tela.type) {
+            var n = 0, k; for (k in telas) { n++; }
+            if (n > 30) { telas = {}; }
+            telas[qs] = { t: new Date().getTime(), v: tela };
+          }
+          callback(tela);
+        }, function () { callback(falha('Sem conexão com o servidor')); });
         return;
       }
       var feito = false;
