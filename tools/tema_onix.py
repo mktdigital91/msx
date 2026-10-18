@@ -78,6 +78,11 @@ def icone(d, tipo, x, y, t, cor, lw):
     elif tipo == "temas":
         d.ellipse([P(2.5, 2.5), P(21.5, 21.5)], outline=cor, width=lw)
         for (a, b) in ((8, 8), (15, 7.5), (17.5, 13), (7, 14.5)): d.ellipse([P(a - 1.6, b - 1.6), P(a + 1.6, b + 1.6)], fill=cor)
+    elif tipo == "config":
+        import math as _m
+        for k in range(8):
+            a = _m.radians(k * 45); L([(12 + 7.5 * _m.cos(a), 12 + 7.5 * _m.sin(a)), (12 + 10.5 * _m.cos(a), 12 + 10.5 * _m.sin(a))])
+        d.ellipse([P(5, 5), P(19, 19)], outline=cor, width=lw); d.ellipse([P(9.2, 9.2), P(14.8, 14.8)], outline=cor, width=lw)
     elif tipo == "sair":
         L([(14, 3), (20, 3), (20, 21), (14, 21)]); L([(3, 12), (14, 12)]); L([(10, 8), (14, 12), (10, 16)])
 
@@ -170,6 +175,7 @@ if __name__ == "__main__":
     pilula("btn-atualizar.png", "atualizar", "Atualizar")
     pilula("btn-pesquisar.png", "pesquisar", "Pesquisar")
     pilula("btn-temas.png", "temas", "Temas")
+    pilula("btn-config.png", "config", "Configurações")
     peca("login-qr.png", 742, 707, 40, claro=True)
     peca("login-codigo.png", 742, 471, 36, tipo="celular")
     peca("login-campo.png", 1237, 249, 30)

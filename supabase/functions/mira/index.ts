@@ -58,7 +58,7 @@ async function salvarTemaAparelho(d: string, tema: string) {
 }
 const _apToken = new Map<string, string | null>();
 const TEMAS: Record<string, { pasta: string; arquivos: Set<string> }> = {
-  onix: { pasta: "temas/onix/", arquivos: new Set(["bg-tv.jpg", "bg-filmes.jpg", "bg-series.jpg", "card-tv.png", "card-filmes.png", "card-series.png", "btn-sair.png", "btn-atualizar.png", "btn-pesquisar.png", "login-qr.png", "login-codigo.png", "login-campo.png", "login-entrar.png", "login-novo.png", "btn-temas.png"]) },
+  onix: { pasta: "temas/onix/", arquivos: new Set(["bg-tv.jpg", "bg-filmes.jpg", "bg-series.jpg", "card-tv.png", "card-filmes.png", "card-series.png", "btn-sair.png", "btn-atualizar.png", "btn-pesquisar.png", "login-qr.png", "login-codigo.png", "login-campo.png", "login-entrar.png", "login-novo.png", "btn-temas.png", "btn-config.png"]) },
 };
 // endereço de uma imagem do app no tema ativo (cai na versão clássica se o tema não tiver a peça)
 const im = (nome: string) => { const t = TEMAS[TEMA]; return IMG + (t && t.arquivos.has(nome) ? t.pasta : "") + nome; };
@@ -1059,6 +1059,15 @@ async function tratar(url: URL) {
     return await telaGuia(cred, t, s, limparNome(url.searchParams.get("n") ?? "Canal"), pn({ a: "painel", t, c: cc, cn, s }));
   }
   if (a === "jogos") return await telaJogos(t);
+  if (a === "config") {
+    const base = (o: Record<string, string>) => (d ? { ...o, d } : o);
+    return lista("Configurações", [
+      { title: "{ico:palette}  Temas", titleFooter: "Trocar o visual do app nesta TV", color: VID.n, action: go(base({ a: "temas", t })) },
+      { title: "{ico:search}  Pesquisar", titleFooter: "Procurar canais, filmes e séries", color: VID.n, action: abrirBusca(t, "") },
+      { title: "{ico:people}  Perfis", titleFooter: "Trocar ou criar perfis", color: VID.n, action: go(base({ a: "perfis", t })) },
+      { title: "{ico:lock}  Controle parental e perfis", titleFooter: "Senha, modo infantil, nomes", color: VID.n, action: go(base({ a: "perfisger", t })) },
+    ], "0,0,6,1");
+  }
   if (a === "temas" || a === "tema") {
     const dev = d ?? (await aparelhoDoToken(t));
     if (a === "tema" && dev) { await salvarTemaAparelho(dev, url.searchParams.get("v") ?? ""); usarTema((url.searchParams.get("v") ?? "") || TEMA_PAINEL); return await home(t, cred.u, dev, false); }
@@ -1527,15 +1536,14 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,2,1", image: LOGO, imageFiller: "fit" },
       // saudação com o perfil: OK abre "Quem está assistindo?" (trocar ou criar perfis)
-      { type: "default", layout: "2,0,3,1", color: "transparent", image: perfil ? avatar(perfil) : undefined, imageWidth: perfil ? 1 : undefined, imageFiller: "fit",
+      { type: "default", layout: "2,0,4,1", color: "transparent", image: perfil ? avatar(perfil) : undefined, imageWidth: perfil ? 1 : undefined, imageFiller: "fit",
         title: `Olá, ${perfil?.nome ?? usuario}`, titleFooter: subtitulo.replace("{br}", "  ·  "), truncation: "titleFooter",
         action: go(d ? { a: "perfis", t, d } : { a: "perfis", t }) },
       // Pesquisar em tudo (canais, filmes e séries)
-      card("5,0,1,1", "btn-temas.png", go(d ? { a: "temas", t, d } : { a: "temas", t }), { offset: "0,0,0.75,0" }),
-      card("5,0,1,1", "btn-pesquisar.png", abrirBusca(t, ""), { offset: "1.75,0,0.75,0" }),
+      card("6,0,2,1", "btn-config.png", go(d ? { a: "config", t, d } : { a: "config", t })),
       // Atualizar: recarrega a configuração do painel e a tela inicial (limpa os caches do servidor e da TV)
-      card("5,0,1,1", "btn-atualizar.png", go(d ? { a: "inicio", d, x: Date.now() } : { a: "inicio", x: Date.now() }), { offset: "3.5,0,0.75,0" }),
-      card("5,0,1,1", "btn-sair.png", d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" }), { offset: "5.25,0,0.75,0" }),
+      card("8,0,2,1", "btn-atualizar.png", go(d ? { a: "inicio", d, x: Date.now() } : { a: "inicio", x: Date.now() }), ),
+      card("10,0,2,1", "btn-sair.png", d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" })),
       card("0,1,4,3", "card-tv.png", go({ a: "cats", k: "live", t }), { id: "tv", focus: true, ...selo(qtd.live) }),
       card("4,1,4,3", "card-filmes.png", go({ a: "cats", k: "vod", t }), selo(qtd.vod)),
       card("8,1,4,3", "card-series.png", go({ a: "cats", k: "series", t }), selo(qtd.series)),
