@@ -2124,9 +2124,9 @@ async function capasGif(t: string, th: string): Promise<Uint8Array | null> {
   if (c && Date.now() - c.em < 10 * 60_000) return c.v;
   const cred = await lerToken(t); if (!cred) return null;
   const urls = (await historicoDe(quem(cred), ["filme", "ep"], 40)).filter((h) => emAndamento(h) && h.icone).map((h) => h.icone);
-  const unicos = [...new Set(urls)].slice(0, 6);
+  const unicos = [...new Set(urls)].slice(0, 5);
   if (unicos.length < 2) return null;
-  const W = 240, H = 340, fundo = th === "onix" ? Img.rgbaToColor(17, 16, 19, 255) : Img.rgbaToColor(24, 24, 64, 255);
+  const W = 160, H = 226, fundo = th === "onix" ? Img.rgbaToColor(17, 16, 19, 255) : Img.rgbaToColor(24, 24, 64, 255);
   const quadros: Img[] = [];
   for (const u of unicos) {
     try {
@@ -2140,13 +2140,13 @@ async function capasGif(t: string, th: string): Promise<Uint8Array | null> {
   quadros.forEach((q, i) => {
     frames.push(Frame.from(q, 7000));
     const prox = quadros[(i + 1) % quadros.length];
-    for (let k = 1; k <= 5; k++) { // fade: a capa atual some enquanto a próxima aparece
-      const a = k / 6, m = q.clone();
+    for (let k = 1; k <= 3; k++) { // fade: a capa atual some enquanto a próxima aparece
+      const a = k / 4, m = q.clone();
       m.composite(prox.clone().opacity(a), 0, 0);
-      frames.push(Frame.from(m, 70));
+      frames.push(Frame.from(m, 110));
     }
   });
-  const v = await new GIF(frames, -1).encode(80);
+  const v = await new GIF(frames, -1).encode(30);
   if (_capas.size > 50) _capas.clear();
   _capas.set(ch, { em: Date.now(), v });
   return v;
