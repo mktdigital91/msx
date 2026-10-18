@@ -2175,7 +2175,12 @@ Deno.serve(async (req: Request) => {
     }
     if (req.method === "GET" && u0.searchParams.get("a") === "jgif") { // sem jogos das ligas principais (ou erro): GIF fixo dos times
       let gif: Uint8Array | null = null;
-      try { gif = await jogosGif(); } catch { gif = null; }
+      try { gif = await jogosGif(); } catch (e) {
+        console.error("jgif", e);
+        if (u0.searchParams.get("dbg") === "1") return new Response(String((e as Error)?.stack ?? e), { status: 500 });
+        gif = null;
+      }
+      if (!gif && u0.searchParams.get("dbg") === "1") return new Response("sem quadros", { status: 500 });
       if (!gif) return new Response(null, { status: 302, headers: { location: IMG + "jogos.gif", "cache-control": "public, max-age=600" } });
       return new Response(gif, { headers: { "access-control-allow-origin": "*", "content-type": "image/gif", "cache-control": "public, max-age=1800" } });
     }
