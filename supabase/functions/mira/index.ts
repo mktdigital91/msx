@@ -2244,9 +2244,9 @@ async function telaJogos(t: string) {
     jogos.slice(p0, p0 + 12).forEach((j, i) => {
       const x = (i % 4) * 3, y = Math.floor(i / 4) * 2, lg = (j.casa.logo ? "h" : "") + (j.fora.logo ? "f" : "");
       items.push({ type: "default", layout: `${x},${y},3,2`, image: jogoImg(j, lg), imageFiller: "fit", color: "transparent", action: jogoAcao(j, t), focus: p0 === 0 && i === 0 ? true : undefined });
-      const logo = (url: string, dy: number) => ({ type: "space", layout: `${x},${y},1,1`, offset: `0.2375,${dy},-0.7375,-0.767`, image: url, imageFiller: "fit", enable: false });
-      if (j.casa.logo) items.push(logo(j.casa.logo, 0.733));
-      if (j.fora.logo) items.push(logo(j.fora.logo, 1.133));
+      const logo = (url: string, dy: number) => ({ type: "space", layout: `${x},${y},1,1`, offset: `0.1625,${dy},-0.5875,-0.633`, image: url, imageFiller: "fit", enable: false });
+      if (j.casa.logo) items.push(logo(j.casa.logo, 0.667));
+      if (j.fora.logo) items.push(logo(j.fora.logo, 1.067));
     });
     pags.push({ items });
   }
