@@ -58,7 +58,7 @@ async function salvarTemaAparelho(d: string, tema: string) {
 }
 const _apToken = new Map<string, string | null>();
 const TEMAS: Record<string, { pasta: string; arquivos: Set<string> }> = {
-  onix: { pasta: "temas/onix/", arquivos: new Set(["bg-tv.jpg", "bg-filmes.jpg", "bg-series.jpg", "card-tv.png", "card-filmes.png", "card-series.png", "btn-sair.png", "btn-atualizar.png", "btn-pesquisar.png", "login-qr.png", "login-codigo.png", "login-campo.png", "login-entrar.png", "login-novo.png", "btn-temas.png", "btn-config.png"]) },
+  onix: { pasta: "temas/onix/", arquivos: new Set(["bg-tv.jpg", "bg-filmes.jpg", "bg-series.jpg", "card-tv.png", "card-filmes.png", "card-series.png", "btn-sair.png", "btn-atualizar.png", "btn-pesquisar.png", "login-qr.png", "login-codigo.png", "login-campo.png", "login-entrar.png", "login-novo.png", "btn-temas.png", "btn-config.png", "btn-lupa.png"]) },
 };
 // endereço de uma imagem do app no tema ativo (cai na versão clássica se o tema não tiver a peça)
 const im = (nome: string) => { const t = TEMAS[TEMA]; return IMG + (t && t.arquivos.has(nome) ? t.pasta : "") + nome; };
@@ -1536,10 +1536,11 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,2,1", image: LOGO, imageFiller: "fit" },
       // saudação com o perfil: OK abre "Quem está assistindo?" (trocar ou criar perfis)
-      { type: "default", layout: "2,0,4,1", color: "transparent", image: perfil ? avatar(perfil) : undefined, imageWidth: perfil ? 1 : undefined, imageFiller: "fit",
+      { type: "default", layout: "2,0,3,1", color: "transparent", image: perfil ? avatar(perfil) : undefined, imageWidth: perfil ? 1 : undefined, imageFiller: "fit",
         title: `Olá, ${perfil?.nome ?? usuario}`, titleFooter: subtitulo.replace("{br}", "  ·  "), truncation: "titleFooter",
         action: go(d ? { a: "perfis", t, d } : { a: "perfis", t }) },
       // Pesquisar em tudo (canais, filmes e séries)
+      card("5,0,1,1", "btn-lupa.png", abrirBusca(t, "")),
       card("6,0,2,1", "btn-config.png", go(d ? { a: "config", t, d } : { a: "config", t })),
       // Atualizar: recarrega a configuração do painel e a tela inicial (limpa os caches do servidor e da TV)
       card("8,0,2,1", "btn-atualizar.png", go(d ? { a: "inicio", d, x: Date.now() } : { a: "inicio", x: Date.now() }), ),

@@ -240,7 +240,14 @@
   var SPLASH = { type: 'pages', flag: 'splash', transparent: 0, background: 'https://mktdigital91.github.io/msx/msx/img/splash.gif',
     pages: [{ items: [{ type: 'space', layout: '0,0,12,6', offset: '-1,-1,2,2', image: 'https://mktdigital91.github.io/msx/msx/img/splash.gif', imageFiller: 'cover', enable: false },
       { type: 'default', layout: '0,0,1,1', offset: '-5,-5,0,0', color: 'transparent', action: '[]', focus: true }] }] };
+  // menu do MSX em português (Início, Configurações, Sair do app…) — aplicado uma vez ao abrir
+  var dicionarioOk = false;
+  function aplicarDicionario() {
+    if (dicionarioOk) { return; } dicionarioOk = true;
+    setTimeout(function () { try { TVXInteractionPlugin.executeAction('dictionary:https://mktdigital91.github.io/msx/msx/pt-br.json'); } catch (e) { } }, 300);
+  }
   function abrir(id, callback, acao, semSplash) {
+    aplicarDicionario();
     idAparelho = id;
     var original = callback, entregue = false, splashMostrado = false;
     var t0 = new Date().getTime();
