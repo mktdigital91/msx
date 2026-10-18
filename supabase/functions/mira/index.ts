@@ -1388,7 +1388,7 @@ async function jogosDoDia(limiteMs = 3500): Promise<Jogo[] | null> {
 }
 
 // cartão SVG de um jogo (placar em duas linhas, estilo app esportivo)
-async function jogoSvg(g: URLSearchParams) {
+async function jogoSvg(g: URLSearchParams, logos: { h?: string; f?: string } = {}) {
   const W = 600, H = 380;
   const k = g.get("k") ?? "pre";
   const st = limparNome(g.get("s") ?? "").slice(0, 18);
@@ -1396,7 +1396,7 @@ async function jogoSvg(g: URLSearchParams) {
   const canais = (g.get("c") ?? "").replace(/[\u0000-\u001f<>]/g, "").trim().slice(0, 80);
   // logos embutidas no SVG não aparecem na TV; quando a tela põe a logo por cima (item à parte), aqui fica só o disco branco
   const lg = g.get("lg") ?? "";
-  const logoH: string | null = lg.includes("h") ? "" : null, logoF: string | null = lg.includes("f") ? "" : null;
+  const logoH: string | null = logos.h ?? (lg.includes("h") ? "" : null), logoF: string | null = logos.f ?? (lg.includes("f") ? "" : null);
   const linha = (y: number, p: string, logo: string | null) => {
     const [nome = "", sigla = "", cor = "475569", gols = "", v = ""] = (g.get(p) ?? "").split("|");
     const apaga = k === "post" && v !== "1";
@@ -1435,6 +1435,34 @@ async function jogoSvg(g: URLSearchParams) {
     + linha(156, "h", logoH) + linha(246, "f", logoF) + rodape + `</g>`
     + `<rect x="9" y="9" width="${W - 18}" height="${H - 18}" rx="0" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="2"/></svg>`;
 }
+// cartão do jogo em PNG com as logos já dentro (a TV não carrega imagem embutida em SVG)
+let _resvg: any = null;
+const _jgp = new Map<string, { em: number; v: Uint8Array }>();
+async function logoDataUri(u: string): Promise<string | undefined> {
+  try {
+    const r = await fetch(u, { signal: AbortSignal.timeout(4000) }); if (!r.ok) return undefined;
+    const b = new Uint8Array(await r.arrayBuffer()); let bin = ""; for (let i = 0; i < b.length; i += 8192) bin += String.fromCharCode(...b.subarray(i, i + 8192));
+    return `data:${r.headers.get("content-type") || "image/png"};base64,${btoa(bin)}`;
+  } catch { return undefined; }
+}
+async function jogoPng(g: URLSearchParams): Promise<Uint8Array> {
+  const ch = g.toString(); const c = _jgp.get(ch);
+  if (c && Date.now() - c.em < 120_000) return c.v;
+  if (!_resvg) {
+    const m = await import("npm:@resvg/resvg-wasm@2.6.2");
+    await m.initWasm(fetch("https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm"));
+    if (!_fonte) _fonte = new Uint8Array(await (await fetch(IMG + "fontes/DejaVuSans-Bold.ttf")).arrayBuffer());
+    _resvg = m;
+  }
+  const [h, f] = await Promise.all([g.get("hl") ? logoDataUri(g.get("hl")!) : undefined, g.get("fl") ? logoDataUri(g.get("fl")!) : undefined]);
+  const svg = (await jogoSvg(g, { h, f })).replace(/font-family="[^"]*"/g, 'font-family="DejaVu Sans"');
+  const v = new _resvg.Resvg(svg, { font: { fontBuffers: [_fonte], defaultFontFamily: "DejaVu Sans", loadSystemFonts: false } }).render().asPng();
+  if (_jgp.size > 300) _jgp.clear();
+  _jgp.set(ch, { em: Date.now(), v });
+  return v;
+}
+const jogoPngUrl = (j: Jogo) => `${SELF()}?${q({ a: "jgp", k: j.estado, s: j.status, l: j.liga, h: timeTxt(j.casa), f: timeTxt(j.fora), c: j.transmissao,
+  ...(j.casa.logo ? { hl: j.casa.logo } : {}), ...(j.fora.logo ? { fl: j.fora.logo } : {}) })}`;
 const timeTxt = (t: Time) => [t.nome, t.sigla, t.cor, t.gols, t.venceu ? "1" : ""].join("|");
 const jogoImg = (j: Jogo, lg = "") => `${SELF()}?${q({ ...(lg ? { lg } : {}),
   a: "jg", k: j.estado, s: j.status, l: j.liga, h: timeTxt(j.casa), f: timeTxt(j.fora), c: j.transmissao,
@@ -2236,24 +2264,9 @@ async function telaJogos(t: string) {
   if (jogos === null) return aviso("Jogos de hoje", "Placar indisponível agora. Tente de novo em instantes.");
   if (!jogos.length) return aviso("Jogos de hoje", "Nenhuma partida programada para hoje.");
   const vivos = jogos.filter((j) => j.estado === "in").length;
-  // grade 4x3 por página; a logo de cada time (da API) vai por cima do disco branco do cartão,
-  // porque imagem embutida dentro do SVG não aparece na TV
-  const pags: any[] = [];
-  for (let p0 = 0; p0 < jogos.length; p0 += 12) {
-    const items: any[] = [];
-    jogos.slice(p0, p0 + 12).forEach((j, i) => {
-      const x = (i % 4) * 3, y = Math.floor(i / 4) * 2, lg = (j.casa.logo ? "h" : "") + (j.fora.logo ? "f" : "");
-      items.push({ type: "default", layout: `${x},${y},3,2`, image: jogoImg(j, lg), imageFiller: "fit", color: "transparent", action: jogoAcao(j, t), focus: p0 === 0 && i === 0 ? true : undefined });
-      const logo = (url: string, dy: number) => ({ type: "space", layout: `${x},${y},1,1`, offset: `0.1625,${dy},-0.5875,-0.633`, image: url, imageFiller: "fit", enable: false });
-      if (j.casa.logo) items.push(logo(j.casa.logo, 0.667));
-      if (j.fora.logo) items.push(logo(j.fora.logo, 1.067));
-    });
-    pags.push({ items });
-  }
-  return {
-    type: "pages", headline: "Jogos de hoje", extension: `${jogos.length} partidas${vivos ? ` · ${vivos} ao vivo` : ""}`,
-    transparent: 2, background: FUNDO_CFG || im("bg-tv.jpg"), pages: pags,
-  };
+  // lista com rolagem para baixo; cada cartão é um PNG já com as logos dos times
+  return lista("Jogos de hoje", jogos.map((j) => ({ image: jogoPngUrl(j), imageFiller: "fit", color: "transparent", action: jogoAcao(j, t) })),
+    "0,0,3,2", {}, `${jogos.length} partidas${vivos ? ` · ${vivos} ao vivo` : ""}`, "live");
 }
 
 // ---------- ligar o jogo aos canais da lista do provedor ----------
@@ -2396,6 +2409,17 @@ Deno.serve(async (req: Request) => {
       try { gif = await capasGif(u0.searchParams.get("t") ?? "", u0.searchParams.get("th") ?? ""); } catch (e) { console.error("capas", e); }
       if (!gif) return new Response(null, { status: 404 });
       return new Response(gif, { headers: { "access-control-allow-origin": "*", "content-type": "image/gif", "cache-control": "private, max-age=600" } });
+    }
+    if (req.method === "GET" && u0.searchParams.get("a") === "jgp") {
+      try {
+        const png = await jogoPng(u0.searchParams);
+        return new Response(png, { headers: { "access-control-allow-origin": "*", "content-type": "image/png", "cache-control": "public, max-age=120" } });
+      } catch (e) {
+        console.error("jgp", e);
+        if (u0.searchParams.get("dbg") === "1") return new Response(String((e as Error)?.stack ?? e), { status: 500 });
+        const g = new URLSearchParams(u0.searchParams); g.set("a", "jg");
+        return new Response(null, { status: 302, headers: { location: `${SELF()}?${g}` } });
+      }
     }
     if (req.method === "GET" && u0.searchParams.get("a") === "bloco") {
       return new Response(blocoSvg(u0.searchParams), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=3600" } });
