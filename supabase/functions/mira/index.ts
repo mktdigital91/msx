@@ -1453,7 +1453,9 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
     const ic = itemContinuar(ult, cred, t) as any;
     blocosHome.push({ ...ic, title: undefined, titleFooter: undefined, type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit",
       image: blocoImg({ t: "Continuar assistindo", a1: ult.nome, a2: `${pct ? pct + "% · " : ""}parou em ${fmtTempo(ult.pos)}`, p: pct, i: ult.tipo === "ep" ? "series" : "movie", c: ult.icone ? 1 : 0 }) });
-    if (ult.icone) blocosHome.push({ type: "space", layout: "8,4,4,2", offset: "2.5,0.2,-2.75,-0.4", image: ult.icone, imageFiller: "fit", enable: false });
+    const nCapas = new Set(hist.filter((h) => h.tipo !== "live" && emAndamento(h) && h.icone).map((h) => h.icone)).size;
+    const capa = nCapas >= 2 ? `${SELF()}?${q({ a: "capas", t, th: TEMA, h: Math.floor(Date.now() / 600_000) })}` : ult.icone;
+    if (capa) blocosHome.push({ type: "space", layout: "8,4,4,2", offset: "2.3,0.2,-2.75,-0.4", image: capa, imageFiller: "fit", enable: false });
   } else {
     blocosHome.push({ type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit", action: go({ a: "cats", k: "vod", t }),
       image: blocoImg({ t: "Continuar assistindo", a1: "Nada começado ainda", a2: "Escolha um filme ou série", i: "movie" }) });
@@ -2103,7 +2105,7 @@ function blocoSvg(g: URLSearchParams) {
   const tit = limparNome(g.get("t") ?? "").slice(0, 30), l1 = limparNome(g.get("a1") ?? "").slice(0, 34), l2 = String(g.get("a2") ?? "").replace(/[<>&"]/g, "").slice(0, 40);
   const pct = Math.max(0, Math.min(100, Number(g.get("p")) || 0)), ic = ICONES[g.get("i") ?? "play"] ?? ICONES.play, comCapa = g.get("c") === "1";
   const c1 = onix ? "#1C1A1E" : "#2A2160", c2 = onix ? "#0E0D10" : "#121433", ouro = onix ? "#D6B25E" : "#F5B400";
-  const xt = 40, larg = comCapa ? W - 290 : W - 80;
+  const xt = 40, larg = comCapa ? W - 340 : W - 80;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs>`
     + `<rect x="6" y="6" width="${W - 12}" height="${H - 12}" rx="26" fill="url(#g)" stroke="${ouro}" stroke-opacity="${onix ? ".75" : ".35"}" stroke-width="2"/>`
     + (comCapa ? "" : `<g transform="translate(${W - 230} 70) scale(8)" fill="${ouro}" fill-opacity=".12"><path d="${ic}"/></g>`)
@@ -2114,6 +2116,40 @@ function blocoSvg(g: URLSearchParams) {
     + (l2 ? `<text x="${xt}" y="${H - 38}" font-size="20" font-weight="600" fill="#fff" fill-opacity=".62" font-family="Arial, Helvetica, sans-serif">${xml(l2)}</text>` : "")
     + (pct ? `<rect x="${xt}" y="${H - 26}" width="${larg}" height="5" rx="2.5" fill="#fff" fill-opacity=".18"/><rect x="${xt}" y="${H - 26}" width="${Math.round(larg * pct / 100)}" height="5" rx="2.5" fill="${ouro}"/>` : "")
     + `</svg>`;
+}
+// capas do Continuar assistindo trocando a cada 7 s, com fade (GIF montado aqui)
+const _capas = new Map<string, { em: number; v: Uint8Array }>();
+async function capasGif(t: string, th: string): Promise<Uint8Array | null> {
+  const ch = `${t.slice(-24)}|${th}`; const c = _capas.get(ch);
+  if (c && Date.now() - c.em < 10 * 60_000) return c.v;
+  const cred = await lerToken(t); if (!cred) return null;
+  const urls = (await historicoDe(quem(cred), ["filme", "ep"], 40)).filter((h) => emAndamento(h) && h.icone).map((h) => h.icone);
+  const unicos = [...new Set(urls)].slice(0, 6);
+  if (unicos.length < 2) return null;
+  const W = 240, H = 340, fundo = th === "onix" ? Img.rgbaToColor(17, 16, 19, 255) : Img.rgbaToColor(24, 24, 64, 255);
+  const quadros: Img[] = [];
+  for (const u of unicos) {
+    try {
+      const im = await Img.decode(new Uint8Array(await (await fetch(u, { signal: AbortSignal.timeout(5000) })).arrayBuffer()));
+      const f = new Img(W, H).fill(fundo); const p = (im as Img).contain(W, H);
+      f.composite(p, (W - p.width) / 2, (H - p.height) / 2); quadros.push(f);
+    } catch { /* capa que não abriu fica de fora */ }
+  }
+  if (quadros.length < 2) return null;
+  const frames: Frame[] = [];
+  quadros.forEach((q, i) => {
+    frames.push(Frame.from(q, 7000));
+    const prox = quadros[(i + 1) % quadros.length];
+    for (let k = 1; k <= 5; k++) { // fade: a capa atual some enquanto a próxima aparece
+      const a = k / 6, m = q.clone();
+      m.composite(prox.clone().opacity(a), 0, 0);
+      frames.push(Frame.from(m, 70));
+    }
+  });
+  const v = await new GIF(frames, -1).encode(80);
+  if (_capas.size > 50) _capas.clear();
+  _capas.set(ch, { em: Date.now(), v });
+  return v;
 }
 const blocoImg = (o: Record<string, string | number>) => `${SELF()}?${q({ a: "bloco", th: TEMA, ...o })}`;
 // canais principais para o Guia de Programação (um por rede, na melhor qualidade)
@@ -2266,6 +2302,12 @@ Deno.serve(async (req: Request) => {
       const g = u0.searchParams;
       const svg = cartaoSvg(g.get("k") ?? "live", g.get("t") ?? "", g.get("s") ?? "", g.get("i") ?? "play", g.get("f") === "p");
       return new Response(svg, { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
+    }
+    if (req.method === "GET" && u0.searchParams.get("a") === "capas") {
+      let gif: Uint8Array | null = null;
+      try { gif = await capasGif(u0.searchParams.get("t") ?? "", u0.searchParams.get("th") ?? ""); } catch (e) { console.error("capas", e); }
+      if (!gif) return new Response(null, { status: 404 });
+      return new Response(gif, { headers: { "access-control-allow-origin": "*", "content-type": "image/gif", "cache-control": "private, max-age=600" } });
     }
     if (req.method === "GET" && u0.searchParams.get("a") === "bloco") {
       return new Response(blocoSvg(u0.searchParams), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=3600" } });
