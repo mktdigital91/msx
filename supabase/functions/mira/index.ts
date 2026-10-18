@@ -1442,12 +1442,12 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
     ({ type: "default", layout, image: im(img), imageFiller: "fit", color: "transparent", action: acao, ...extra });
   // cartões dos jogos: logo de cada time (da API) posta por cima do disco branco do cartão
   const destaques: any[] = [];
-  lst.slice(0, 3).forEach((j, i) => {
-    const x = 3 + i * 3, lg = (j.casa.logo ? "h" : "") + (j.fora.logo ? "f" : "");
-    destaques.push({ type: "default", layout: `${x},4,3,2`, image: jogoImg(j, lg), imageFiller: "fit", color: "transparent", action: jogoAcao(j, t) });
-    const logo = (url: string, dy: number) => ({ type: "space", layout: `${x},4,1,1`, offset: `0.2125,${dy},-0.6875,-0.722`, image: url, imageFiller: "fit", enable: false });
-    if (j.casa.logo) destaques.push(logo(j.casa.logo, 0.711));
-    if (j.fora.logo) destaques.push(logo(j.fora.logo, 1.111));
+  lst.slice(0, 2).forEach((j, i) => {
+    const x = 4 + i * 4, lg = (j.casa.logo ? "h" : "") + (j.fora.logo ? "f" : "");
+    destaques.push({ type: "default", layout: `${x},4,4,2`, image: jogoImg(j, lg), imageFiller: "fit", color: "transparent", action: jogoAcao(j, t) });
+    const logo = (url: string, dy: number) => ({ type: "space", layout: `${x},4,1,1`, offset: `0.5,${dy},-0.675,-0.711`, image: url, imageFiller: "fit", enable: false });
+    if (j.casa.logo) destaques.push(logo(j.casa.logo, 0.678));
+    if (j.fora.logo) destaques.push(logo(j.fora.logo, 1.15));
   });
   return {
     type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-tv.jpg"),
@@ -1467,9 +1467,9 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       card("4,1,4,3", "card-filmes.png", go({ a: "cats", k: "vod", t }), selo(qtd.vod)),
       card("8,1,4,3", "card-series.png", go({ a: "cats", k: "series", t }), selo(qtd.series)),
       ...qtdTxt(0, qtd.live), ...qtdTxt(4, qtd.vod), ...qtdTxt(8, qtd.series),
-      { type: "default", layout: "0,4,3,2", image: `${SELF()}?${q({ a: "jgif", d: diaLocal(), h: Math.floor(Date.now() / 1800_000), th: TEMA })}`, imageFiller: "fit", color: "transparent", action: lst.length ? todos : "none" },
-      { type: "space", layout: "0,4,3,2", offset: "0.25,1.05,-0.4,-1.05", enable: false,
-        text: "{col:msx-white}Jogos de hoje{br}" + (jogos === null ? "{col:msx-white-soft}Placar indisponível agora" : lst.length ? `{col:msx-white}${lst.length} partida${lst.length > 1 ? "s" : ""}${vivos ? ` · {col:msx-red}${vivos} ao vivo{col:msx-white}` : ""}{br}{col:msx-white-soft}Ver todos  ›` : "{col:msx-white-soft}Nenhuma partida hoje") },
+      { type: "default", layout: "0,4,4,2", image: `${SELF()}?${q({ a: "jgif", d: diaLocal(), h: Math.floor(Date.now() / 1800_000), th: TEMA })}`, imageFiller: "fit", color: "transparent", action: lst.length ? todos : "none" },
+      { type: "space", layout: "0,4,4,2", offset: "0,1.05,0,-1.05", alignment: "center", enable: false,
+        text: "{col:msx-white}Jogos de hoje{br}" + (jogos === null ? "{col:msx-white-soft}Placar indisponível agora" : lst.length ? `{col:msx-white}${lst.length} partida${lst.length > 1 ? "s" : ""}${vivos ? `  |  {col:${TEMA === "onix" ? "msx-yellow" : "msx-red"}}${vivos} ao vivo{col:msx-white}` : ""}{br}{col:msx-white-soft}Ver todos  ›` : "{col:msx-white-soft}Nenhuma partida hoje") },
       ...destaques,
     ] }, ...paginaContinuar(hist, cred, t)],
   };
