@@ -2235,8 +2235,24 @@ async function telaJogos(t: string) {
   if (jogos === null) return aviso("Jogos de hoje", "Placar indisponível agora. Tente de novo em instantes.");
   if (!jogos.length) return aviso("Jogos de hoje", "Nenhuma partida programada para hoje.");
   const vivos = jogos.filter((j) => j.estado === "in").length;
-  return lista("Jogos de hoje", jogos.map((j) => ({ image: jogoImg(j), imageFiller: "fit", color: "transparent", action: jogoAcao(j, t) })),
-    "0,0,3,2", {}, `${jogos.length} partidas${vivos ? ` · ${vivos} ao vivo` : ""}`, "live");
+  // grade 4x3 por página; a logo de cada time (da API) vai por cima do disco branco do cartão,
+  // porque imagem embutida dentro do SVG não aparece na TV
+  const pags: any[] = [];
+  for (let p0 = 0; p0 < jogos.length; p0 += 12) {
+    const items: any[] = [];
+    jogos.slice(p0, p0 + 12).forEach((j, i) => {
+      const x = (i % 4) * 3, y = Math.floor(i / 4) * 2, lg = (j.casa.logo ? "h" : "") + (j.fora.logo ? "f" : "");
+      items.push({ type: "default", layout: `${x},${y},3,2`, image: jogoImg(j, lg), imageFiller: "fit", color: "transparent", action: jogoAcao(j, t), focus: p0 === 0 && i === 0 ? true : undefined });
+      const logo = (url: string, dy: number) => ({ type: "space", layout: `${x},${y},1,1`, offset: `0.2375,${dy},-0.7375,-0.767`, image: url, imageFiller: "fit", enable: false });
+      if (j.casa.logo) items.push(logo(j.casa.logo, 0.733));
+      if (j.fora.logo) items.push(logo(j.fora.logo, 1.133));
+    });
+    pags.push({ items });
+  }
+  return {
+    type: "pages", headline: "Jogos de hoje", extension: `${jogos.length} partidas${vivos ? ` · ${vivos} ao vivo` : ""}`,
+    transparent: 2, background: FUNDO_CFG || im("bg-tv.jpg"), pages: pags,
+  };
 }
 
 // ---------- ligar o jogo aos canais da lista do provedor ----------
