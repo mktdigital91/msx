@@ -58,11 +58,11 @@
       x.send();
     } catch (e) { fim(null); }
   }
-  function pedirRelay(qs, rel, rodada, ok, erro) {
+  function pedirRelay(qs, rel, rodada, ok, erro, limiteMs) {
     var url = SERVIDOR + '?' + qs;
     var x = new XMLHttpRequest();
     x.open(rel ? 'POST' : 'GET', url, true);
-    x.timeout = 30000;
+    x.timeout = limiteMs || 30000;
     x.onload = function () {
       var r;
       try { r = JSON.parse(x.responseText); } catch (e) { erro(); return; }
@@ -76,7 +76,7 @@
           buscarNaTV(u, function (t) {
             novo[u] = t;
             falta--;
-            if (falta === 0) { pedirRelay(qs, novo, rodada + 1, ok, erro); } else { vez(); }
+            if (falta === 0) { pedirRelay(qs, novo, rodada + 1, ok, erro, limiteMs); } else { vez(); }
           });
         };
         for (var k = 0; k < 8 && k < urls.length; k++) { vez(); }
@@ -88,6 +88,133 @@
     x.ontimeout = erro;
     if (rel) { x.setRequestHeader('Content-Type', 'text/plain'); x.send(JSON.stringify({ rel: rel })); } else { x.send(); }
   }
+  // ---------- Pesquisa na própria TV ----------
+  // O texto digitado fica aqui (não na tela): cada tecla só acrescenta uma letra, então nenhuma se perde
+  // mesmo apertando rápido. O catálogo vem do servidor uma vez e o filtro roda aqui, sem esperar a rede.
+  var BUSCA = { t: '', k: '', q: '', modo: '', foco: 'kA', aberta: false };
+  var catalogos = {}; // chave (token|seção) -> { em, itens, live } ou { carregando: true }
+  var NOMES_SECAO = { live: 'TV ao vivo', vod: 'Filmes', series: 'Séries' };
+  var VID_N = 'rgba(10,12,28,0.62)', VID_OURO = 'rgba(245,180,0,0.32)';
+  var FUNDOS = { live: 'bg-tv.jpg', vod: 'bg-filmes.jpg', series: 'bg-series.jpg' };
+  var IMG = 'https://mktdigital91.github.io/msx/msx/img/';
+  function chaveCat() { return BUSCA.t.slice(-32) + '|' + BUSCA.k; }
+  function acaoBusca(cmd) { return 'replace:content:busca:request:interaction:busca/' + cmd + '@' + PLUGIN; }
+  function acaoServidor(qs) { return 'content:request:interaction:' + qs + '&rl=1@' + PLUGIN; }
+  function b64url(txt) {
+    var s = unescape(encodeURIComponent(txt)); // UTF-8
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function carregarCatalogo() {
+    var ch = chaveCat(), c = catalogos[ch];
+    if (c && (c.carregando || new Date().getTime() - c.em < 15 * 60000)) { return; }
+    catalogos[ch] = { carregando: true };
+    pedirRelay('a=buscadados&t=' + encodeURIComponent(BUSCA.t) + (BUSCA.k ? '&k=' + BUSCA.k : '') + '&rl=1', null, 0, function (r) {
+      if (r && r.itens) { catalogos[ch] = { em: new Date().getTime(), itens: r.itens, live: r.live }; }
+      else { catalogos[ch] = { erro: true, em: 0 }; }
+      atualizarSeAberta(ch);
+    }, function () { catalogos[ch] = { erro: true, em: 0 }; atualizarSeAberta(ch); }, 120000);
+  }
+  function atualizarSeAberta(ch) {
+    if (BUSCA.aberta && ch === chaveCat()) { try { TVXInteractionPlugin.executeAction(acaoBusca('atual')); } catch (e) { } }
+  }
+  // mesmas regras do servidor: todas as palavras no nome; começo do nome vale mais, depois começo de palavra
+  function filtrar(itens, q) {
+    var pal = q.split(' '), ws = [], i, j;
+    for (i = 0; i < pal.length; i++) { if (pal[i]) { ws.push(pal[i]); } }
+    if (!ws.length) { return []; }
+    var out = [];
+    for (i = 0; i < itens.length; i++) {
+      var n = itens[i][5], ok = true;
+      for (j = 0; j < ws.length; j++) { if (n.indexOf(ws[j]) < 0) { ok = false; break; } }
+      if (!ok) { continue; }
+      out.push({ x: itens[i], p: n.indexOf(q) === 0 ? 0 : (' ' + n).indexOf(' ' + ws[0]) >= 0 ? 1 : 2 });
+    }
+    out.sort(function (a, b) { return a.p - b.p || a.x[2].length - b.x[2].length || (a.x[2] < b.x[2] ? -1 : a.x[2] > b.x[2] ? 1 : 0); });
+    var r = []; for (i = 0; i < out.length; i++) { r.push(out[i].x); }
+    return r;
+  }
+  function trocar(txt, mapa) { for (var k in mapa) { txt = txt.split(k).join(mapa[k]); } return txt; }
+  function itemResultado(x, live) {
+    var tipo = x[0], id = x[1], nome = x[2], icone = x[3], cat = x[4];
+    if (tipo === 'v') { return { title: nome, titleFooter: 'Filme', truncation: 'title', color: VID_N, icon: 'movie', iconSize: 'small', action: acaoServidor('a=filme&t=' + encodeURIComponent(BUSCA.t) + '&s=' + encodeURIComponent(id)) }; }
+    if (tipo === 's') { return { title: nome, titleFooter: 'Série', truncation: 'title', color: VID_N, icon: 'video-library', iconSize: 'small', action: acaoServidor('a=serie&t=' + encodeURIComponent(BUSCA.t) + '&s=' + encodeURIComponent(id)) }; }
+    // canal: monta o mesmo item que o servidor faria (player próprio, painel, favoritos, guia)
+    var props = {};
+    if (live) {
+      try { props = JSON.parse(trocar(live.properties, { '__ID__': encodeURIComponent(id), '__NOME__': encodeURIComponent(nome), '__ICONE__': encodeURIComponent(icone), '__CAT__': encodeURIComponent(cat) })); } catch (e) { props = {}; }
+      props['info:headline'] = nome;
+    }
+    var fontes = live ? trocar(live.fontes, { '__ID__': id }) : '';
+    var reg = live ? trocar(live.registro, { '__ID__': encodeURIComponent(id), '__NOME__': encodeURIComponent(nome), '__ICONE__': encodeURIComponent(icone), '__CAT__': encodeURIComponent(cat) }) : '';
+    return {
+      title: nome, titleFooter: 'TV ao vivo', truncation: 'title', color: VID_N,
+      image: icone || undefined, imageWidth: 1, imageFiller: 'fit', icon: icone ? undefined : 'live-tv', iconSize: 'small',
+      playerLabel: nome, properties: props,
+      action: live ? 'video:plugin:' + live.player + '?f=' + encodeURIComponent(b64url(fontes)) + '&m=' + encodeURIComponent('o canal') + '&h=' + encodeURIComponent(b64url(reg)) : 'none'
+    };
+  }
+  function telaBusca() {
+    var letras = BUSCA.modo === 'n' ? '1234567890'.split('') : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    var teclas = [], i;
+    for (i = 0; i < letras.length; i++) { teclas.push({ id: 'k' + letras[i], title: letras[i], cmd: 't/' + letras[i] }); }
+    while (teclas.length < 26) { teclas.push(null); }
+    teclas.push({ id: 'kmodo', title: BUSCA.modo === 'n' ? 'ABC' : '123', cmd: 'modo' });
+    teclas.push({ id: 'kesp', title: '␣', footer: 'Espaço', cmd: 'esp' });
+    teclas.push({ id: 'kapg', title: '⌫', footer: 'Apagar', cmd: 'apg' });
+    teclas.push({ id: 'klimpar', title: '✕', footer: 'Limpar', cmd: 'limpar' });
+    var temFoco = false;
+    for (i = 0; i < teclas.length; i++) { if (teclas[i] && teclas[i].id === BUSCA.foco) { temFoco = true; } }
+    var foco = temFoco ? BUSCA.foco : 'kA';
+    var fundo = FUNDOS[BUSCA.k] || 'bg-tv.jpg';
+    var itens = [
+      { type: 'space', layout: '0,0,12,6', offset: '-1,-1,2,2', image: IMG + fundo, imageFiller: 'cover', enable: false },
+      { type: 'space', layout: '0,0,6,1', headline: BUSCA.q ? '{col:msx-white}' + BUSCA.q.toUpperCase() + '{col:msx-yellow}_' : '{col:msx-white-soft}Pesquisar{col:msx-yellow}_', text: '{col:msx-white-soft}Pesquisar em ' + (NOMES_SECAO[BUSCA.k] || 'tudo') }
+    ];
+    for (i = 0; i < teclas.length; i++) {
+      var tk = teclas[i]; if (!tk) { continue; }
+      itens.push({ id: tk.id, type: 'default', layout: (i % 6) + ',' + (1 + Math.floor(i / 6)) + ',1,1', color: VID_N, title: tk.title, titleFooter: tk.footer, alignment: 'center', centration: 'title', action: acaoBusca(tk.cmd), focus: tk.id === foco ? true : undefined });
+    }
+    var cat = catalogos[chaveCat()], q = BUSCA.q.replace(/^\s+|\s+$/g, ''), aviso = '', achados = [];
+    if (!q) { aviso = 'Digite com o teclado ao lado; os resultados aparecem aqui.'; }
+    else if (!cat || cat.carregando) { aviso = 'Carregando a lista… (só na primeira vez, pode levar alguns segundos)'; }
+    else if (cat.erro) { aviso = 'Não foi possível carregar a lista. Saia e entre de novo na pesquisa.'; }
+    else { achados = filtrar(cat.itens, q); if (!achados.length) { aviso = 'Nada encontrado com esse nome.'; } }
+    if (achados.length) { itens.push({ type: 'space', layout: '6,0,6,1', alignment: 'right', text: '{col:msx-white-soft}' + achados.length + ' resultado' + (achados.length > 1 ? 's' : '') }); }
+    if (aviso) { itens.push({ type: 'space', layout: '6,1,6,2', offset: '0.3,0,-0.3,0', text: '{col:msx-white-soft}' + aviso }); }
+    var vagas = 10, mostrar = achados.length > vagas ? achados.slice(0, vagas - 1) : achados;
+    for (i = 0; i < mostrar.length; i++) {
+      var it = itemResultado(mostrar[i], cat && cat.live);
+      it.type = 'default'; it.layout = (6 + (i % 2) * 3) + ',' + (1 + Math.floor(i / 2)) + ',3,1';
+      itens.push(it);
+    }
+    if (achados.length > vagas) { itens.push({ type: 'default', layout: '9,5,3,1', color: VID_OURO, title: 'Ver todos (' + achados.length + ')', titleFooter: 'Lista completa', alignment: 'center', action: 'content:request:interaction:busca/todos@' + PLUGIN }); }
+    return { type: 'pages', flag: 'busca', transparent: 2, ready: { action: 'quiet' }, background: IMG + fundo, pages: [{ items: itens }] };
+  }
+  function telaTodos() {
+    var cat = catalogos[chaveCat()], q = BUSCA.q.replace(/^\s+|\s+$/g, '');
+    var achados = cat && cat.itens ? filtrar(cat.itens, q).slice(0, 300) : [];
+    var lst = [{ title: '‹   PESQUISA', titleFooter: 'Voltar ao teclado', color: 'rgba(6,7,14,0.88)', action: 'back' }];
+    for (var i = 0; i < achados.length; i++) { lst.push(itemResultado(achados[i], cat.live)); }
+    var fundo = FUNDOS[BUSCA.k] || 'bg-tv.jpg';
+    return { type: 'list', headline: 'Pesquisa: ' + q.toUpperCase(), extension: achados.length + ' resultados', transparent: 2, background: IMG + fundo,
+      underlay: { items: [{ type: 'space', layout: '0,0,12,6', offset: '-1,-1,2,2', image: IMG + fundo, imageFiller: 'cover', enable: false }] },
+      template: { type: 'default', layout: '0,0,4,1', color: 'rgba(14,16,36,0.55)' }, items: lst };
+  }
+  function tratarBusca(cmd, callback) {
+    var p = cmd.split('/');
+    if (p[0] === 'abrir') { BUSCA.k = p[1] === '-' ? '' : p[1]; BUSCA.t = p.slice(2).join('/'); BUSCA.q = ''; BUSCA.modo = ''; BUSCA.foco = 'kA'; }
+    else if (p[0] === 't' && p[1]) { if (BUSCA.q.length < 30) { BUSCA.q += p[1].toLowerCase(); } BUSCA.foco = 'k' + p[1]; }
+    else if (p[0] === 'esp') { if (BUSCA.q && BUSCA.q.charAt(BUSCA.q.length - 1) !== ' ') { BUSCA.q += ' '; } BUSCA.foco = 'kesp'; }
+    else if (p[0] === 'apg') { BUSCA.q = BUSCA.q.slice(0, -1); BUSCA.foco = 'kapg'; }
+    else if (p[0] === 'limpar') { BUSCA.q = ''; BUSCA.foco = 'klimpar'; }
+    else if (p[0] === 'modo') { BUSCA.modo = BUSCA.modo === 'n' ? '' : 'n'; BUSCA.foco = 'kmodo'; }
+    else if (p[0] === 'todos') { callback(telaTodos()); return; }
+    if (!BUSCA.t) { callback(falha('Abra a pesquisa pela tela inicial')); return; }
+    BUSCA.aberta = true;
+    carregarCatalogo();
+    callback(telaBusca());
+  }
+
   function paraEspera() { if (espera) { clearInterval(espera); espera = null; } }
 
   // Enquanto a tela de login estiver aberta, pergunta ao servidor se o celular já fez o login.
@@ -122,15 +249,18 @@
     this.handleEvent = function () { };
     this.handleData = function () { };
     this.handleRequest = function (dataId, data, callback) {
+      // pesquisa: tudo resolvido aqui na TV
+      if (dataId && String(dataId).indexOf('busca/') === 0) { tratarBusca(String(dataId).slice(6), callback); return; }
+      if (dataId && String(dataId).indexOf('busca/') !== 0) { BUSCA.aberta = false; }
       // qualquer outro id é uma tela do app (texto da consulta): passa pelo relay
       if (dataId !== 'init' && dataId !== 'sair') {
         if (!dataId) { callback(null); return; }
         var qs = String(dataId); if (qs.indexOf('rl=1') < 0) { qs += '&rl=1'; }
         // telas só de leitura ficam guardadas 3 min: voltar para uma lista já vista abre na hora
         // telas que mostram o progresso (Continuar assistindo, detalhes, início) sempre vêm frescas
-        var cacheavel = !/(^|&)a=(fav|login|sair|inicio|ver|in|form|home|continuar|filme)(&|$)/.test(qs) && !(/(^|&)a=serie(&|$)/.test(qs) && !/(^|&)n=/.test(qs));
+        var cacheavel = !/(^|&)a=(fav|login|sair|inicio|ver|in|form|home|continuar|filme|cats|pcats|perfil|perfis|perfisger|perfiledit|perfilcor|perfilinf|perfildel|perfildelok|guia)(&|$)/.test(qs) && !(/(^|&)a=serie(&|$)/.test(qs) && !/(^|&)n=/.test(qs));
         // Atualizar (tela inicial com x=) ou favoritar: telas guardadas ficaram velhas
-        if (/(^|&)a=fav(&|$)/.test(qs) || (/(^|&)a=inicio(&|$)/.test(qs) && /(^|&)x=/.test(qs))) { telas = {}; }
+        if (/(^|&)a=(fav|perfil|perfildelok)(&|$)/.test(qs) || (/(^|&)a=inicio(&|$)/.test(qs) && /(^|&)x=/.test(qs))) { telas = {}; }
         var c = cacheavel ? telas[qs] : null;
         if (c && new Date().getTime() - c.t < 180000) { callback(c.v); return; }
         pedirRelay(qs, null, 0, function (tela) {

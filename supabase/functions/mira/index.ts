@@ -151,16 +151,18 @@ async function chave() {
   return _chave;
 }
 // r = sessão que precisa do relay pela TV; pv = login ainda não conferido (a TV confere na primeira tela)
-async function criarToken(u: string, p: string, v?: number, pv = false) {
+async function criarToken(u: string, p: string, v?: number, pv = false, pf = "", manterRelay = false) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const r = (RC()?.rel.size ?? 0) > 0 ? 1 : 0;
-  const dados = new TextEncoder().encode(JSON.stringify({ u, p, v, e: Date.now() + VALIDADE_MS, ...(r ? { r } : {}), ...(pv ? { pv: 1 } : {}) }));
+  const r = manterRelay || (RC()?.rel.size ?? 0) > 0 ? 1 : 0;
+  const dados = new TextEncoder().encode(JSON.stringify({ u, p, v, e: Date.now() + VALIDADE_MS, ...(r ? { r } : {}), ...(pv ? { pv: 1 } : {}), ...(pf ? { pf } : {}) }));
   const c = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await chave(), dados));
   const t = new Uint8Array(iv.length + c.length);
   t.set(iv); t.set(c, iv.length);
   return b64(t);
 }
-type Cred = { u: string; p: string; b?: string; bloq?: boolean; v?: number; r?: boolean; pv?: boolean };
+type Cred = { u: string; p: string; b?: string; bloq?: boolean; v?: number; r?: boolean; pv?: boolean; pf?: string };
+// dono dos favoritos/histórico: o perfil principal usa o próprio usuário; os outros, "usuário#perfil"
+const quem = (c: { u: string; pf?: string }) => (c.pf && c.pf !== "p0" ? `${c.u}#${c.pf}` : c.u);
 async function lerToken(t: string | null): Promise<Cred | null> {
   if (!t) return null;
   try {
@@ -170,7 +172,7 @@ async function lerToken(t: string | null): Promise<Cred | null> {
     if (!(o.e > Date.now())) return null;
     const x = await infoUsuario(o.u);
     const cx = RC(); if (cx && o.r) cx.relay = true;
-    return { u: o.u, p: o.p, v: o.v, b: x.b, bloq: x.bloq, r: !!o.r, pv: !!o.pv };
+    return { u: o.u, p: o.p, v: o.v, b: x.b, bloq: x.bloq, r: !!o.r, pv: !!o.pv, pf: typeof o.pf === "string" ? o.pf : "" };
   } catch {
     return null;
   }
@@ -536,7 +538,10 @@ const tocar = (tipo: string, cred: { u: string; p: string }, id: string | number
 };
 
 // "Continuar de onde parou" (filmes e episódios): o próprio MSX guarda a posição na TV, por usuário
-const retomar = (tipo: string, id: string | number, u: string) => ({ "resume:key": `gp:${tipo}:${id}`, "resume:context": `gp:${u}` });
+const retomar = (tipo: string, id: string | number, dono: string) => {
+  const pf = dono.includes("#") ? dono.split("#")[1] + ":" : ""; // cada perfil tem a sua posição
+  return { "resume:key": `gp:${pf}${tipo}:${id}`, "resume:context": `gp:${dono}` };
+};
 
 function inputAction(servico: string, titulo: string, dica: string) {
   // {INPUT} fica sem codificar: o plugin do MSX o substitui pelo que foi digitado
@@ -758,6 +763,8 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
       "button:speed:key": "yellow",
       "button:forward:icon": "apps",
       "button:forward:action": pn({ a: "pcats", t, s: x.stream_id }),
+      "button:restart:icon": "event-note",
+      "button:restart:action": pn({ a: "guia", t, s: x.stream_id, n: nome, c, cn }),
     },
   };
 }
@@ -779,7 +786,7 @@ async function tratar(url: URL) {
     try { extra = JSON.parse(url.searchParams.get("x") ?? "{}"); } catch { /* sem extra */ }
     const num = (k: string) => Math.max(0, Math.min(1e6, parseInt(url.searchParams.get(k) ?? "0", 10) || 0));
     const live = tp === "live";
-    await gravarVisto(cr.u, tp, s.slice(0, 40), limparNome(url.searchParams.get("n") ?? "").slice(0, 120), (url.searchParams.get("i") ?? "").slice(0, 400), extra, live ? 0 : num("pos"), live ? 0 : num("dur"));
+    await gravarVisto(quem(cr), tp, s.slice(0, 40), limparNome(url.searchParams.get("n") ?? "").slice(0, 120), (url.searchParams.get("i") ?? "").slice(0, 400), extra, live ? 0 : num("pos"), live ? 0 : num("dur"));
     return { ok: true };
   }
 
@@ -795,7 +802,7 @@ async function tratar(url: URL) {
       if (tk0 && cr0 && cr0.v === ver && cr0.u === tv.usuario) {
         if (cr0.bloq) return telaCelular(await codigoDoAparelho(d), d, "Acesso bloqueado. Fale com o suporte.", tv);
         await registrarAcesso(cr0.u, d, "sessao");
-        return await home(tk0!, cr0.u, d);
+        return await home(tk0!, cr0.u, d, !url.searchParams.get("x"));
       }
       const senha = await senhaDaTv(tv.senha_enc);
       const x = await infoUsuario(tv.usuario);
@@ -811,7 +818,7 @@ async function tratar(url: URL) {
       await fixarDnsDoUsuario(tv.usuario, tv.dns_id);
       const tk = await criarToken(tv.usuario, senha!, ver);
       await salvarSessao(d, tk);
-      return await home(tk, `${tv.usuario} · vence ${exp}`, d);
+      return await home(tk, `${tv.usuario} · vence ${exp}`, d, true);
     }
     const tk = await lerSessao(d);
     const cr = await lerToken(tk);
@@ -824,7 +831,7 @@ async function tratar(url: URL) {
         tkx = rv.t;
       }
       await registrarAcesso(cr.u, d, "sessao");
-      return await home(tkx, cr.u, d);
+      return await home(tkx, cr.u, d, !url.searchParams.get("x"));
     }
     if (d && url.searchParams.get("r")) await fetch(`${REST_COD()}?aparelho=eq.${encodeURIComponent(d)}`, { method: "DELETE", headers: cab() }).catch(() => {});
     return telaCelular(await codigoDoAparelho(d), d);
@@ -879,7 +886,7 @@ async function tratar(url: URL) {
     if (au.dnsId) await fixarDnsDoUsuario(u, au.dnsId);
     const tk = await criarToken(u, p);
     await salvarSessao(d, tk);
-    return await home(tk, `${u} · vence ${exp}`, d);
+    return await home(tk, `${u} · vence ${exp}`, d, true);
   }
 
   let cred = await lerToken(url.searchParams.get("t"));
@@ -894,8 +901,92 @@ async function tratar(url: URL) {
   const c = url.searchParams.get("c") ?? "";
 
   if (a === "home") return await home(t, cred.u, d ?? (await aparelhoDoToken(t)));
+
+  // ---- perfis ----
+  if (a === "perfis") return await telaPerfis(cred, t, d);
+  if (a === "perfisger") return await telaGerenciar(cred, t, d);
+  if (a === "perfiledit") return await telaPerfilEdit(cred, t, d, url.searchParams.get("id") ?? "");
+  if (a === "perfil") {
+    const pf = url.searchParams.get("pf") ?? "p0";
+    if (!(await listaPerfis(cred.u)).some((x) => x.id === pf)) return await telaPerfis(cred, t, d);
+    const novo = await criarToken(cred.u, cred.p, cred.v, false, pf, !!cred.r);
+    const dev = d ?? (await aparelhoDoToken(t));
+    if (dev) await salvarSessao(dev, novo);
+    return await home(novo, cred.u, dev, false);
+  }
+  if (a === "perfilnovo") { // resposta para o teclado do MSX: uma ação
+    const nome = limparNome(url.searchParams.get("v") ?? "").slice(0, 20);
+    if (!nome) return { action: "warn:Digite um nome" };
+    const atuais = await perfisDe(cred.u);
+    if (atuais.length >= 5) return { action: "warn:Limite de 5 perfis" };
+    if (!atuais.length) await gravarPerfil(cred.u, { id: "p0", nome: "Principal", cor: 0, infantil: false });
+    const id = "p" + Array.from(crypto.getRandomValues(new Uint8Array(4)), (x) => x.toString(16).padStart(2, "0")).join("");
+    await gravarPerfil(cred.u, { id, nome, cor: (atuais.length || 1) % CORES_PERFIL.length, infantil: false });
+    return { action: go(d ? { a: "perfis", t, d } : { a: "perfis", t }) };
+  }
+  if (a === "perfilnome" || a === "perfilcor" || a === "perfilinf") {
+    const id = url.searchParams.get("id") ?? "";
+    const p = (await listaPerfis(cred.u)).find((x) => x.id === id);
+    if (!p) return aviso("Perfil", "Perfil não encontrado.");
+    if (a === "perfilnome") {
+      const nome = limparNome(url.searchParams.get("v") ?? "").slice(0, 20);
+      if (!nome) return { action: "warn:Digite um nome" };
+      await gravarPerfil(cred.u, { ...p, nome });
+      return { action: "[info:Nome alterado|reload:content]" };
+    }
+    if (a === "perfilcor") await gravarPerfil(cred.u, { ...p, cor: (p.cor + 1) % CORES_PERFIL.length });
+    if (a === "perfilinf") await gravarPerfil(cred.u, { ...p, infantil: true });
+    return await telaPerfilEdit(cred, t, d, id);
+  }
+  if (a === "perfildel") {
+    const id = url.searchParams.get("id") ?? "";
+    const p = (await listaPerfis(cred.u)).find((x) => x.id === id);
+    if (!p || id === "p0") return aviso("Perfil", "Este perfil não pode ser excluído.");
+    return lista(`Excluir ${p.nome}?`, [
+      { title: "{ico:delete}  Sim, excluir", titleFooter: "Os favoritos e o histórico dele também somem", color: VID.voltar, action: go(d ? { a: "perfildelok", t, id, d } : { a: "perfildelok", t, id }) },
+      { title: "Cancelar", color: VID.n, action: "back", focus: true },
+    ], "0,0,6,1");
+  }
+  if (a === "perfildelok") {
+    const id = url.searchParams.get("id") ?? "";
+    if (id && id !== "p0") await apagarPerfil(cred.u, id);
+    return await telaGerenciar(cred, t, d);
+  }
+
+  // ---- senha do controle parental (resposta para o teclado do MSX: uma ação) ----
+  if (a === "pin") {
+    const cfg = await contaCfg(cred.u);
+    const v = (url.searchParams.get("v") ?? "").trim();
+    const op = url.searchParams.get("op") ?? "";
+    if (op === "senha2") { // nova senha (a atual já foi conferida no passo anterior)
+      if (url.searchParams.get("ok") !== (await chaveAdulto(t, "senha", cfg.pin))) return { action: "warn:Comece de novo pela senha atual" };
+      if (!/^\d{4}$/.test(v)) return { action: "warn:A senha precisa ter 4 números" };
+      await salvarConta(cred.u, { pin: v });
+      return { action: "info:Senha alterada" };
+    }
+    if (v !== cfg.pin) return { action: "warn:Senha incorreta" };
+    const base = (o: Record<string, string>) => (d ? { ...o, d } : o);
+    if (op === "senha1") return { action: inputAction(`${SELF()}?${q(base({ a: "pin", t, op: "senha2", ok: await chaveAdulto(t, "senha", cfg.pin) }))}&v={INPUT}`, "Nova senha", "Digite 4 números") };
+    if (op === "parental") { await salvarConta(cred.u, { parental: !cfg.parental }); return { action: `[info:Controle parental ${cfg.parental ? "desligado" : "ligado"}|reload:content]` }; }
+    if (op === "infantil") {
+      const p = (await listaPerfis(cred.u)).find((x) => x.id === url.searchParams.get("id"));
+      if (p) await gravarPerfil(cred.u, { ...p, infantil: false });
+      return { action: "[info:Perfil fora do modo infantil|reload:content]" };
+    }
+    const cc = url.searchParams.get("c") ?? "", cn = url.searchParams.get("cn") ?? "";
+    const pk = await chaveAdulto(t, cc, cfg.pin);
+    if (url.searchParams.get("dest") === "painel") return { action: pn({ a: "painel", t, c: cc, cn, s: url.searchParams.get("s") ?? "", pk }) };
+    return { action: go({ a: "itens", k: url.searchParams.get("k") ?? "live", t, c: cc, cn, pk }) };
+  }
+
+  // ---- guia de programação do canal (painel do player) ----
+  if (a === "guia") {
+    const s = url.searchParams.get("s") ?? "", cc = url.searchParams.get("c") ?? "", cn = url.searchParams.get("cn") ?? "";
+    return await telaGuia(cred, t, s, limparNome(url.searchParams.get("n") ?? "Canal"), pn({ a: "painel", t, c: cc, cn, s }));
+  }
   if (a === "jogos") return await telaJogos(t);
   if (a === "jogo") return await telaJogo(cred, t, url.searchParams.get("n1") ?? "", url.searchParams.get("n2") ?? "");
+  if (a === "buscadados") { const kk = url.searchParams.get("k") ?? ""; return await buscaDados(cred, t, kk, await filtroAdulto(cred, kk)); }
   if (a === "busca") return await telaBusca(cred, t, url.searchParams.get("k") ?? "", (url.searchParams.get("q") ?? "").slice(0, 30), url.searchParams.get("f") ?? "", url.searchParams.get("m") ?? "");
   if (a === "buscatodos") {
     const k = url.searchParams.get("k") ?? "", texto = (url.searchParams.get("q") ?? "").slice(0, 30);
@@ -914,13 +1005,13 @@ async function tratar(url: URL) {
 
   if (a === "cats") {
     if (!T) return aviso("Gold Play", "Seção desconhecida");
-    const cats = await api(cred, `&action=${T.cats}`);
-    const lst = Array.isArray(cats) ? cats : [];
+    const [cats, regra] = await Promise.all([api(cred, `&action=${T.cats}`), regraAdulto(cred)]);
+    const lst = ((Array.isArray(cats) ? cats : []) as any[]).filter((x) => !(regra.infantil && ehAdulto(String(x.category_name))));
     // visual transparente (o vídeo/fundo aparece por trás), como o usuário preferiu
     const linha = (nome: string, ic: string, cid: string, sub: string) => ({ title: nome, titleFooter: sub, color: VID.n, action: go({ a: "itens", k: tipoQ, t, c: cid, cn: cid ? nome : "" }) });
     const itens: any[] = [
       { ...linha("Todos", "apps", "", `Todo o catálogo de ${T.nome.toLowerCase()}`), focus: true },
-      { title: "{ico:search}  PESQUISAR", titleFooter: `Procurar em ${T.nome}`, color: VID.ouro, action: go({ a: "busca", t, k: tipoQ, q: "", f: "kA" }) },
+      { title: "{ico:search}  PESQUISAR", titleFooter: `Procurar em ${T.nome}`, color: VID.ouro, action: abrirBusca(t, tipoQ) },
       ...(tipoQ === "live" ? [
         { ...linha("FAVORITOS", "star", "fav", "Seus canais favoritos"), title: CORACAO + "FAVORITOS" },
         { ...linha("Últimos vistos", "history", "ult", "Os canais que você assistiu por último"), title: "{ico:history}  ÚLTIMOS VISTOS" },
@@ -929,25 +1020,36 @@ async function tratar(url: URL) {
         { title: "{ico:fiber-new}  ADICIONADOS RECENTEMENTE", titleFooter: "Os últimos que chegaram", color: VID.n, action: go({ a: "itens", k: tipoQ, t, c: "", cn: "Recentes", o: "rec" }) },
         { title: "{ico:star}  MAIS BEM AVALIADOS", titleFooter: "Pela nota", color: VID.n, action: go({ a: "itens", k: tipoQ, t, c: "", cn: "Mais bem avaliados", o: "nota" }) },
       ]),
-      ...lst.map((x: any) => { const nome = limparNome(String(x.category_name)); return linha(nome, iconeDoNome(nome, "play"), x.category_id, T.nome); }),
+      ...lst.map((x: any) => {
+        const nome = limparNome(String(x.category_name));
+        if (regra.protege && ehAdulto(nome)) return { title: `{ico:lock}  ${nome}`, titleFooter: "Protegido por senha", color: VID.n, action: pedirSenha({ t, dest: "itens", k: tipoQ, c: String(x.category_id), cn: nome }) };
+        return linha(nome, iconeDoNome(nome, "play"), x.category_id, T.nome);
+      }),
     ];
     return lista(T.nome, itens, "0,0,6,1", {}, `${lst.length} categorias`, tipoQ);
   }
 
   if (a === "itens") {
     if (!T) return aviso("Gold Play", "Seção desconhecida");
-    const dados = c === "fav" && tipoQ === "live" ? await favoritosDe(cred.u)
-      : c === "ult" && tipoQ === "live" ? await ultimosCanais(cred.u)
+    const regra = await regraAdulto(cred);
+    if (regra.protege && c && c !== "fav" && c !== "ult" && (await catsAdultas(cred, tipoQ)).has(c)) {
+      if (regra.infantil || url.searchParams.get("pk") !== (await chaveAdulto(t, c, regra.pin))) return aviso("Protegido", "Esta categoria pede a senha do controle parental.");
+    }
+    const dados = c === "fav" && tipoQ === "live" ? await favoritosDe(quem(cred))
+      : c === "ult" && tipoQ === "live" ? await ultimosCanais(quem(cred))
       : await api(cred, `&action=${T.itens}${c && c !== "fav" && c !== "ult" ? "&category_id=" + encodeURIComponent(c) : ""}`);
     const o = tipoQ === "live" ? "" : (url.searchParams.get("o") ?? "");
-    const todos = ordenar(Array.isArray(dados) ? dados : [], o in ORDENS ? o : "");
+    const semAdulto = !c && regra.protege ? await filtroAdulto(cred, tipoQ) : null;
+    const brutos = (Array.isArray(dados) ? dados : []) as any[];
+    const todos = ordenar(semAdulto ? brutos.filter((x) => !semAdulto(String(x.category_id), tipoQ)) : brutos, o in ORDENS ? o : "");
     const cnQ = url.searchParams.get("cn") ?? "";
-    const prox = (n: number) => go({ a: "itens", k: tipoQ, t, c, cn: cnQ, pg: n, ...(o ? { o } : {}) });
+    const pkQ = url.searchParams.get("pk") ?? "";
+    const prox = (n: number) => go({ a: "itens", k: tipoQ, t, c, cn: cnQ, pg: n, ...(o ? { o } : {}), ...(pkQ ? { pk: pkQ } : {}) });
     const po = PROX_ORDEM[o] ?? "";
     const botaoOrdem = { title: `{ico:sort}  Ordem: ${ORDENS[o] ?? "Padrão"}`, titleFooter: `Trocar para ${ORDENS[po]}`, color: VID.voltar, action: go({ a: "itens", k: tipoQ, t, c, cn: cnQ, ...(po ? { o: po } : {}) }) };
     if (tipoQ === "live") {
       const ep = await epgVarios(cred, todos.slice(pg * POR_PAGINA, (pg + 1) * POR_PAGINA).map((x: any) => String(x.stream_id)));
-      const favs = new Set((await favoritosDe(cred.u)).map((f) => f.stream_id));
+      const favs = new Set((await favoritosDe(quem(cred))).map((f) => f.stream_id));
       return paginar("Canais", todos, pg, (x) => canalItem(x, cred, t, c, false, "", url.searchParams.get("cn") ?? "", 0, ep.get(String(x.stream_id)), favs), prox, "0,0,4,1", tipoQ);
     }
     const voltar = { title: "‹   CATEGORIAS", titleFooter: "Voltar às categorias" };
@@ -959,7 +1061,7 @@ async function tratar(url: URL) {
 
   if (a === "continuar") {
     const k = url.searchParams.get("k") ?? "";
-    const hs = (await historicoDe(cred.u, k === "series" ? ["ep"] : k === "vod" ? ["filme"] : ["filme", "ep"], 60)).filter(emAndamento).slice(0, 40);
+    const hs = (await historicoDe(quem(cred), k === "series" ? ["ep"] : k === "vod" ? ["filme"] : ["filme", "ep"], 60)).filter(emAndamento).slice(0, 40);
     if (!hs.length) return aviso("Continuar assistindo", "Nada por aqui ainda. Comece um filme ou episódio e ele aparece nesta lista.");
     return lista("Continuar assistindo", hs.map((h) => itemContinuar(h, cred, t)), "0,0,2,3", {}, `${hs.length}`, k === "series" ? "series" : "vod");
   }
@@ -970,11 +1072,16 @@ async function tratar(url: URL) {
     let avisoFav = "";
     let agoraFav = false;
     if (a === "fav") {
-      agoraFav = await alternarFavorito(cred.u, s, url.searchParams.get("n") ?? "Canal", url.searchParams.get("i") ?? "");
+      agoraFav = await alternarFavorito(quem(cred), s, url.searchParams.get("n") ?? "Canal", url.searchParams.get("i") ?? "");
       avisoFav = agoraFav ? "adicionado aos favoritos" : "removido dos favoritos";
     }
-    const dados = c === "fav" ? await favoritosDe(cred.u) : c === "ult" ? await ultimosCanais(cred.u) : await api(cred, `&action=get_live_streams${c ? "&category_id=" + encodeURIComponent(c) : ""}`);
-    const todos = (Array.isArray(dados) ? dados : []).slice(0, 400);
+    const regra = await regraAdulto(cred);
+    if (regra.protege && c && c !== "fav" && c !== "ult" && (await catsAdultas(cred, "live")).has(c)) {
+      if (regra.infantil || url.searchParams.get("pk") !== (await chaveAdulto(t, c, regra.pin))) return { type: "list", headline: "Protegido", items: [{ title: "Esta categoria pede a senha do controle parental", action: "back" }] };
+    }
+    const dados = c === "fav" ? await favoritosDe(quem(cred)) : c === "ult" ? await ultimosCanais(quem(cred)) : await api(cred, `&action=get_live_streams${c ? "&category_id=" + encodeURIComponent(c) : ""}`);
+    const semAdulto = !c && regra.protege ? await filtroAdulto(cred, "live") : null;
+    const todos = ((Array.isArray(dados) ? dados : []) as any[]).filter((x) => !semAdulto || !semAdulto(String(x.category_id), "live")).slice(0, 400);
     const idx = todos.findIndex((x: any) => String(x.stream_id) === s);
     const perto = idx >= 0 ? todos.slice(Math.max(0, idx - 4), idx + 20) : todos.slice(0, 24);
     const ids = [s, ...perto.map((x: any) => String(x.stream_id)).filter((i: string) => i !== s)];
@@ -984,7 +1091,7 @@ async function tratar(url: URL) {
       color: VID.voltar,
       action: pn({ a: "pcats", t, s }),
     };
-    const favs = new Set((await favoritosDe(cred.u)).map((f) => f.stream_id));
+    const favs = new Set((await favoritosDe(quem(cred))).map((f) => f.stream_id));
     const nParam = url.searchParams.get("n") ?? "", iParam = url.searchParams.get("i") ?? "";
     const atualCanal: any = todos.find((x: any) => String(x.stream_id) === s) ?? (a === "fav" && nParam ? { name: nParam, stream_id: s, stream_icon: iParam } : undefined);
     const alternar = atualCanal ? pn({ a: "fav", t, c, cn, s, n: limparNome(String(atualCanal.name)), i: String(atualCanal.stream_icon ?? "") }) : "none";
@@ -999,8 +1106,9 @@ async function tratar(url: URL) {
     // por isso a primeira linha tem os três botões lado a lado, cada um com a sua tecla.
     const ehFavAtual = favs.has(s);
     const botoes = [
-      { ...navegar, layout: "0,0,3,1", title: "{col:msx-red}●{col:msx-white}  Categorias", truncation: "titleFooter", focus: !atualCanal ? true : undefined },
-      { layout: "0,0,3,1", title: `{col:msx-green}●{col:msx-white}  ${ehFavAtual ? "Desfavoritar" : "Favoritar"}`, titleFooter: atualCanal ? "Canal que está tocando" : "Nenhum canal tocando", key: "green", color: VID.voltar, action: alternar },
+      { ...navegar, layout: "0,0,2,1", title: "{col:msx-red}●{col:msx-white}  Categorias", truncation: "titleFooter", focus: !atualCanal ? true : undefined },
+      { layout: "0,0,2,1", title: "{ico:event-note}  Guia", titleFooter: "Programação", color: VID.voltar, action: atualCanal ? pn({ a: "guia", t, s, n: limparNome(String(atualCanal.name)), c, cn }) : "none" },
+      { layout: "0,0,2,1", truncation: "title", title: `{col:msx-green}●{col:msx-white}  ${ehFavAtual ? "Desfavoritar" : "Favoritar"}`, titleFooter: atualCanal ? "Canal que está tocando" : "Nenhum canal tocando", key: "green", color: VID.voltar, action: alternar },
       { layout: "0,0,2,1", title: "{col:msx-yellow}●{col:msx-white}  Início", titleFooter: "Parar e voltar", key: "yellow", color: VID.voltar, action: `[player:eject|${go({ a: "home", t })}]` },
     ];
     return {
@@ -1014,8 +1122,8 @@ async function tratar(url: URL) {
   // categorias de canais dentro do painel do player
   if (a === "pcats") {
     const s = url.searchParams.get("s") ?? "";
-    const cats = await api(cred, "&action=get_live_categories");
-    const lst = Array.isArray(cats) ? cats : [];
+    const [cats, regra] = await Promise.all([api(cred, "&action=get_live_categories"), regraAdulto(cred)]);
+    const lst = ((Array.isArray(cats) ? cats : []) as any[]).filter((x) => !(regra.infantil && ehAdulto(String(x.category_name))));
     const item = (nome: string, cid: string, titulo = nome) => ({
       title: titulo, titleFooter: "TV ao vivo", truncation: "title",
       color: VID.n,
@@ -1024,7 +1132,11 @@ async function tratar(url: URL) {
     return {
       type: "list", transparent: 2, headline: "Categorias", extension: `${lst.length}`,
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [item("Todos os canais", ""), { ...item("FAVORITOS", "fav", CORACAO + "FAVORITOS"), titleFooter: "Seus canais favoritos" }, { ...item("Últimos vistos", "ult", "{ico:history}  ÚLTIMOS VISTOS"), titleFooter: "Os canais que você assistiu por último" }, ...lst.map((x: any) => item(limparNome(String(x.category_name)), String(x.category_id)))],
+      items: [item("Todos os canais", ""), { ...item("FAVORITOS", "fav", CORACAO + "FAVORITOS"), titleFooter: "Seus canais favoritos" }, { ...item("Últimos vistos", "ult", "{ico:history}  ÚLTIMOS VISTOS"), titleFooter: "Os canais que você assistiu por último" }, ...lst.map((x: any) => {
+        const nome = limparNome(String(x.category_name));
+        if (regra.protege && ehAdulto(nome)) return { title: `{ico:lock}  ${nome}`, titleFooter: "Protegido por senha", truncation: "title", color: VID.n, action: pedirSenha({ t, dest: "painel", c: String(x.category_id), cn: nome, s }) };
+        return item(nome, String(x.category_id));
+      })],
     };
   }
 
@@ -1238,10 +1350,14 @@ function resumoSvg(total: number, vivos: number, falhou: boolean) {
 }
 const resumoImg = (total: number, vivos: number, falhou: boolean) => `${SELF()}?${q({ a: "jr", n: total, vv: vivos, x: falhou ? 1 : 0 })}`;
 
-async function home(t: string, quem: string, d: string | null = null) {
-  const [usuario] = quem.split(" · ");
+async function home(t: string, quemTxt: string, d: string | null = null, escolher = false) {
+  const [usuario] = quemTxt.split(" · ");
   const cred = await lerToken(t);
-  const [jogos, vence0, hist] = await Promise.all([jogosDoDia(), venceDe(usuario), cred ? historicoDe(usuario, ["filme", "ep", "live"], 60) : Promise.resolve([] as Hist[])]);
+  const linhas = cred ? await perfisDe(cred.u) : [];
+  // com 2 perfis ou mais, ao abrir o app pergunta quem está assistindo
+  if (cred && escolher && linhas.length >= 2) return await telaPerfis(cred, t, d);
+  const perfil = cred && linhas.length ? linhas.find((x) => x.id === (cred.pf || "p0")) ?? null : null;
+  const [jogos, vence0, hist] = await Promise.all([jogosDoDia(), venceDe(usuario), cred ? historicoDe(quem(cred), ["filme", "ep", "live"], 60) : Promise.resolve([] as Hist[])]);
   // vencimento: perto do fim, confere de novo no provedor (pode já ter renovado)
   let vence = vence0;
   const diasPara = (ms: number) => Math.ceil((ms - Date.now()) / 86400000);
@@ -1272,9 +1388,12 @@ async function home(t: string, quem: string, d: string | null = null) {
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,2,1", image: LOGO, imageFiller: "fit" },
-      { type: "space", layout: "2,0,4,1", headline: `Olá, ${usuario}`, text: subtitulo },
+      // saudação com o perfil: OK abre "Quem está assistindo?" (trocar ou criar perfis)
+      { type: "default", layout: "2,0,4,1", color: "transparent", image: perfil ? avatar(perfil) : undefined, imageWidth: perfil ? 1 : undefined, imageFiller: "fit",
+        title: `Olá, ${perfil?.nome ?? usuario}`, titleFooter: subtitulo.replace("{br}", "  ·  "), truncation: "titleFooter",
+        action: go(d ? { a: "perfis", t, d } : { a: "perfis", t }) },
       // Pesquisar em tudo (canais, filmes e séries)
-      card("6,0,2,1", "btn-pesquisar.png", go({ a: "busca", t, q: "", f: "kA" })),
+      card("6,0,2,1", "btn-pesquisar.png", abrirBusca(t, "")),
       // Atualizar: recarrega a configuração do painel e a tela inicial (limpa os caches do servidor e da TV)
       card("8,0,2,1", "btn-atualizar.png", go(d ? { a: "inicio", d, x: Date.now() } : { a: "inicio", x: Date.now() })),
       card("10,0,2,1", "btn-sair.png", d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" })),
@@ -1314,6 +1433,184 @@ async function ultimosCanais(u: string) {
   return (await historicoDe(u, ["live"], 40)).map((h) => ({ name: h.nome, stream_id: h.item_id, stream_icon: h.icone || undefined, category_id: h.extra?.c ?? "" }));
 }
 
+// ---------- Controle parental (senha da conta, padrão 0000) ----------
+type ContaCfg = { pin: string; parental: boolean };
+const _conta = new Map<string, { t: number; v: ContaCfg }>();
+async function contaCfg(u: string): Promise<ContaCfg> {
+  const c = _conta.get(u);
+  if (c && Date.now() - c.t < 30_000) return c.v;
+  let v: ContaCfg = { pin: "0000", parental: true };
+  try {
+    const r = await fetch(`${SB()}/rest/v1/conta_cfg?usuario=eq.${encodeURIComponent(u)}&select=pin,parental&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+    const j = await r.json();
+    if (Array.isArray(j) && j[0]) v = { pin: String(j[0].pin || "0000"), parental: j[0].parental !== false };
+  } catch { /* padrão: ligado, 0000 */ }
+  _conta.set(u, { t: Date.now(), v });
+  return v;
+}
+async function salvarConta(u: string, campos: Partial<ContaCfg>) {
+  const atual = await contaCfg(u);
+  const novo = { ...atual, ...campos };
+  await fetch(`${SB()}/rest/v1/conta_cfg?on_conflict=usuario`, { method: "POST", headers: { ...sbh(), prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ usuario: u, pin: novo.pin, parental: novo.parental, atualizado: new Date().toISOString() }), signal: AbortSignal.timeout(4000) });
+  _conta.set(u, { t: Date.now(), v: novo });
+}
+const RE_ADULTO = /(^|[^a-z])(adult[oa]?s?|xxx|porn\w*|erotic\w*|sexo|sexy|hentai)([^a-z]|$)|\+ ?18|18 ?\+/;
+const ehAdulto = (nome: string) => RE_ADULTO.test(semAcento(String(nome ?? "")));
+const CATS_ACAO: Record<string, string> = { live: "get_live_categories", vod: "get_vod_categories", series: "get_series_categories" };
+const _catsAdultas = new Map<string, { t: number; v: Set<string> }>();
+async function catsAdultas(cred: Cred, k: string): Promise<Set<string>> {
+  const ch = `${cred.u}|${k}`;
+  const c = _catsAdultas.get(ch);
+  if (c && Date.now() - c.t < 10 * 60_000) return c.v;
+  const lst = await api(cred, `&action=${CATS_ACAO[k]}`);
+  const v = new Set<string>(((Array.isArray(lst) ? lst : []) as any[]).filter((x) => ehAdulto(String(x.category_name))).map((x) => String(x.category_id)));
+  _catsAdultas.set(ch, { t: Date.now(), v });
+  return v;
+}
+// o que fica escondido/protegido para esta sessão: perfil infantil esconde; com o controle ligado, pede a senha
+async function regraAdulto(cred: Cred) {
+  const [cfg, pf] = await Promise.all([contaCfg(cred.u), perfilAtual(cred)]);
+  return { infantil: !!pf?.infantil, protege: cfg.parental || !!pf?.infantil, pin: cfg.pin };
+}
+// filtro para listas "Todos", pesquisa e recentes: tira itens de categorias adultas quando protegido
+async function filtroAdulto(cred: Cred, k: string): Promise<(cat: string, k: string) => boolean> {
+  const r = await regraAdulto(cred);
+  if (!r.protege) return () => false;
+  const tipos = k === "live" || k === "vod" || k === "series" ? [k] : ["live", "vod", "series"];
+  const sets: Record<string, Set<string>> = {};
+  await Promise.all(tipos.map(async (tp) => { sets[tp] = await catsAdultas(cred, tp); }));
+  return (cat: string, kk: string) => !!sets[kk]?.has(String(cat));
+}
+// chave que libera uma categoria adulta (vale para este token, esta categoria e a senha atual)
+async function chaveAdulto(t: string, c: string, pin: string) {
+  const h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`adulto|${t}|${c}|${pin}|${SBK()}`));
+  return b64(new Uint8Array(h)).slice(0, 16);
+}
+const pedirSenha = (destino: Record<string, string | number>, titulo = "Controle parental") =>
+  inputAction(`${SELF()}?${q({ a: "pin", ...destino })}&v={INPUT}`, titulo, "Digite a senha de 4 dígitos");
+
+// ---------- Perfis (estilo Netflix) ----------
+type Perfil = { id: string; nome: string; cor: number; infantil: boolean };
+const CORES_PERFIL = [["#7C5CFF", "#3B82F6"], ["#F43F8E", "#F59E0B"], ["#10B981", "#06B6D4"], ["#F97316", "#EF4444"], ["#8B5CF6", "#EC4899"], ["#0EA5E9", "#22D3EE"]];
+const _perfis = new Map<string, { t: number; v: Perfil[] }>();
+async function perfisDe(u: string): Promise<Perfil[]> {
+  const c = _perfis.get(u);
+  if (c && Date.now() - c.t < 20_000) return c.v;
+  let v: Perfil[] = [];
+  try {
+    const r = await fetch(`${SB()}/rest/v1/perfis?usuario=eq.${encodeURIComponent(u)}&select=id,nome,cor,infantil&order=criado`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+    const j = await r.json();
+    if (Array.isArray(j)) v = j.map((x) => ({ id: String(x.id), nome: String(x.nome), cor: Number(x.cor) || 0, infantil: !!x.infantil }));
+  } catch { /* sem perfis */ }
+  _perfis.set(u, { t: Date.now(), v });
+  return v;
+}
+// sem perfis cadastrados, existe só o "Principal" (p0), dono dos dados antigos
+async function listaPerfis(u: string): Promise<Perfil[]> {
+  const v = await perfisDe(u);
+  return v.length ? v : [{ id: "p0", nome: "Principal", cor: 0, infantil: false }];
+}
+async function perfilAtual(cred: Cred): Promise<Perfil | null> {
+  const v = await listaPerfis(cred.u);
+  return v.find((x) => x.id === (cred.pf || "p0")) ?? v[0] ?? null;
+}
+async function gravarPerfil(u: string, p: Perfil) {
+  await fetch(`${SB()}/rest/v1/perfis?on_conflict=usuario,id`, { method: "POST", headers: { ...sbh(), prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ usuario: u, id: p.id, nome: p.nome, cor: p.cor, infantil: p.infantil }), signal: AbortSignal.timeout(4000) });
+  _perfis.delete(u);
+}
+async function apagarPerfil(u: string, id: string) {
+  const dono = `${u}#${id}`;
+  await Promise.all([
+    fetch(`${SB()}/rest/v1/perfis?usuario=eq.${encodeURIComponent(u)}&id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: sbh(), signal: AbortSignal.timeout(4000) }),
+    fetch(`${REST_FAV()}?usuario=eq.${encodeURIComponent(dono)}`, { method: "DELETE", headers: cab(), signal: AbortSignal.timeout(4000) }),
+    fetch(`${REST_HIST()}?usuario=eq.${encodeURIComponent(dono)}`, { method: "DELETE", headers: cab(), signal: AbortSignal.timeout(4000) }),
+  ]).catch(() => {});
+  _perfis.delete(u);
+}
+const avatar = (p: Perfil) => `${SELF()}?${q({ a: "av", n: p.nome.slice(0, 20), c: p.cor % CORES_PERFIL.length, k: p.infantil ? 1 : 0 })}`;
+function avatarSvg(nome: string, cor: number, infantil: boolean) {
+  const [c1, c2] = CORES_PERFIL[Math.abs(cor) % CORES_PERFIL.length];
+  const letra = xml((limparNome(nome).charAt(0) || "?").toUpperCase());
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs>`
+    + `<rect x="10" y="10" width="380" height="380" rx="70" fill="url(#g)"/><circle cx="330" cy="70" r="120" fill="#fff" fill-opacity=".12"/>`
+    + `<text x="200" y="262" text-anchor="middle" font-size="190" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">${letra}</text>`
+    + (infantil ? `<rect x="110" y="318" width="180" height="50" rx="25" fill="#000" fill-opacity=".35"/><text x="200" y="352" text-anchor="middle" font-size="28" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">INFANTIL</text>` : "")
+    + `</svg>`;
+}
+// "Quem está assistindo?"
+async function telaPerfis(cred: Cred, t: string, d: string | null) {
+  const v = await listaPerfis(cred.u);
+  const n = v.length + (v.length < 5 ? 1 : 0);
+  const x0 = Math.max(0, Math.floor((12 - n * 2) / 2));
+  const base = (o: Record<string, string>) => (d ? { ...o, d } : o);
+  const itens: any[] = [
+    camadaFundo("bg-tv.jpg"),
+    { type: "space", layout: "0,0,12,1", offset: "0,0.4,0,0", alignment: "center", centration: "text", headline: "Quem está assistindo?" },
+    ...v.map((p, i) => ({
+      type: "default", layout: `${x0 + i * 2},2,2,2`, image: avatar(p), imageFiller: "fit", color: "transparent",
+      title: p.nome, alignment: "center", action: go(base({ a: "perfil", t, pf: p.id })), ...(p.id === (cred.pf || "p0") ? { focus: true } : {}),
+    })),
+  ];
+  if (v.length < 5) itens.push({ type: "default", layout: `${x0 + v.length * 2},2,2,2`, color: VID.n, icon: "add", iconSize: "large", title: "Adicionar", alignment: "center",
+    action: inputAction(`${SELF()}?${q(base({ a: "perfilnovo", t }))}&v={INPUT}`, "Novo perfil", "Digite o nome e confirme") });
+  itens.push({ type: "default", layout: "4,5,4,1", color: VID.n, icon: "settings", title: "Gerenciar perfis", titleFooter: "Nomes, infantil e controle parental", action: go(base({ a: "perfisger", t })) });
+  return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-tv.jpg", pages: [{ items: itens }] };
+}
+async function telaGerenciar(cred: Cred, t: string, d: string | null) {
+  const [v, cfg] = await Promise.all([listaPerfis(cred.u), contaCfg(cred.u)]);
+  const base = (o: Record<string, string>) => (d ? { ...o, d } : o);
+  const itens: any[] = v.map((p) => ({
+    title: p.nome, titleFooter: p.infantil ? "Perfil infantil" : "Perfil normal", image: avatar(p), imageWidth: 1, imageFiller: "fit", color: VID.n,
+    action: go(base({ a: "perfiledit", t, id: p.id })),
+  }));
+  itens.push(
+    { title: `{ico:lock}  Controle parental: ${cfg.parental ? "Ligado" : "Desligado"}`, titleFooter: cfg.parental ? "Categorias adultas pedem senha" : "Categorias adultas abrem direto", color: VID.voltar,
+      action: pedirSenha(base({ t, op: "parental" }), cfg.parental ? "Desligar o controle parental" : "Ligar o controle parental") },
+    { title: "{ico:vpn-key}  Trocar a senha", titleFooter: "Senha padrão: 0000", color: VID.voltar, action: pedirSenha(base({ t, op: "senha1" }), "Senha atual") },
+  );
+  return lista("Gerenciar perfis", itens, "0,0,6,1", {}, `${v.length} perfil${v.length > 1 ? "s" : ""}`);
+}
+async function telaPerfilEdit(cred: Cred, t: string, d: string | null, id: string) {
+  const p = (await listaPerfis(cred.u)).find((x) => x.id === id);
+  if (!p) return aviso("Perfil", "Perfil não encontrado.");
+  const base = (o: Record<string, string>) => (d ? { ...o, d } : o);
+  const itens: any[] = [
+    { title: "{ico:edit}  Mudar o nome", titleFooter: p.nome, color: VID.n, action: inputAction(`${SELF()}?${q(base({ a: "perfilnome", t, id }))}&v={INPUT}`, "Nome do perfil", "Digite o novo nome") },
+    { title: "{ico:palette}  Trocar a cor", titleFooter: "Muda a cor do avatar", color: VID.n, action: go(base({ a: "perfilcor", t, id })) },
+    // tirar o perfil do modo infantil pede a senha
+    { title: `{ico:child-care}  Infantil: ${p.infantil ? "Sim" : "Não"}`, titleFooter: p.infantil ? "Esconde categorias adultas" : "Perfil sem restrição extra", color: VID.n,
+      action: p.infantil ? pedirSenha(base({ t, op: "infantil", id }), "Tirar do modo infantil") : go(base({ a: "perfilinf", t, id, v: "1" })) },
+  ];
+  if (id !== "p0") itens.push({ title: "{ico:delete}  Excluir perfil", titleFooter: "Apaga também os favoritos e o histórico dele", color: VID.voltar, action: go(base({ a: "perfildel", t, id })) });
+  return lista(`Perfil: ${p.nome}`, itens, "0,0,6,1");
+}
+
+// ---------- Guia de programação completo de um canal ----------
+async function telaGuia(cred: Cred, t: string, s: string, nome: string, voltar: string) {
+  let progs: { titulo: string; desc: string; ini: number; fim: number }[] = [];
+  try {
+    const j = await api(cred, `&action=get_short_epg&stream_id=${encodeURIComponent(s)}&limit=60`);
+    progs = ((Array.isArray(j?.epg_listings) ? j.epg_listings : []) as any[])
+      .map((x) => ({ titulo: txtMsx(b64txt(x.title)), desc: txtMsx(b64txt(x.description)), ini: Number(x.start_timestamp) * 1000, fim: Number(x.stop_timestamp) * 1000 }))
+      .filter((x) => x.titulo && x.fim > Date.now() - 60_000)
+      .sort((a, b) => a.ini - b.ini);
+  } catch (e) { if (e instanceof RelayNeed) throw e; }
+  const dia = (ms: number) => new Date(ms).toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", timeZone: "America/Fortaleza" });
+  const hoje = dia(Date.now());
+  const itens: any[] = [{ title: "‹   CANAIS", titleFooter: `Voltar para a lista`, color: VID.voltar, action: voltar }];
+  progs.forEach((x) => {
+    const agora = x.ini <= Date.now() && x.fim > Date.now();
+    const d = dia(x.ini);
+    itens.push({
+      title: `${agora ? "{col:msx-yellow}AGORA{col:msx-white}  " : ""}${fmtHora(x.ini)} – ${fmtHora(x.fim)}${d !== hoje ? `  (${d})` : ""}   ${x.titulo}`,
+      titleFooter: x.desc ? (x.desc.length > 110 ? x.desc.slice(0, 107) + "…" : x.desc) : " ", truncation: "title|titleFooter",
+      color: agora ? VID.ouro : VID.n, action: "none", ...(agora ? { focus: true } : {}),
+    });
+  });
+  if (!progs.length) itens.push({ title: "Sem programação disponível para este canal", action: "none" });
+  return { type: "list", transparent: 2, headline: `Guia · ${nome}`, extension: progs.length ? `${progs.length} programas` : "", template: { type: "default", layout: "0,0,8,1", color: COR.vidro }, items: itens };
+}
+
 // ---------- Filmes e séries: cartões, detalhes, episódios e Continuar assistindo ----------
 const cartaoFilme = (x: any, t: string) => {
   const nome = limparNome(String(x.name));
@@ -1347,7 +1644,7 @@ function epAcao(cred: Cred, t: string, serie: string, sn: string, temp: string, 
     action: tocar("series", cred, e.id, e.container_extension || "mp4", "o episódio", { t, tp: "ep", nome: rot, icone: String(e.info?.movie_image || capa || ""), extra: { serie, sn, temp: String(temp), ep: String(e.episode_num) } }),
     playerLabel: rot,
     // na lista da temporada, ao terminar um episódio o MSX passa para o próximo item (o próximo episódio)
-    properties: { "trigger:back": "quiet", ...(emLista ? { "trigger:end": "player:next" } : {}), ...retomar("ep", e.id, cred.u) },
+    properties: { "trigger:back": "quiet", ...(emLista ? { "trigger:end": "player:next" } : {}), ...retomar("ep", e.id, quem(cred)) },
   };
 }
 const youtubeId = (v: unknown) => {
@@ -1364,7 +1661,7 @@ const botao = (layout: string, icone: string, titulo: string, rodape: string, ac
   ({ type: "default", layout, icon: icone, title: titulo, titleFooter: rodape, color: VID.n, action: acao, ...extra });
 
 async function telaFilme(cred: Cred, t: string, s: string) {
-  const [info, hist] = await Promise.all([api(cred, `&action=get_vod_info&vod_id=${encodeURIComponent(s)}`), historicoDe(cred.u, ["filme"], 80)]);
+  const [info, hist] = await Promise.all([api(cred, `&action=get_vod_info&vod_id=${encodeURIComponent(s)}`), historicoDe(quem(cred), ["filme"], 80)]);
   const inf = info?.info ?? {}, md = info?.movie_data ?? {};
   const nome = limparNome(String(inf.name || md.name || "Filme"));
   const capa = imgOk(inf.cover_big) || imgOk(inf.movie_image) || cartao("vod", nome, "Filme", "movie", true);
@@ -1377,7 +1674,7 @@ async function telaFilme(cred: Cred, t: string, s: string) {
   const h = hist.find((x) => x.item_id === String(s));
   const andamento = !!h && emAndamento(h);
   const play = tocar("movie", cred, s, String(md.container_extension || "mp4"), "o filme", { t, tp: "filme", nome, icone: capa });
-  const props = { "trigger:back": "quiet", ...retomar("filme", s, cred.u) };
+  const props = { "trigger:back": "quiet", ...retomar("filme", s, quem(cred)) };
   const yt = youtubeId(inf.youtube_trailer);
   const botoes: any[] = [
     botao("3,4,3,1", "play-arrow", andamento ? "Continuar" : "Assistir", andamento ? `de ${fmtTempo(h!.pos)}` : dur || "Filme", play, { playerLabel: nome, properties: props, color: VID.ouro, focus: true }),
@@ -1399,7 +1696,7 @@ async function telaFilme(cred: Cred, t: string, s: string) {
 }
 
 async function telaSerie(cred: Cred, t: string, s: string) {
-  const [info, hist] = await Promise.all([api(cred, `&action=get_series_info&series_id=${encodeURIComponent(s)}`), historicoDe(cred.u, ["ep"], 80)]);
+  const [info, hist] = await Promise.all([api(cred, `&action=get_series_info&series_id=${encodeURIComponent(s)}`), historicoDe(quem(cred), ["ep"], 80)]);
   const inf = info?.info ?? {};
   const nome = limparNome(String(inf.name || "Série"));
   const capa = imgOk(inf.cover) || cartao("series", nome, "Série", "series", true);
@@ -1465,7 +1762,7 @@ function itemContinuar(h: Hist, cred: Cred, t: string) {
   return {
     title: h.nome, titleFooter: rodape, image: img, imageFiller: "cover", color: COR.vidro, truncation: "title", playerLabel: h.nome,
     action: tocar("movie", cred, h.item_id, ext, "o filme", { t, tp: "filme", nome: h.nome, icone: h.icone }),
-    properties: { "trigger:back": "quiet", ...retomar("filme", h.item_id, cred.u) },
+    properties: { "trigger:back": "quiet", ...retomar("filme", h.item_id, quem(cred)) },
   };
 }
 
@@ -1512,6 +1809,25 @@ async function resultadosBusca(cred: Cred, k: string, texto: string) {
   const listas = await Promise.all(tipos.map((tp) => catalogoBusca(cred, tp)));
   return filtrarBusca(listas.flat(), normBusca(texto));
 }
+// Pesquisa feita na própria TV (msx/mira.html): o servidor manda o catálogo compacto uma vez
+// e o modelo de um canal; o teclado, o texto e o filtro ficam na TV (sem esperar o servidor a cada letra).
+async function buscaDados(cred: Cred, t: string, k: string, escondeAdulto: (cat: string, k: string) => boolean) {
+  const tipos: ItemBusca["k"][] = k === "live" || k === "vod" || k === "series" ? [k] : ["live", "vod", "series"];
+  const listas = await Promise.all(tipos.map((tp) => catalogoBusca(cred, tp)));
+  const itens = listas.flat().filter((x) => !escondeAdulto(x.cat, x.k)).map((x) => [x.k === "live" ? "l" : x.k === "vod" ? "v" : "s", x.id, x.nome, x.icon, x.cat, x.n]);
+  let live: unknown = null;
+  if (tipos.includes("live")) {
+    const m = canalItem({ name: "__NOME__", stream_id: "__ID__", stream_icon: "__ICONE__", category_id: "__CAT__" }, cred, t, "__CAT__", false) as any;
+    const cr = cred as Cred;
+    live = {
+      player: PLAYER,
+      fontes: [urlFluxo("live", cr, "__ID__", "ts"), urlFluxo("live", cr, "__ID__", "m3u8")].join("\n"),
+      registro: `${SELF()}?${q({ a: "visto", t, tp: "live", s: "__ID__", n: "__NOME__", i: "__ICONE__", x: JSON.stringify({ ext: "ts", c: "__CAT__" }) })}`,
+      properties: JSON.stringify(m.properties),
+    };
+  }
+  return { ok: true, itens, live };
+}
 function itemBusca(x: ItemBusca, cred: Cred, t: string) {
   if (x.k === "live") {
     return { ...canalItem({ name: x.nome, stream_id: x.id, stream_icon: x.icon || undefined }, cred, t, x.cat, false), enumerate: false, titleFooter: "TV ao vivo" };
@@ -1521,6 +1837,7 @@ function itemBusca(x: ItemBusca, cred: Cred, t: string) {
   }
   return { title: x.nome, titleFooter: "Série", truncation: "title", color: VID.n, icon: "video-library", iconSize: "small", action: go({ a: "serie", t, s: x.id }) };
 }
+const abrirBusca = (t: string, k: string) => `content:request:interaction:busca/abrir/${k || "-"}/${t}@${PLUGIN}`;
 const NOME_SECAO: Record<string, string> = { live: "TV ao vivo", vod: "Filmes", series: "Séries" };
 // troca a tela de pesquisa por outra (cada letra), sem criar uma entrada nova no "voltar"
 const rp = (o: Record<string, string | number>) => RC()?.cap && RC()?.relay
@@ -1709,6 +2026,10 @@ Deno.serve(async (req: Request) => {
       const g = u0.searchParams;
       const svg = cartaoSvg(g.get("k") ?? "live", g.get("t") ?? "", g.get("s") ?? "", g.get("i") ?? "play", g.get("f") === "p");
       return new Response(svg, { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
+    }
+    if (req.method === "GET" && u0.searchParams.get("a") === "av") {
+      const g = u0.searchParams;
+      return new Response(avatarSvg(g.get("n") ?? "", Number(g.get("c")) || 0, g.get("k") === "1"), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
     }
     if (req.method === "GET" && (u0.searchParams.get("a") === "jg" || u0.searchParams.get("a") === "jr")) {
       const g = u0.searchParams;
