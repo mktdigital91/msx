@@ -1,5 +1,5 @@
--- Perfis por usuário (estilo Netflix) e controle parental da conta (senha padrão 0000)
-create table if not exists public.perfis (
+-- Perfis do app por usuário (perfis_app: "perfis" já é a tabela de acessos do painel) (estilo Netflix) e controle parental da conta (senha padrão 0000)
+create table if not exists public.perfis_app (
   usuario text not null,
   id text not null,
   nome text not null,
@@ -8,7 +8,7 @@ create table if not exists public.perfis (
   criado timestamptz not null default now(),
   primary key (usuario, id)
 );
-alter table public.perfis enable row level security;
+alter table public.perfis_app enable row level security;
 create table if not exists public.conta_cfg (
   usuario text primary key,
   pin text not null default '0000',

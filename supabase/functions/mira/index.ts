@@ -1678,7 +1678,7 @@ async function perfisDe(u: string): Promise<Perfil[]> {
   if (c && Date.now() - c.t < 20_000) return c.v;
   let v: Perfil[] = [];
   try {
-    const r = await fetch(`${SB()}/rest/v1/perfis?usuario=eq.${encodeURIComponent(u)}&select=id,nome,cor,infantil&order=criado`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+    const r = await fetch(`${SB()}/rest/v1/perfis_app?usuario=eq.${encodeURIComponent(u)}&select=id,nome,cor,infantil&order=criado`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
     const j = await r.json();
     if (Array.isArray(j)) v = j.map((x) => ({ id: String(x.id), nome: String(x.nome), cor: Number(x.cor) || 0, infantil: !!x.infantil }));
   } catch { /* sem perfis */ }
@@ -1695,13 +1695,13 @@ async function perfilAtual(cred: Cred): Promise<Perfil | null> {
   return v.find((x) => x.id === (cred.pf || "p0")) ?? v[0] ?? null;
 }
 async function gravarPerfil(u: string, p: Perfil) {
-  await fetch(`${SB()}/rest/v1/perfis?on_conflict=usuario,id`, { method: "POST", headers: { ...sbh(), prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ usuario: u, id: p.id, nome: p.nome, cor: p.cor, infantil: p.infantil }), signal: AbortSignal.timeout(4000) });
+  await fetch(`${SB()}/rest/v1/perfis_app?on_conflict=usuario,id`, { method: "POST", headers: { ...sbh(), prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ usuario: u, id: p.id, nome: p.nome, cor: p.cor, infantil: p.infantil }), signal: AbortSignal.timeout(4000) });
   _perfis.delete(u);
 }
 async function apagarPerfil(u: string, id: string) {
   const dono = `${u}#${id}`;
   await Promise.all([
-    fetch(`${SB()}/rest/v1/perfis?usuario=eq.${encodeURIComponent(u)}&id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: sbh(), signal: AbortSignal.timeout(4000) }),
+    fetch(`${SB()}/rest/v1/perfis_app?usuario=eq.${encodeURIComponent(u)}&id=eq.${encodeURIComponent(id)}`, { method: "DELETE", headers: sbh(), signal: AbortSignal.timeout(4000) }),
     fetch(`${REST_FAV()}?usuario=eq.${encodeURIComponent(dono)}`, { method: "DELETE", headers: cab(), signal: AbortSignal.timeout(4000) }),
     fetch(`${REST_HIST()}?usuario=eq.${encodeURIComponent(dono)}`, { method: "DELETE", headers: cab(), signal: AbortSignal.timeout(4000) }),
   ]).catch(() => {});
@@ -1733,7 +1733,7 @@ async function telaPerfis(cred: Cred, t: string, d: string | null) {
   ];
   if (v.length < 5) itens.push({ type: "default", layout: `${x0 + v.length * 2},2,2,2`, color: VID.n, icon: "add", iconSize: "large", title: "Adicionar", alignment: "center",
     action: inputAction(`${SELF()}?${q(base({ a: "perfilnovo", t }))}&v={INPUT}`, "Novo perfil", "Digite o nome e confirme") });
-  itens.push({ type: "default", layout: "4,5,4,1", color: VID.n, icon: "settings", title: "Gerenciar perfis", titleFooter: "Nomes, infantil e controle parental", action: go(base({ a: "perfisger", t })) });
+  itens.push({ type: "default", layout: "4,5,4,1", color: VID.n, title: "{ico:settings}  Gerenciar perfis", titleFooter: "Nomes, infantil e controle parental", action: go(base({ a: "perfisger", t })) });
   return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-tv.jpg"), pages: [{ items: itens }] };
 }
 async function telaGerenciar(cred: Cred, t: string, d: string | null) {
