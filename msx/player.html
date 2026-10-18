@@ -45,6 +45,18 @@
   fontes.sort(function (a, b) { return (/\.m3u8/.test(b) ? 1 : 0) - (/\.m3u8/.test(a) ? 1 : 0); });
   var tipo = param("m") || "o canal";
   var ehVod = tipo !== "o canal"; // filme ou episódio: tem começo, fim e posição para continuar
+  // registro do que está sendo assistido (Continuar assistindo / Últimos canais): endereço vem codificado em "h"
+  var registro = param("h") ? (decodificar(param("h"))[0] || "") : "";
+  var regUltimo = 0, regLive = false;
+  function registrar(forcar) {
+    if (!registro || falhou) return;
+    var agora = new Date().getTime();
+    if (!forcar && agora - regUltimo < 60000) return;
+    var pos = Math.floor(v.currentTime || 0), dur = isFinite(v.duration) ? Math.floor(v.duration) : 0;
+    if (ehVod && pos < 5) return;
+    regUltimo = agora;
+    try { var x = new XMLHttpRequest(); x.open("GET", registro + "&pos=" + pos + "&dur=" + dur, true); x.timeout = 10000; x.send(); } catch (e) {}
+  }
   var posPendente = -1; // posição pedida antes de o vídeo carregar (continuar de onde parou / reconexão)
   function aplicarPendente() {
     if (posPendente < 0 || v.readyState < 1) return;
@@ -150,7 +162,11 @@
     parado += 2;
     if (parado >= 8) { mostrarCarregando(true); reconectar(); }
   }, 2000);
-  v.addEventListener("playing", function () { clearTimeout(vigia); mostrarCarregando(false); });
+  v.addEventListener("playing", function () {
+    clearTimeout(vigia); mostrarCarregando(false);
+    if (!ehVod && !regLive) { regLive = true; setTimeout(function () { if (!v.paused) registrar(true); }, 8000); } // canal: conta depois de 8 s
+  });
+  setInterval(function () { if (ehVod && !v.paused) registrar(false); }, 15000); // filme/episódio: guarda a posição a cada minuto
   v.addEventListener("canplay", function () { if (!v.paused) mostrarCarregando(false); });
   v.addEventListener("timeupdate", function () { if (!falhou && !v.paused && v.currentTime > 0 && !v.seeking) { clearTimeout(vigia); mostrarCarregando(false); } });
   v.addEventListener("loadedmetadata", aplicarPendente);
@@ -158,7 +174,10 @@
   // canal ao vivo que "termina" caiu: reconecta. Filme/episódio que termina: fica no fim.
   v.addEventListener("ended", function () {
     if (falhou) return;
-    if (!ehVod && fontes.length) reconectar(); // filme/episódio: fica parado no fim (antes recomeçava sozinho)
+    if (!ehVod) { if (fontes.length) reconectar(); return; }
+    // filme/episódio terminou: guarda como visto e avisa o MSX (que então pode tocar o próximo episódio)
+    registrar(true);
+    try { TVXVideoPlugin.setEnded(true, true); } catch (e) {}
   });
   v.addEventListener("waiting", function () { if (!falhou) mostrarCarregando(true); });
   v.addEventListener("error", function () { if (!falhou) tentar(atual + 1); });
@@ -172,8 +191,8 @@
       if (!v.src) { carregarHls(function () { tentar(0); }); return; }
       var p = v.play(); if (p && p["catch"]) p["catch"](function () {});
     };
-    this.pause = function () { pausado = true; try { v.pause(); } catch (e) {} };
-    this.stop = function () { pausado = true; clearTimeout(vigia); soltarHls(); try { v.pause(); v.removeAttribute("src"); v.load(); } catch (e) {} };
+    this.pause = function () { pausado = true; try { v.pause(); } catch (e) {} if (ehVod) registrar(true); };
+    this.stop = function () { if (ehVod) registrar(true); pausado = true; clearTimeout(vigia); soltarHls(); try { v.pause(); v.removeAttribute("src"); v.load(); } catch (e) {} };
     this.getDuration = function () { return isFinite(v.duration) ? v.duration : 0; };
     this.getPosition = function () { return v.currentTime || 0; };
     this.setPosition = function (s) {

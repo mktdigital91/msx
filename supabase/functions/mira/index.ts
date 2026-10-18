@@ -19,6 +19,8 @@ const CORS = {
 const IMG = "https://mktdigital91.github.io/msx/msx/img/";
 let LOGO = IMG + "logo-goldplay.png";
 let FUNDO_CFG = ""; // imagem de fundo escolhida no painel (vazio = fundos padrão)
+let CONTATO = ""; // contato para renovar o plano (painel > Personalizar app)
+let AVISO_DIAS = 5; // quantos dias antes do vencimento o aviso aparece
 const COR = { tv: "rgba(124,92,255,0.40)", vod: "rgba(244,63,142,0.38)", series: "rgba(34,211,238,0.32)", vidro: "rgba(14,16,36,0.55)", destaque: "#7C5CFF" };
 
 const BASE_PROV = `${PROVEDOR.protocolo}://${PROVEDOR.host}`; // reserva, se o painel/banco não responder
@@ -121,7 +123,7 @@ async function carregarConfig() {
   if (Date.now() - _cfgT < 60_000) return;
   _cfgT = Date.now();
   try {
-    const r = await fetch(`${SB()}/rest/v1/config_app?owner_id=is.null&select=logo_url,fundo_url,cor_tv,cor_filmes,cor_series,cor_vidro,cor_destaque&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+    const r = await fetch(`${SB()}/rest/v1/config_app?owner_id=is.null&select=logo_url,fundo_url,cor_tv,cor_filmes,cor_series,cor_vidro,cor_destaque,extra&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
     const j = await r.json(); const c = Array.isArray(j) ? j[0] : null; if (!c) return;
     if (c.logo_url && /^https:\/\//.test(c.logo_url)) LOGO = c.logo_url;
     FUNDO_CFG = c.fundo_url && /^https:\/\//.test(c.fundo_url) ? c.fundo_url : "";
@@ -130,6 +132,8 @@ async function carregarConfig() {
     COR.series = rgba(c.cor_series, 0.32) ?? COR.series;
     COR.vidro = rgba(c.cor_vidro, 0.55) ?? COR.vidro;
     if (/^#[0-9a-f]{6}$/i.test(c.cor_destaque ?? "")) COR.destaque = c.cor_destaque;
+    CONTATO = String(c.extra?.contato ?? "").replace(/[{}]/g, "").trim().slice(0, 60);
+    const dias = Number(c.extra?.aviso_dias); AVISO_DIAS = Number.isFinite(dias) && dias >= 0 && dias <= 60 ? Math.round(dias) : 5;
   } catch { /* mantém o que já estava */ }
 }
 
@@ -333,6 +337,48 @@ async function alternarFavorito(u: string, id: string, nome: string, icone: stri
     return true;
   } catch { return false; }
 }
+// ---------- vencimento do plano (vem do provedor no login; a tela inicial avisa quando está perto) ----------
+async function salvarVence(u: string, info: any) {
+  const exp = Number(info?.user_info?.exp_date);
+  if (!u || !Number.isFinite(exp) || exp <= 0) return;
+  try {
+    await fetch(`${SB()}/rest/v1/usuarios_app?usuario=eq.${encodeURIComponent(u)}`, { method: "PATCH", headers: sbh(), body: JSON.stringify({ vence: new Date(exp * 1000).toISOString() }), signal: AbortSignal.timeout(4000) });
+  } catch { /* sem aviso de vencimento */ }
+}
+async function venceDe(u: string): Promise<number | null> {
+  try {
+    const r = await fetch(`${SB()}/rest/v1/usuarios_app?usuario=eq.${encodeURIComponent(u)}&select=vence&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+    const j = await r.json();
+    const v = Array.isArray(j) && j[0]?.vence ? Date.parse(j[0].vence) : NaN;
+    return Number.isFinite(v) ? v : null;
+  } catch { return null; }
+}
+
+// ---------- histórico: o player avisa o que tocou (Continuar assistindo / Últimos canais) ----------
+const REST_HIST = () => `${SB()}/rest/v1/historico`;
+type Hist = { tipo: string; item_id: string; nome: string; icone: string; extra: any; pos: number; dur: number; atualizado: string };
+async function historicoDe(u: string, tipos: string[], limite = 30): Promise<Hist[]> {
+  try {
+    const r = await fetch(`${REST_HIST()}?usuario=eq.${encodeURIComponent(u)}&tipo=in.(${tipos.join(",")})&select=tipo,item_id,nome,icone,extra,pos,dur,atualizado&order=atualizado.desc&limit=${limite}`, { headers: cab(), signal: AbortSignal.timeout(6000) });
+    const j = await r.json();
+    return Array.isArray(j) ? j : [];
+  } catch { return []; }
+}
+// começou (30 s ou mais) e ainda não chegou perto do fim
+const emAndamento = (h: Hist) => h.pos >= 30 && (!h.dur || h.pos < h.dur * 0.95);
+async function gravarVisto(u: string, tipo: string, id: string, nome: string, icone: string, extra: unknown, pos: number, dur: number) {
+  try {
+    await fetch(`${REST_HIST()}?on_conflict=usuario,tipo,item_id`, {
+      method: "POST", headers: { ...cab(), prefer: "resolution=merge-duplicates" },
+      body: JSON.stringify({ usuario: u, tipo, item_id: id, nome, icone, extra, pos, dur, atualizado: new Date().toISOString() }),
+      signal: AbortSignal.timeout(6000),
+    });
+  } catch { /* histórico é opcional */ }
+}
+const fmtTempo = (seg: number) => { const h = Math.floor(seg / 3600), m = Math.floor((seg % 3600) / 60); return h ? `${h}h${String(m).padStart(2, "0")}` : `${m} min`; };
+// texto livre vindo do provedor (sinopse, elenco): o MSX interpreta {…}
+const txtMsx = (v: unknown) => String(v ?? "").replace(/[{}]/g, "").replace(/\s+/g, " ").trim();
+
 // o painel só conhece o token; o aparelho (para o botão Sair) é achado pela sessão guardada
 async function aparelhoDoToken(t: string): Promise<string | null> {
   try {
@@ -385,6 +431,7 @@ async function parear(corpo: { c?: string; m?: string; u?: string; p?: string })
   if (!au.ok && !provisorio) return { ok: false, erro: au.erroProv ? "provedor" : "credenciais" };
   info = au.info;
   await registrarAcesso(u, aparelho, "login", porMac ? "mac" : "codigo", porMac ? mac : null);
+  await salvarVence(u, info);
   if (au.dnsId) await fixarDnsDoUsuario(u, au.dnsId);
   await salvarSessao(aparelho, await criarToken(u, p, undefined, provisorio));
   if (!porMac) await apagarCodigo(codigo);
@@ -480,9 +527,12 @@ const fluxo = (tipo: string, t: string, id: string | number, ext: string) => `${
 // toca pelo player próprio (msx/player.html): erro em português e sem mostrar nenhum link; canais tentam .ts e depois .m3u8
 const PLAYER = "https://mktdigital91.github.io/msx/msx/player.html";
 // o player recebe o endereço direto do provedor (codificado, nunca exibido): sem passar pelo servidor, abre mais rápido
-const tocar = (tipo: string, cred: { u: string; p: string }, id: string | number, ext: string, oque: string) => {
+// reg: o player avisa o servidor o que está tocando (Continuar assistindo / Últimos canais)
+type Reg = { t: string; tp: "live" | "filme" | "ep"; nome: string; icone?: string; extra?: Record<string, unknown> };
+const tocar = (tipo: string, cred: { u: string; p: string }, id: string | number, ext: string, oque: string, reg?: Reg) => {
   const fontes = [urlFluxo(tipo, cred, id, ext), ...(tipo === "live" ? [urlFluxo(tipo, cred, id, "m3u8")] : [])].join("\n");
-  return `video:plugin:${PLAYER}?${q({ f: b64(new TextEncoder().encode(fontes)), m: oque })}`;
+  const h = reg ? `${SELF()}?${q({ a: "visto", t: reg.t, tp: reg.tp, s: String(id), n: reg.nome.slice(0, 120), i: (reg.icone ?? "").slice(0, 400), x: JSON.stringify({ ext, ...(reg.extra ?? {}) }) })}` : "";
+  return `video:plugin:${PLAYER}?${q({ f: b64(new TextEncoder().encode(fontes)), m: oque, ...(h ? { h: b64(new TextEncoder().encode(h)) } : {}) })}`;
 };
 
 // "Continuar de onde parou" (filmes e episódios): o próprio MSX guarda a posição na TV, por usuário
@@ -594,6 +644,7 @@ async function paginar(
   kind: string,
   ext?: string,
   voltar = { title: "‹   CATEGORIAS", titleFooter: "Voltar às categorias" },
+  topo: unknown[] = [],
 ) {
   const ini = pg * POR_PAGINA;
   const itens = todos.slice(ini, ini + POR_PAGINA).map(montar) as any[];
@@ -603,7 +654,7 @@ async function paginar(
   if (pg > 0) itens.unshift({ title: "Página anterior", titleFooter: `${pg} de ${total}`, color: VID.n, action: proxima(pg - 1) });
   if (!todos.length) itens.push({ title: "Nada encontrado", action: "none" });
   // botão fixo no topo para voltar às categorias (volta para a tela anterior, sem recarregar)
-  itens.unshift({ ...voltar, color: VID.voltar, action: "back" });
+  itens.unshift({ ...voltar, color: VID.voltar, action: "back" }, ...topo);
   return lista(titulo, itens, layout, {}, ext ?? `${todos.length} itens`, kind);
 }
 const nota = (v: unknown) => { const n = Number(v); return n > 0 ? n.toFixed(1) : undefined; };
@@ -683,7 +734,7 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
     ...visual,
     focus: ativo ? true : undefined, enumerate: !painel,
     playerLabel: nome,
-    action: tocar("live", cred, x.stream_id, "ts", "o canal"),
+    action: tocar("live", cred, x.stream_id, "ts", "o canal", { t, tp: "live", nome, icone: String(x.stream_icon ?? ""), extra: { c: String(x.category_id ?? c ?? "") } }),
     properties: {
       "control:type": "extended",
       "control:transparent": true,
@@ -719,6 +770,19 @@ async function tratar(url: URL) {
 
   const d = idOk(url.searchParams.get("d"));
 
+  // o player (msx/player.html) avisa o que está tocando e em que ponto
+  if (a === "visto") {
+    const cr = await lerToken(url.searchParams.get("t"));
+    const tp = url.searchParams.get("tp") ?? "", s = url.searchParams.get("s") ?? "";
+    if (!cr || !["live", "filme", "ep"].includes(tp) || !s) return { ok: false };
+    let extra: unknown = {};
+    try { extra = JSON.parse(url.searchParams.get("x") ?? "{}"); } catch { /* sem extra */ }
+    const num = (k: string) => Math.max(0, Math.min(1e6, parseInt(url.searchParams.get(k) ?? "0", 10) || 0));
+    const live = tp === "live";
+    await gravarVisto(cr.u, tp, s.slice(0, 40), limparNome(url.searchParams.get("n") ?? "").slice(0, 120), (url.searchParams.get("i") ?? "").slice(0, 400), extra, live ? 0 : num("pos"), live ? 0 : num("dur"));
+    return { ok: true };
+  }
+
   if (a === "inicio") {
     if (url.searchParams.get("x")) { _cfgT = 0; _usr.clear(); _base.clear(); await carregarConfig(); } // botão Atualizar
     // TV cadastrada no painel (MAC + usuário + senha + DNS): entra sozinha; o painel manda no cadastro
@@ -743,6 +807,7 @@ async function tratar(url: URL) {
       if (!info?.user_info || Number(info.user_info.auth) !== 1) return telaCelular(await codigoDoAparelho(d), d, "O cadastro desta TV está com usuário ou senha inválidos. Fale com o suporte.", tv);
       const exp = info.user_info.exp_date ? new Date(Number(info.user_info.exp_date) * 1000).toLocaleDateString("pt-BR") : "sem data";
       await registrarAcesso(tv.usuario, d, "login", "painel", tv.mac);
+      await salvarVence(tv.usuario, info);
       await fixarDnsDoUsuario(tv.usuario, tv.dns_id);
       const tk = await criarToken(tv.usuario, senha!, ver);
       await salvarSessao(d, tk);
@@ -810,6 +875,7 @@ async function tratar(url: URL) {
     if (cx.rel.size > 0) cx.relay = true;
     const exp = info.user_info.exp_date ? new Date(Number(info.user_info.exp_date) * 1000).toLocaleDateString("pt-BR") : "sem data";
     await registrarAcesso(u, d, "login", "tv", (await tvDoAparelho(d))?.mac ?? null);
+    await salvarVence(u, info);
     if (au.dnsId) await fixarDnsDoUsuario(u, au.dnsId);
     const tk = await criarToken(u, p);
     await salvarSessao(d, tk);
@@ -855,7 +921,14 @@ async function tratar(url: URL) {
     const itens: any[] = [
       { ...linha("Todos", "apps", "", `Todo o catálogo de ${T.nome.toLowerCase()}`), focus: true },
       { title: "{ico:search}  PESQUISAR", titleFooter: `Procurar em ${T.nome}`, color: VID.ouro, action: go({ a: "busca", t, k: tipoQ, q: "", f: "kA" }) },
-      ...(tipoQ === "live" ? [{ ...linha("FAVORITOS", "star", "fav", "Seus canais favoritos"), title: CORACAO + "FAVORITOS" }] : []),
+      ...(tipoQ === "live" ? [
+        { ...linha("FAVORITOS", "star", "fav", "Seus canais favoritos"), title: CORACAO + "FAVORITOS" },
+        { ...linha("Últimos vistos", "history", "ult", "Os canais que você assistiu por último"), title: "{ico:history}  ÚLTIMOS VISTOS" },
+      ] : [
+        { title: "{ico:play-circle-outline}  CONTINUAR ASSISTINDO", titleFooter: "De onde você parou", color: VID.n, action: go({ a: "continuar", t, k: tipoQ }) },
+        { title: "{ico:fiber-new}  ADICIONADOS RECENTEMENTE", titleFooter: "Os últimos que chegaram", color: VID.n, action: go({ a: "itens", k: tipoQ, t, c: "", cn: "Recentes", o: "rec" }) },
+        { title: "{ico:star}  MAIS BEM AVALIADOS", titleFooter: "Pela nota", color: VID.n, action: go({ a: "itens", k: tipoQ, t, c: "", cn: "Mais bem avaliados", o: "nota" }) },
+      ]),
       ...lst.map((x: any) => { const nome = limparNome(String(x.category_name)); return linha(nome, iconeDoNome(nome, "play"), x.category_id, T.nome); }),
     ];
     return lista(T.nome, itens, "0,0,6,1", {}, `${lst.length} categorias`, tipoQ);
@@ -863,33 +936,32 @@ async function tratar(url: URL) {
 
   if (a === "itens") {
     if (!T) return aviso("Gold Play", "Seção desconhecida");
-    const dados = c === "fav" && tipoQ === "live" ? await favoritosDe(cred.u) : await api(cred, `&action=${T.itens}${c && c !== "fav" ? "&category_id=" + encodeURIComponent(c) : ""}`);
-    const todos = Array.isArray(dados) ? dados : [];
-    const prox = (n: number) => go({ a: "itens", k: tipoQ, t, c, cn: url.searchParams.get("cn") ?? "", pg: n });
+    const dados = c === "fav" && tipoQ === "live" ? await favoritosDe(cred.u)
+      : c === "ult" && tipoQ === "live" ? await ultimosCanais(cred.u)
+      : await api(cred, `&action=${T.itens}${c && c !== "fav" && c !== "ult" ? "&category_id=" + encodeURIComponent(c) : ""}`);
+    const o = tipoQ === "live" ? "" : (url.searchParams.get("o") ?? "");
+    const todos = ordenar(Array.isArray(dados) ? dados : [], o in ORDENS ? o : "");
+    const cnQ = url.searchParams.get("cn") ?? "";
+    const prox = (n: number) => go({ a: "itens", k: tipoQ, t, c, cn: cnQ, pg: n, ...(o ? { o } : {}) });
+    const po = PROX_ORDEM[o] ?? "";
+    const botaoOrdem = { title: `{ico:sort}  Ordem: ${ORDENS[o] ?? "Padrão"}`, titleFooter: `Trocar para ${ORDENS[po]}`, color: VID.voltar, action: go({ a: "itens", k: tipoQ, t, c, cn: cnQ, ...(po ? { o: po } : {}) }) };
     if (tipoQ === "live") {
       const ep = await epgVarios(cred, todos.slice(pg * POR_PAGINA, (pg + 1) * POR_PAGINA).map((x: any) => String(x.stream_id)));
       const favs = new Set((await favoritosDe(cred.u)).map((f) => f.stream_id));
       return paginar("Canais", todos, pg, (x) => canalItem(x, cred, t, c, false, "", url.searchParams.get("cn") ?? "", 0, ep.get(String(x.stream_id)), favs), prox, "0,0,4,1", tipoQ);
     }
-    if (tipoQ === "vod") {
-      return paginar("Filmes", todos, pg, (x) => {
-        const nome = limparNome(String(x.name));
-        return {
-          title: nome, image: x.stream_icon || cartao("vod", nome, "Filme", "movie", true), imageFiller: "cover", color: COR.vidro,
-          tag: nota(x.rating), tagColor: COR.destaque,
-          action: tocar("movie", cred, x.stream_id, x.container_extension || "mp4", "o filme"), playerLabel: nome,
-          properties: { "trigger:back": "quiet", ...retomar("filme", x.stream_id, cred.u) },
-        };
-      }, prox, "0,0,2,3", tipoQ);
-    }
-    return paginar("Séries", todos, pg, (x) => {
-      const nome = limparNome(String(x.name));
-      return {
-        title: nome, image: x.cover || cartao("series", nome, "Série", "series", true), imageFiller: "cover", color: COR.vidro,
-        tag: nota(x.rating), tagColor: COR.destaque,
-        action: go({ a: "serie", t, s: x.series_id }),
-      };
-    }, prox, "0,0,2,3", tipoQ);
+    const voltar = { title: "‹   CATEGORIAS", titleFooter: "Voltar às categorias" };
+    if (tipoQ === "vod") return paginar(cnQ || "Filmes", todos, pg, (x) => cartaoFilme(x, t), prox, "0,0,2,3", tipoQ, undefined, voltar, [botaoOrdem]);
+    return paginar(cnQ || "Séries", todos, pg, (x) => cartaoSerie(x, t), prox, "0,0,2,3", tipoQ, undefined, voltar, [botaoOrdem]);
+  }
+
+  if (a === "filme") return await telaFilme(cred, t, url.searchParams.get("s") ?? "");
+
+  if (a === "continuar") {
+    const k = url.searchParams.get("k") ?? "";
+    const hs = (await historicoDe(cred.u, k === "series" ? ["ep"] : k === "vod" ? ["filme"] : ["filme", "ep"], 60)).filter(emAndamento).slice(0, 40);
+    if (!hs.length) return aviso("Continuar assistindo", "Nada por aqui ainda. Comece um filme ou episódio e ele aparece nesta lista.");
+    return lista("Continuar assistindo", hs.map((h) => itemContinuar(h, cred, t)), "0,0,2,3", {}, `${hs.length}`, k === "series" ? "series" : "vod");
   }
 
   if (a === "painel" || a === "fav") {
@@ -901,7 +973,7 @@ async function tratar(url: URL) {
       agoraFav = await alternarFavorito(cred.u, s, url.searchParams.get("n") ?? "Canal", url.searchParams.get("i") ?? "");
       avisoFav = agoraFav ? "adicionado aos favoritos" : "removido dos favoritos";
     }
-    const dados = c === "fav" ? await favoritosDe(cred.u) : await api(cred, `&action=get_live_streams${c ? "&category_id=" + encodeURIComponent(c) : ""}`);
+    const dados = c === "fav" ? await favoritosDe(cred.u) : c === "ult" ? await ultimosCanais(cred.u) : await api(cred, `&action=get_live_streams${c ? "&category_id=" + encodeURIComponent(c) : ""}`);
     const todos = (Array.isArray(dados) ? dados : []).slice(0, 400);
     const idx = todos.findIndex((x: any) => String(x.stream_id) === s);
     const perto = idx >= 0 ? todos.slice(Math.max(0, idx - 4), idx + 20) : todos.slice(0, 24);
@@ -952,18 +1024,19 @@ async function tratar(url: URL) {
     return {
       type: "list", transparent: 2, headline: "Categorias", extension: `${lst.length}`,
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
-      items: [item("Todos os canais", ""), { ...item("FAVORITOS", "fav", CORACAO + "FAVORITOS"), titleFooter: "Seus canais favoritos" }, ...lst.map((x: any) => item(limparNome(String(x.category_name)), String(x.category_id)))],
+      items: [item("Todos os canais", ""), { ...item("FAVORITOS", "fav", CORACAO + "FAVORITOS"), titleFooter: "Seus canais favoritos" }, { ...item("Últimos vistos", "ult", "{ico:history}  ÚLTIMOS VISTOS"), titleFooter: "Os canais que você assistiu por último" }, ...lst.map((x: any) => item(limparNome(String(x.category_name)), String(x.category_id)))],
     };
   }
 
   if (a === "serie") {
     const s = url.searchParams.get("s") ?? "";
     const temp = url.searchParams.get("n");
+    if (temp === null) return await telaSerie(cred, t, s);
     const info = await api(cred, `&action=get_series_info&series_id=${encodeURIComponent(s)}`);
-    const nome = String(info?.info?.name ?? "Série");
+    const nome = limparNome(String(info?.info?.name ?? "Série"));
     const eps = info?.episodes ?? {};
     const numeros = Object.keys(eps).sort((x, y) => Number(x) - Number(y));
-    if (temp === null) {
+    if (temp === "*") { // todas as temporadas (séries com muitas)
       return lista(limparNome(nome), numeros.map((n) => ({
         title: `Temporada ${n}`, titleFooter: `${eps[n].length} episódios`, color: VID.n,
         action: go({ a: "serie", t, s, n }),
@@ -973,9 +1046,7 @@ async function tratar(url: URL) {
     return lista(`${nome}`, lst.map((e) => ({
       titleHeader: `Episódio ${e.episode_num}`, title: String(e.title ?? ""), titleFooter: e.info?.duration ? String(e.info.duration) : "",
       image: e.info?.movie_image || undefined, imageFiller: "cover", icon: e.info?.movie_image ? undefined : "play-arrow", color: COR.vidro,
-      action: tocar("series", cred, e.id, e.container_extension || "mp4", "o episódio"),
-      playerLabel: `${nome} T${temp}E${e.episode_num}`,
-      properties: { "trigger:back": "quiet", ...retomar("ep", e.id, cred.u) },
+      ...epAcao(cred, t, s, nome, temp, e, imgOk(info?.info?.cover)),
     })), "0,0,4,2", {}, `Temporada ${temp}`, "series");
   }
 
@@ -1168,8 +1239,26 @@ function resumoSvg(total: number, vivos: number, falhou: boolean) {
 const resumoImg = (total: number, vivos: number, falhou: boolean) => `${SELF()}?${q({ a: "jr", n: total, vv: vivos, x: falhou ? 1 : 0 })}`;
 
 async function home(t: string, quem: string, d: string | null = null) {
-  const [usuario, venc] = quem.split(" · ");
-  const jogos = await jogosDoDia();
+  const [usuario] = quem.split(" · ");
+  const cred = await lerToken(t);
+  const [jogos, vence0, hist] = await Promise.all([jogosDoDia(), venceDe(usuario), cred ? historicoDe(usuario, ["filme", "ep", "live"], 60) : Promise.resolve([] as Hist[])]);
+  // vencimento: perto do fim, confere de novo no provedor (pode já ter renovado)
+  let vence = vence0;
+  const diasPara = (ms: number) => Math.ceil((ms - Date.now()) / 86400000);
+  if (cred && vence !== null && diasPara(vence) <= AVISO_DIAS) {
+    try {
+      const i = await api(cred);
+      const exp = Number(i?.user_info?.exp_date);
+      if (Number.isFinite(exp) && exp > 0) { vence = exp * 1000; await salvarVence(usuario, i); }
+    } catch (e) { if (e instanceof RelayNeed) throw e; }
+  }
+  const dias = vence !== null ? diasPara(vence) : null;
+  const dataVence = vence !== null ? new Date(vence).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" }) : "";
+  const renovar = CONTATO ? `{br}{col:msx-white}Renove: ${CONTATO}` : "{br}{col:msx-white-soft}Fale com seu revendedor";
+  const subtitulo = dias === null ? "{col:msx-white-soft}Bom te ver por aqui"
+    : dias <= 0 ? `{col:msx-red}Seu plano venceu${renovar}`
+    : dias <= AVISO_DIAS ? `{col:msx-yellow}Seu plano vence em ${dias} dia${dias > 1 ? "s" : ""}${renovar}`
+    : `{col:msx-white-soft}Plano ativo · vence ${dataVence}`;
   const lst = jogos ?? [];
   const vivos = lst.filter((j) => j.estado === "in").length;
   const todos = go({ a: "jogos", t });
@@ -1183,7 +1272,7 @@ async function home(t: string, quem: string, d: string | null = null) {
     pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "0,0,2,1", image: LOGO, imageFiller: "fit" },
-      { type: "space", layout: "2,0,4,1", headline: `Olá, ${usuario}`, text: venc ? `{col:msx-white-soft}Plano ativo · ${venc}` : "{col:msx-white-soft}Bom te ver por aqui" },
+      { type: "space", layout: "2,0,4,1", headline: `Olá, ${usuario}`, text: subtitulo },
       // Pesquisar em tudo (canais, filmes e séries)
       card("6,0,2,1", "btn-pesquisar.png", go({ a: "busca", t, q: "", f: "kA" })),
       // Atualizar: recarrega a configuração do painel e a tela inicial (limpa os caches do servidor e da TV)
@@ -1194,7 +1283,189 @@ async function home(t: string, quem: string, d: string | null = null) {
       card("8,1,4,3", "card-series.png", go({ a: "cats", k: "series", t })),
       { type: "default", layout: "0,4,3,2", image: resumoImg(lst.length, vivos, jogos === null), imageFiller: "fit", color: "transparent", action: lst.length ? todos : "none" },
       ...destaques,
+    ] }, ...paginaContinuar(hist, cred, t)],
+  };
+}
+// 2ª página da tela inicial (à direita): Continuar assistindo e Últimos canais
+function paginaContinuar(hist: Hist[], cred: Cred | null, t: string) {
+  if (!cred) return [];
+  const vod = hist.filter((h) => h.tipo !== "live" && emAndamento(h)).slice(0, 6);
+  const canais = hist.filter((h) => h.tipo === "live").slice(0, 6);
+  if (!vod.length && !canais.length) return [];
+  const itens: any[] = [camadaFundo("bg-tv.jpg")];
+  let y = 0;
+  if (vod.length) {
+    itens.push({ type: "space", layout: "0,0,12,1", headline: "Continuar assistindo", text: "{col:msx-white-soft}De onde você parou" });
+    vod.forEach((h, i) => itens.push({ ...itemContinuar(h, cred, t), type: "default", layout: `${i * 2},1,2,3` }));
+    y = 4;
+  }
+  if (canais.length) {
+    itens.push({ type: "space", layout: `0,${y},12,1`, headline: "Últimos canais", ...(y ? { offset: "0,0.15,0,0" } : {}) });
+    canais.forEach((h, i) => itens.push({
+      ...canalItem({ name: h.nome, stream_id: h.item_id, stream_icon: h.icone || undefined, category_id: h.extra?.c ?? "" }, cred, t, String(h.extra?.c ?? ""), false),
+      type: "default", layout: `${i * 2},${y + 1},2,1`, enumerate: false,
+    }));
+  }
+  return [{ items: itens }];
+}
+
+// últimos canais vistos, no formato da lista de canais do provedor
+async function ultimosCanais(u: string) {
+  return (await historicoDe(u, ["live"], 40)).map((h) => ({ name: h.nome, stream_id: h.item_id, stream_icon: h.icone || undefined, category_id: h.extra?.c ?? "" }));
+}
+
+// ---------- Filmes e séries: cartões, detalhes, episódios e Continuar assistindo ----------
+const cartaoFilme = (x: any, t: string) => {
+  const nome = limparNome(String(x.name));
+  return {
+    title: nome, image: x.stream_icon || cartao("vod", nome, "Filme", "movie", true), imageFiller: "cover", color: COR.vidro,
+    tag: nota(x.rating), tagColor: COR.destaque, action: go({ a: "filme", t, s: x.stream_id }),
+  };
+};
+const cartaoSerie = (x: any, t: string) => {
+  const nome = limparNome(String(x.name));
+  return {
+    title: nome, image: x.cover || cartao("series", nome, "Série", "series", true), imageFiller: "cover", color: COR.vidro,
+    tag: nota(x.rating), tagColor: COR.destaque, action: go({ a: "serie", t, s: x.series_id }),
+  };
+};
+// ordem das listas de filmes/séries: padrão do provedor → recentes → nota → A–Z
+const ORDENS: Record<string, string> = { "": "Padrão", rec: "Recentes", nota: "Nota", az: "A–Z" };
+const PROX_ORDEM: Record<string, string> = { "": "rec", rec: "nota", nota: "az", az: "" };
+function ordenar(lst: any[], o: string) {
+  const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+  const c = [...lst];
+  if (o === "rec") c.sort((a, b) => num(b.added ?? b.last_modified) - num(a.added ?? a.last_modified));
+  else if (o === "nota") c.sort((a, b) => num(b.rating_5based ?? b.rating) - num(a.rating_5based ?? a.rating) || num(b.rating) - num(a.rating));
+  else if (o === "az") c.sort((a, b) => limparNome(String(a.name)).localeCompare(limparNome(String(b.name)), "pt-BR"));
+  return c;
+}
+// tocar um episódio (lista da temporada, detalhes da série, Continuar assistindo)
+function epAcao(cred: Cred, t: string, serie: string, sn: string, temp: string, e: any, capa = "", emLista = true) {
+  const rot = `${sn} T${temp}E${e.episode_num}`;
+  return {
+    action: tocar("series", cred, e.id, e.container_extension || "mp4", "o episódio", { t, tp: "ep", nome: rot, icone: String(e.info?.movie_image || capa || ""), extra: { serie, sn, temp: String(temp), ep: String(e.episode_num) } }),
+    playerLabel: rot,
+    // na lista da temporada, ao terminar um episódio o MSX passa para o próximo item (o próximo episódio)
+    properties: { "trigger:back": "quiet", ...(emLista ? { "trigger:end": "player:next" } : {}), ...retomar("ep", e.id, cred.u) },
+  };
+}
+const youtubeId = (v: unknown) => {
+  const t = String(v ?? "").trim();
+  const m = t.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{6,20})/) ?? t.match(/^([\w-]{6,20})$/);
+  return m ? m[1] : "";
+};
+const imgOk = (v: unknown) => { const t = String(Array.isArray(v) ? v[0] ?? "" : v ?? "").trim(); return /^https?:\/\//.test(t) ? t : ""; };
+// fundo da tela de detalhes: a imagem do filme escurecida, ou o fundo padrão
+const fundoDetalhe = (img: string, padrao: string) => img
+  ? [{ type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", image: img, imageFiller: "cover", enable: false }, { type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", color: "rgba(6,7,18,0.78)", enable: false }]
+  : [camadaFundo(padrao)];
+const botao = (layout: string, icone: string, titulo: string, rodape: string, acao: string, extra: Record<string, unknown> = {}) =>
+  ({ type: "default", layout, icon: icone, title: titulo, titleFooter: rodape, color: VID.n, action: acao, ...extra });
+
+async function telaFilme(cred: Cred, t: string, s: string) {
+  const [info, hist] = await Promise.all([api(cred, `&action=get_vod_info&vod_id=${encodeURIComponent(s)}`), historicoDe(cred.u, ["filme"], 80)]);
+  const inf = info?.info ?? {}, md = info?.movie_data ?? {};
+  const nome = limparNome(String(inf.name || md.name || "Filme"));
+  const capa = imgOk(inf.cover_big) || imgOk(inf.movie_image) || cartao("vod", nome, "Filme", "movie", true);
+  const ano = String(inf.releasedate || inf.release_date || "").slice(0, 4);
+  const dur = inf.duration_secs ? fmtTempo(Number(inf.duration_secs)) : txtMsx(inf.duration);
+  const n = nota(inf.rating);
+  const meta = [ano, dur, n ? `★ ${n}` : "", txtMsx(inf.genre).slice(0, 50)].filter(Boolean).join("   ·   ");
+  const sinopse = txtMsx(inf.plot || inf.description) || "Sem sinopse.";
+  const creditos = [inf.director ? `Direção: ${txtMsx(inf.director).slice(0, 80)}` : "", (inf.cast || inf.actors) ? `Elenco: ${txtMsx(inf.cast || inf.actors).slice(0, 140)}` : ""].filter(Boolean).join("{br}");
+  const h = hist.find((x) => x.item_id === String(s));
+  const andamento = !!h && emAndamento(h);
+  const play = tocar("movie", cred, s, String(md.container_extension || "mp4"), "o filme", { t, tp: "filme", nome, icone: capa });
+  const props = { "trigger:back": "quiet", ...retomar("filme", s, cred.u) };
+  const yt = youtubeId(inf.youtube_trailer);
+  const botoes: any[] = [
+    botao("3,4,3,1", "play-arrow", andamento ? "Continuar" : "Assistir", andamento ? `de ${fmtTempo(h!.pos)}` : dur || "Filme", play, { playerLabel: nome, properties: props, color: VID.ouro, focus: true }),
+  ];
+  // "Do início": guarda a posição, mas não retoma
+  if (andamento) botoes.push(botao("6,4,3,1", "replay", "Do início", "Começar de novo", play, { playerLabel: nome, properties: { ...props, "resume:position": "none" } }));
+  if (yt) botoes.push(botao(`${andamento ? 9 : 6},4,3,1`, "movie", "Trailer", "YouTube", `video:plugin:http://msx.benzac.de/plugins/youtube.html?id=${yt}`, { playerLabel: `Trailer · ${nome}` }));
+  return {
+    type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-filmes.jpg",
+    pages: [{ items: [
+      ...fundoDetalhe(imgOk(inf.backdrop_path), "bg-filmes.jpg"),
+      { type: "space", layout: "0,0,3,5", offset: "0.1,0.1,-0.2,-0.2", image: capa, imageFiller: "fit" },
+      { type: "space", layout: "3,0,9,1", headline: nome, text: `{col:msx-white-soft}${meta}` },
+      { type: "space", layout: "3,1,9,2", text: sinopse.length > 520 ? sinopse.slice(0, 517) + "…" : sinopse },
+      ...(creditos ? [{ type: "space", layout: "3,3,9,1", text: `{col:msx-white-soft}${creditos}` }] : []),
+      ...botoes,
     ] }],
+  };
+}
+
+async function telaSerie(cred: Cred, t: string, s: string) {
+  const [info, hist] = await Promise.all([api(cred, `&action=get_series_info&series_id=${encodeURIComponent(s)}`), historicoDe(cred.u, ["ep"], 80)]);
+  const inf = info?.info ?? {};
+  const nome = limparNome(String(inf.name || "Série"));
+  const capa = imgOk(inf.cover) || cartao("series", nome, "Série", "series", true);
+  const eps = (info?.episodes ?? {}) as Record<string, any[]>;
+  const numeros = Object.keys(eps).filter((n) => Array.isArray(eps[n]) && eps[n].length).sort((x, y) => Number(x) - Number(y));
+  const n = nota(inf.rating);
+  const meta = [String(inf.releaseDate || inf.release_date || "").slice(0, 4), `${numeros.length} temporada${numeros.length === 1 ? "" : "s"}`, n ? `★ ${n}` : "", txtMsx(inf.genre).slice(0, 50)].filter(Boolean).join("   ·   ");
+  const sinopse = txtMsx(inf.plot) || "Sem sinopse.";
+  const elenco = inf.cast ? `{br}{col:msx-white-soft}Elenco: ${txtMsx(inf.cast).slice(0, 120)}` : "";
+  // de onde continuar: último episódio desta série no histórico (ou o seguinte, se já terminou)
+  const achar = (temp: string, ep: string) => (eps[temp] ?? []).find((e) => String(e.episode_num) === ep);
+  const ultimo = hist.find((x) => String(x.extra?.serie) === String(s));
+  let alvo: { temp: string; e: any; rotulo: string; rodape: string } | null = null;
+  if (ultimo) {
+    const tp = String(ultimo.extra?.temp ?? ""), ep = String(ultimo.extra?.ep ?? "");
+    const e = achar(tp, ep);
+    if (e && emAndamento(ultimo)) alvo = { temp: tp, e, rotulo: `Continuar T${tp}E${ep}`, rodape: `de ${fmtTempo(ultimo.pos)}` };
+    else if (e) {
+      const lst = eps[tp] ?? [], i = lst.indexOf(e);
+      const prox = i >= 0 && i + 1 < lst.length ? { temp: tp, e: lst[i + 1] } : (() => { const k = numeros[numeros.indexOf(tp) + 1]; return k ? { temp: k, e: eps[k][0] } : null; })();
+      if (prox) alvo = { ...prox, rotulo: `Próximo: T${prox.temp}E${prox.e.episode_num}`, rodape: txtMsx(prox.e.title).slice(0, 30) || "Próximo episódio" };
+    }
+  }
+  if (!alvo && numeros.length) alvo = { temp: numeros[0], e: eps[numeros[0]][0], rotulo: `Assistir T${numeros[0]}E${eps[numeros[0]][0].episode_num}`, rodape: "Do começo" };
+  const yt = youtubeId(inf.youtube_trailer);
+  const botoes: any[] = [];
+  if (alvo) botoes.push(botao("3,3,5,1", "play-arrow", alvo.rotulo, alvo.rodape, "", { ...epAcao(cred, t, s, nome, alvo.temp, alvo.e, capa, false), color: VID.ouro, focus: true }));
+  if (yt) botoes.push(botao("8,3,4,1", "movie", "Trailer", "YouTube", `video:plugin:http://msx.benzac.de/plugins/youtube.html?id=${yt}`, { playerLabel: `Trailer · ${nome}` }));
+  // temporadas: até 18 botões (2 linhas de 9); com mais, o último abre a lista completa
+  const muitas = numeros.length > 18;
+  const visiveis = muitas ? numeros.slice(0, 17) : numeros;
+  const temps: any[] = visiveis.map((k, i) => ({
+    type: "default", layout: `${3 + (i % 9)},${4 + Math.floor(i / 9)},1,1`, color: VID.n, alignment: "center", centration: "title",
+    title: `T${k}`, titleFooter: `${eps[k].length} ep.`, action: go({ a: "serie", t, s, n: k }), ...(!alvo && i === 0 ? { focus: true } : {}),
+  }));
+  if (muitas) temps.push({ type: "default", layout: "11,5,1,1", color: VID.voltar, alignment: "center", centration: "title", title: "Todas", action: go({ a: "serie", t, s, n: "*" }) });
+  return {
+    type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || IMG + "bg-series.jpg",
+    pages: [{ items: [
+      ...fundoDetalhe(imgOk(inf.backdrop_path), "bg-series.jpg"),
+      { type: "space", layout: "0,0,3,5", offset: "0.1,0.1,-0.2,-0.2", image: capa, imageFiller: "fit" },
+      { type: "space", layout: "3,0,9,1", headline: nome, text: `{col:msx-white-soft}${meta}` },
+      { type: "space", layout: "3,1,9,2", text: (sinopse.length > 420 ? sinopse.slice(0, 417) + "…" : sinopse) + elenco },
+      ...botoes,
+      ...(temps.length ? [] : [{ type: "space", layout: "3,4,9,1", text: "{col:msx-white-soft}Nenhum episódio disponível." }]),
+      ...temps,
+    ] }],
+  };
+}
+
+// item de "Continuar assistindo" (filme ou episódio): toca direto, de onde parou
+function itemContinuar(h: Hist, cred: Cred, t: string) {
+  const pct = h.dur ? Math.round((h.pos / h.dur) * 100) : 0;
+  const rodape = `${pct ? pct + "% · " : ""}parou em ${fmtTempo(h.pos)}`;
+  const img = h.icone || cartao(h.tipo === "ep" ? "series" : "vod", h.nome, h.tipo === "ep" ? "Série" : "Filme", h.tipo === "ep" ? "series" : "movie", true);
+  const ext = String(h.extra?.ext || "mp4");
+  if (h.tipo === "ep") {
+    return {
+      title: h.nome, titleFooter: rodape, image: img, imageFiller: "cover", color: COR.vidro, truncation: "title",
+      ...epAcao(cred, t, String(h.extra?.serie ?? ""), String(h.extra?.sn ?? h.nome), String(h.extra?.temp ?? ""), { id: h.item_id, episode_num: h.extra?.ep ?? "", container_extension: ext, info: { movie_image: h.icone } }, h.icone, false),
+    };
+  }
+  return {
+    title: h.nome, titleFooter: rodape, image: img, imageFiller: "cover", color: COR.vidro, truncation: "title", playerLabel: h.nome,
+    action: tocar("movie", cred, h.item_id, ext, "o filme", { t, tp: "filme", nome: h.nome, icone: h.icone }),
+    properties: { "trigger:back": "quiet", ...retomar("filme", h.item_id, cred.u) },
   };
 }
 
@@ -1246,7 +1517,7 @@ function itemBusca(x: ItemBusca, cred: Cred, t: string) {
     return { ...canalItem({ name: x.nome, stream_id: x.id, stream_icon: x.icon || undefined }, cred, t, x.cat, false), enumerate: false, titleFooter: "TV ao vivo" };
   }
   if (x.k === "vod") {
-    return { title: x.nome, titleFooter: "Filme", truncation: "title", color: VID.n, icon: "movie", iconSize: "small", playerLabel: x.nome, action: tocar("movie", cred, x.id, x.ext || "mp4", "o filme"), properties: { "trigger:back": "quiet", ...retomar("filme", x.id, cred.u) } };
+    return { title: x.nome, titleFooter: "Filme", truncation: "title", color: VID.n, icon: "movie", iconSize: "small", action: go({ a: "filme", t, s: x.id }) };
   }
   return { title: x.nome, titleFooter: "Série", truncation: "title", color: VID.n, icon: "video-library", iconSize: "small", action: go({ a: "serie", t, s: x.id }) };
 }

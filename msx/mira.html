@@ -33,7 +33,7 @@
   // Servidores que não deixam o Supabase falar com eles: o servidor pede, a TV busca no provedor
   // e devolve o texto; o servidor então monta a tela. Até 4 idas e voltas por tela.
   // Listas grandes (milhares de canais) são enxugadas antes de subir: só os campos que o servidor usa.
-  var CAMPOS = ['num', 'name', 'stream_type', 'stream_id', 'stream_icon', 'category_id', 'category_name', 'container_extension', 'rating', 'rating_5based', 'cover', 'series_id', 'is_adult'];
+  var CAMPOS = ['num', 'name', 'stream_type', 'stream_id', 'stream_icon', 'category_id', 'category_name', 'container_extension', 'rating', 'rating_5based', 'cover', 'series_id', 'is_adult', 'added', 'last_modified'];
   function enxugar(txt) {
     if (txt.length < 120000 || txt.charAt(0) !== '[') { return txt; }
     try {
@@ -127,7 +127,8 @@
         if (!dataId) { callback(null); return; }
         var qs = String(dataId); if (qs.indexOf('rl=1') < 0) { qs += '&rl=1'; }
         // telas só de leitura ficam guardadas 3 min: voltar para uma lista já vista abre na hora
-        var cacheavel = !/(^|&)a=(fav|login|sair|inicio|ver|in|form)(&|$)/.test(qs);
+        // telas que mostram o progresso (Continuar assistindo, detalhes, início) sempre vêm frescas
+        var cacheavel = !/(^|&)a=(fav|login|sair|inicio|ver|in|form|home|continuar|filme)(&|$)/.test(qs) && !(/(^|&)a=serie(&|$)/.test(qs) && !/(^|&)n=/.test(qs));
         // Atualizar (tela inicial com x=) ou favoritar: telas guardadas ficaram velhas
         if (/(^|&)a=fav(&|$)/.test(qs) || (/(^|&)a=inicio(&|$)/.test(qs) && /(^|&)x=/.test(qs))) { telas = {}; }
         var c = cacheavel ? telas[qs] : null;

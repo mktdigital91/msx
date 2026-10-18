@@ -842,7 +842,10 @@ async function vApp(el) {
     '<button type="button" class="btn pequeno" data-acao="limparImg" data-id="fundo_url">Remover</button></div><input type="hidden" name="fundo_url" value="' + e(cfg.fundo_url || "") + '"></div>' +
     '<h2 style="margin-top:8px">Cores</h2><div class="linha-campos">' +
     CORES.map(function (c) { return '<label class="campo">' + c[1] + '<input type="color" name="' + c[0] + '" value="' + e(cfg[c[0]] || c[2]) + '" style="padding:4px;height:46px"></label>'; }).join("") +
-    '</div><p class="suave" style="font-size:13px">Imagens: PNG, JPG ou WebP até 5 MB.</p></form></section>' +
+    '</div><h2 style="margin-top:8px">Aviso de vencimento</h2>' +
+    '<label class="campo">Contato para renovar (aparece na TV)<input type="text" name="contato" maxlength="60" placeholder="Ex.: WhatsApp (85) 99999-9999" value="' + e((cfg.extra && cfg.extra.contato) || "") + '"></label>' +
+    '<label class="campo">Avisar quantos dias antes de vencer<input type="number" name="aviso_dias" min="0" max="60" value="' + e(String((cfg.extra && cfg.extra.aviso_dias != null) ? cfg.extra.aviso_dias : 5)) + '"></label>' +
+    '<p class="suave" style="font-size:13px">Imagens: PNG, JPG ou WebP até 5 MB.</p></form></section>' +
     '<section class="cartao"><h2>Prévia</h2><div class="previa" id="previa"><img class="logo" id="previa-logo" alt=""><div class="nome-app" id="previa-nome"></div><div class="cartoes"><div id="pv-tv">TV ao vivo</div><div id="pv-filmes">Filmes</div><div id="pv-series">Séries</div></div></div>' +
     '<p class="suave" style="font-size:13px;margin-top:12px">A prévia mostra como as cores e o fundo combinam. Nada vai para o app até você salvar.</p></section></div>';
   el.innerHTML = h;
@@ -881,6 +884,8 @@ Object.assign(acoes, {
     try {
       var d = { nome_app: f.nome_app.value.trim() || "Gold Play", logo_url: f.logo_url.value || null, fundo_url: f.fundo_url.value || null, atualizado: new Date().toISOString() };
       CORES.forEach(function (c) { d[c[0]] = f[c[0]].value; });
+      var dias = parseInt(f.aviso_dias.value, 10);
+      d.extra = Object.assign({}, cfg.extra || {}, { contato: f.contato.value.trim(), aviso_dias: isNaN(dias) ? 5 : Math.max(0, Math.min(60, dias)) });
       if (cfg.id) await q(sb.from("config_app").update(d).eq("id", cfg.id));
       else { d.owner_id = donoPadrao(); await q(sb.from("config_app").insert(d)); }
       aviso("Personalização salva.", "ok"); await rotear(true);
