@@ -1501,7 +1501,7 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
     const pct = ult.dur ? Math.round((ult.pos / ult.dur) * 100) : 0;
     const ic = itemContinuar(ult, cred, t) as any;
     blocosHome.push({ ...ic, title: undefined, titleFooter: undefined, type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit",
-      image: blocoImg({ t: "Continuar assistindo", a2: nCapas >= 2 ? `${nCapas} em andamento` : `${pct ? pct + "% · " : ""}parou em ${fmtTempo(ult.pos)}`, p: pct, i: ult.tipo === "ep" ? "series" : "movie", c: ult.icone ? 1 : 0 }) });
+      image: blocoImg({ t: "Continuar assistindo", a2: nCapas >= 2 ? `${nCapas} em andamento` : `${pct ? pct + "% · " : ""}parou em ${fmtTempo(ult.pos)}`, p: nCapas >= 2 ? 0 : pct, i: ult.tipo === "ep" ? "series" : "movie", c: ult.icone ? 1 : 0 }) });
     const capa = nCapas >= 2 ? `${SELF()}?${q({ a: "capas", t, th: TEMA, h: Math.floor(Date.now() / 600_000) })}` : ult.icone;
     if (capa) blocosHome.push({ type: "space", layout: "8,4,4,2", offset: "2.42,0.33,-2.94,-0.66", image: capa, imageFiller: "fit", enable: false });
   } else {
@@ -2174,16 +2174,27 @@ async function capasGif(t: string, th: string): Promise<Uint8Array | null> {
   const ch = `${t.slice(-24)}|${th}`; const c = _capas.get(ch);
   if (c && Date.now() - c.em < 10 * 60_000) return c.v;
   const cred = await lerToken(t); if (!cred) return null;
-  const urls = (await historicoDe(quem(cred), ["filme", "ep"], 40)).filter((h) => emAndamento(h) && h.icone).map((h) => h.icone);
-  const unicos = [...new Set(urls)].slice(0, 5);
-  if (unicos.length < 2) return null;
-  const W = 160, H = 226, fundo = th === "onix" ? Img.rgbaToColor(17, 16, 19, 255) : Img.rgbaToColor(24, 24, 64, 255);
+  // cada capa leva o próprio progresso (barra + "45% · 32 min") logo abaixo, para trocar junto
+  const vistos = new Set<string>();
+  const itens = (await historicoDe(quem(cred), ["filme", "ep"], 40)).filter((h) => emAndamento(h) && h.icone && !vistos.has(h.icone) && vistos.add(h.icone)).slice(0, 5);
+  if (itens.length < 2) return null;
+  if (!_fonte) _fonte = new Uint8Array(await (await fetch(IMG + "fontes/DejaVuSans-Bold.ttf")).arrayBuffer());
+  const W = 220, HC = 226, H = HC + 56, fundo = th === "onix" ? Img.rgbaToColor(17, 16, 19, 255) : Img.rgbaToColor(24, 24, 64, 255);
+  const ouro = th === "onix" ? Img.rgbaToColor(214, 178, 94, 255) : Img.rgbaToColor(245, 180, 0, 255);
+  const trilho = Img.rgbaToColor(90, 90, 100, 255);
   const quadros: Img[] = [];
-  for (const u of unicos) {
+  for (const h of itens) {
     try {
-      const im = await Img.decode(new Uint8Array(await (await fetch(u, { signal: AbortSignal.timeout(5000) })).arrayBuffer()));
-      const f = new Img(W, H).fill(fundo); const p = (im as Img).contain(W, H);
-      f.composite(p, (W - p.width) / 2, (H - p.height) / 2); quadros.push(f);
+      const im = await Img.decode(new Uint8Array(await (await fetch(h.icone, { signal: AbortSignal.timeout(5000) })).arrayBuffer()));
+      const f = new Img(W, H).fill(fundo); const p = (im as Img).contain(W, HC);
+      f.composite(p, (W - p.width) / 2, (HC - p.height) / 2);
+      const pct = h.dur ? Math.min(100, Math.round((h.pos / h.dur) * 100)) : 0;
+      const bx = 20, bw = W - 40, by = HC + 12;
+      f.drawBox(bx, by, bw, 6, trilho);
+      if (pct) f.drawBox(bx, by, Math.max(4, Math.round(bw * pct / 100)), 6, ouro);
+      const tx = Img.renderText(_fonte!, 17, `${pct ? pct + "% · " : ""}${fmtTempo(h.pos)}`, 0xFFFFFFFF);
+      f.composite(tx, (W - tx.width) / 2, by + 16);
+      quadros.push(f);
     } catch { /* capa que não abriu fica de fora */ }
   }
   if (quadros.length < 2) return null;
