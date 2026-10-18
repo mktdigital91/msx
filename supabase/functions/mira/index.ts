@@ -1019,6 +1019,7 @@ async function tratar(url: URL) {
     return await telaGuia(cred, t, s, limparNome(url.searchParams.get("n") ?? "Canal"), pn({ a: "painel", t, c: cc, cn, s }));
   }
   if (a === "jogos") return await telaJogos(t);
+  if (a === "guiahome") return await telaGuiaHome(cred, t);
   if (a === "jogo") return await telaJogo(cred, t, url.searchParams.get("n1") ?? "", url.searchParams.get("n2") ?? "");
   if (a === "buscadados") { const kk = url.searchParams.get("k") ?? ""; return await buscaDados(cred, t, kk, await filtroAdulto(cred, kk)); }
   if (a === "busca") return await telaBusca(cred, t, url.searchParams.get("k") ?? "", (url.searchParams.get("q") ?? "").slice(0, 30), url.searchParams.get("f") ?? "", url.searchParams.get("m") ?? "");
@@ -1428,6 +1429,22 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
   const selo = (_n?: number) => ({});
   // quantidade escrita no canto inferior direito do cartão
   const qtdTxt = (x: number, n?: number) => (fmtQtd(n) ? [{ type: "space", layout: `${x},1,4,3`, offset: "0,1.95,-0.45,-1.95", alignment: "right", enable: false, text: `{col:${TEMA === "onix" ? "msx-yellow" : "msx-white"}}${fmtQtd(n)}` }] : []);
+  // blocos ao lado do Jogos de hoje: Guia de Programação e Continuar assistindo
+  const ult = cred ? hist.find((h) => h.tipo !== "live" && emAndamento(h)) : undefined;
+  const blocosHome: any[] = [
+    { type: "default", layout: "4,4,4,2", color: "transparent", imageFiller: "fit", action: go({ a: "guiahome", t }),
+      image: blocoImg({ t: "Guia de Programação", a1: "O que está passando agora", a2: "Globo, SBT, Record, SporTV, ESPN…", i: "live" }) },
+  ];
+  if (cred && ult) {
+    const pct = ult.dur ? Math.round((ult.pos / ult.dur) * 100) : 0;
+    const ic = itemContinuar(ult, cred, t) as any;
+    blocosHome.push({ ...ic, title: undefined, titleFooter: undefined, type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit",
+      image: blocoImg({ t: "Continuar assistindo", a1: ult.nome, a2: `${pct ? pct + "% · " : ""}parou em ${fmtTempo(ult.pos)}`, p: pct, i: ult.tipo === "ep" ? "series" : "movie", c: ult.icone ? 1 : 0 }) });
+    if (ult.icone) blocosHome.push({ type: "space", layout: "8,4,4,2", offset: "2.75,0.2,-2.95,-0.55", image: ult.icone, imageFiller: "fit", enable: false });
+  } else {
+    blocosHome.push({ type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit", action: go({ a: "cats", k: "vod", t }),
+      image: blocoImg({ t: "Continuar assistindo", a1: "Nada começado ainda", a2: "Escolha um filme ou série", i: "movie" }) });
+  }
   const dias = vence !== null ? diasPara(vence) : null;
   const dataVence = vence !== null ? new Date(vence).toLocaleDateString("pt-BR", { timeZone: "America/Fortaleza" }) : "";
   const renovar = CONTATO ? `{br}{col:msx-white}Renove: ${CONTATO}` : "{br}{col:msx-white-soft}Fale com seu revendedor";
@@ -1442,7 +1459,7 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
     ({ type: "default", layout, image: im(img), imageFiller: "fit", color: "transparent", action: acao, ...extra });
   // cartões dos jogos: logo de cada time (da API) posta por cima do disco branco do cartão
   const destaques: any[] = [];
-  lst.slice(0, 2).forEach((j, i) => {
+  [].forEach((j: Jogo, i: number) => {
     const x = 4 + i * 4, lg = (j.casa.logo ? "h" : "") + (j.fora.logo ? "f" : "");
     destaques.push({ type: "default", layout: `${x},4,4,2`, image: jogoImg(j, lg), imageFiller: "fit", color: "transparent", action: jogoAcao(j, t) });
     const logo = (url: string, dy: number) => ({ type: "space", layout: `${x},4,1,1`, offset: `0.5,${dy},-0.675,-0.711`, image: url, imageFiller: "fit", enable: false });
@@ -1471,6 +1488,7 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       { type: "space", layout: "0,4,4,2", offset: "0,1.05,0,-1.05", alignment: "center", enable: false,
         text: "{col:msx-white}Jogos de hoje{br}" + (jogos === null ? "{col:msx-white-soft}Placar indisponível agora" : lst.length ? `{col:msx-white}${lst.length} partida${lst.length > 1 ? "s" : ""}${vivos ? `  |  {col:${TEMA === "onix" ? "msx-yellow" : "msx-red"}}${vivos} ao vivo{col:msx-white}` : ""}{br}{col:msx-white-soft}Ver todos  ›` : "{col:msx-white-soft}Nenhuma partida hoje") },
       ...destaques,
+      ...blocosHome,
     ] }, ...paginaContinuar(hist, cred, t)],
   };
 }
@@ -2057,6 +2075,41 @@ async function jogosGif(): Promise<Uint8Array | null> {
   return v;
 }
 
+// bloco da tela inicial (Guia de Programação / Continuar assistindo): cartão desenhado no tema
+function blocoSvg(g: URLSearchParams) {
+  const W = 640, H = 360, onix = g.get("th") === "onix";
+  const tit = limparNome(g.get("t") ?? "").slice(0, 30), l1 = limparNome(g.get("a1") ?? "").slice(0, 34), l2 = limparNome(g.get("a2") ?? "").slice(0, 40);
+  const pct = Math.max(0, Math.min(100, Number(g.get("p")) || 0)), ic = ICONES[g.get("i") ?? "play"] ?? ICONES.play, comCapa = g.get("c") === "1";
+  const c1 = onix ? "#1C1A1E" : "#2A2160", c2 = onix ? "#0E0D10" : "#121433", ouro = onix ? "#D6B25E" : "#F5B400";
+  const xt = 40, larg = comCapa ? W - 250 : W - 80;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs>`
+    + `<rect x="6" y="6" width="${W - 12}" height="${H - 12}" rx="26" fill="url(#g)" stroke="${ouro}" stroke-opacity="${onix ? ".75" : ".35"}" stroke-width="2"/>`
+    + (comCapa ? "" : `<g transform="translate(${W - 230} 70) scale(8)" fill="${ouro}" fill-opacity=".12"><path d="${ic}"/></g>`)
+    + `<rect x="${xt}" y="40" width="64" height="64" rx="18" fill="${ouro}" fill-opacity=".16" stroke="${ouro}" stroke-opacity=".8" stroke-width="2"/><g transform="translate(${xt + 14} 54) scale(1.5)" fill="${ouro}"><path d="${ic}"/></g>`
+    + `<rect x="${xt}" y="${H - 150}" width="44" height="5" rx="2.5" fill="${ouro}"/>`
+    + `<text x="${xt}" y="${H - 104}" font-size="40" font-weight="800" fill="#fff" font-family="Arial, Helvetica, sans-serif">${xml(tit)}</text>`
+    + (l1 ? `<text x="${xt}" y="${H - 68}" font-size="24" font-weight="700" fill="#fff" fill-opacity=".9" font-family="Arial, Helvetica, sans-serif">${xml(l1)}</text>` : "")
+    + (l2 ? `<text x="${xt}" y="${H - 38}" font-size="20" font-weight="600" fill="#fff" fill-opacity=".62" font-family="Arial, Helvetica, sans-serif">${xml(l2)}</text>` : "")
+    + (pct ? `<rect x="${xt}" y="${H - 26}" width="${larg}" height="5" rx="2.5" fill="#fff" fill-opacity=".18"/><rect x="${xt}" y="${H - 26}" width="${Math.round(larg * pct / 100)}" height="5" rx="2.5" fill="${ouro}"/>` : "")
+    + `</svg>`;
+}
+const blocoImg = (o: Record<string, string | number>) => `${SELF()}?${q({ a: "bloco", th: TEMA, ...o })}`;
+// canais principais para o Guia de Programação (um por rede, na melhor qualidade)
+const REDES = [/^globo (sp|rj)|^globo\b/, /^sbt/, /^record/, /^band\b|bandeirantes/, /globonews/, /^sportv\b/, /^espn\b/, /premiere/, /^tnt\b/, /cnn brasil/, /discovery channel|^discovery\b/, /^hbo\b/];
+async function telaGuiaHome(cred: Cred, t: string) {
+  const cat = await catalogoAoVivo(cred);
+  const escolhidos: CanalProv[] = [];
+  for (const re of REDES) {
+    const c = cat.canais.filter((x) => re.test(semAcento(x.nome))).sort((a, b) => b.qual - a.qual)[0];
+    if (c && !escolhidos.includes(c)) escolhidos.push(c);
+  }
+  const ep = await epgVarios(cred, escolhidos.map((c) => c.id), 2500);
+  const favs = new Set((await favoritosDe(quem(cred))).map((f) => f.stream_id));
+  const itens = escolhidos.map((c) => canalItem({ name: c.nome, stream_id: c.id, category_id: c.cat }, cred, t, c.cat, false, "", cat.cats.get(c.cat) ?? "", 0, ep.get(c.id), favs));
+  if (!itens.length) return aviso("Guia de Programação", "Não encontramos os canais principais na sua lista.");
+  return lista("Guia de Programação", itens, "0,0,6,1", {}, "O que está passando agora", "live");
+}
+
 const jogoAcao = (j: Jogo, t: string) => go({ a: "jogo", t, n1: j.casa.nome, n2: j.fora.nome });
 
 async function telaJogos(t: string) {
@@ -2193,6 +2246,9 @@ Deno.serve(async (req: Request) => {
       const g = u0.searchParams;
       const svg = cartaoSvg(g.get("k") ?? "live", g.get("t") ?? "", g.get("s") ?? "", g.get("i") ?? "play", g.get("f") === "p");
       return new Response(svg, { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=86400" } });
+    }
+    if (req.method === "GET" && u0.searchParams.get("a") === "bloco") {
+      return new Response(blocoSvg(u0.searchParams), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=3600" } });
     }
     if (req.method === "GET" && u0.searchParams.get("a") === "jgif") { // sem jogos das ligas principais (ou erro): GIF fixo dos times
       let gif: Uint8Array | null = null;
