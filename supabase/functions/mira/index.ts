@@ -768,8 +768,8 @@ function canalItem(x: any, cred: { u: string; p: string }, t: string, c: string,
     ? { color: ativo ? VID.ouro : VID.n }
     : { image: logo, imageWidth: 1, imageFiller: "fit", wrapperColor: "rgba(255,255,255,0.06)", icon: logo ? undefined : "live-tv", iconSize: "small", color: VID.n };
   return {
-    ...(!painel && favs?.has(String(x.stream_id)) ? { tag: "♥", tagColor: "msx-red" } : {}),
-    title: (ativo ? "▶  " : "") + (favs?.has(String(x.stream_id)) ? CORACAO : "") + nome, titleFooter: guia.linha || "TV Ao Vivo", truncation: "title|titleFooter",
+    ...(favs?.has(String(x.stream_id)) ? { tag: "♥", tagColor: "msx-red" } : {}),
+    title: (ativo ? "▶  " : "") + nome, titleFooter: guia.linha || "TV Ao Vivo", truncation: "title|titleFooter",
     ...visual,
     focus: ativo ? true : undefined, enumerate: !painel,
     playerLabel: nome,
@@ -1019,7 +1019,7 @@ async function tratar(url: URL) {
     return await telaGuia(cred, t, s, limparNome(url.searchParams.get("n") ?? "Canal"), pn({ a: "painel", t, c: cc, cn, s }));
   }
   if (a === "jogos") return await telaJogos(t);
-  if (a === "guiahome") return await telaGuiaHome(cred, t);
+  if (a === "guiahome") return await telaGuiaHome(cred, t, pg);
   if (a === "jogo") return await telaJogo(cred, t, url.searchParams.get("n1") ?? "", url.searchParams.get("n2") ?? "");
   if (a === "buscadados") { const kk = url.searchParams.get("k") ?? ""; return await buscaDados(cred, t, kk, await filtroAdulto(cred, kk)); }
   if (a === "busca") return await telaBusca(cred, t, url.searchParams.get("k") ?? "", (url.searchParams.get("q") ?? "").slice(0, 30), url.searchParams.get("f") ?? "", url.searchParams.get("m") ?? "");
@@ -1150,14 +1150,13 @@ async function tratar(url: URL) {
     // por isso a primeira linha tem os três botões lado a lado, cada um com a sua tecla.
     const ehFavAtual = favs.has(s);
     const botoes = [
-      { ...navegar, layout: "0,0,2,1", title: "{col:msx-red}●{col:msx-white}  Categorias", truncation: "titleFooter", focus: !atualCanal ? true : undefined },
-      { layout: "0,0,2,1", title: "{ico:event-note}  Guia", titleFooter: "Programação", color: VID.voltar, action: atualCanal ? pn({ a: "guia", t, s, n: limparNome(String(atualCanal.name)), c, cn }) : "none" },
-      { layout: "0,0,2,1", truncation: "title", title: `{col:msx-green}●{col:msx-white}  ${ehFavAtual ? "Desfavoritar" : "Favoritar"}`, titleFooter: atualCanal ? "Canal que está tocando" : "Nenhum canal tocando", key: "green", color: VID.voltar, action: alternar },
-      { layout: "0,0,2,1", title: "{col:msx-yellow}●{col:msx-white}  Início", titleFooter: "Parar e voltar", key: "yellow", color: VID.voltar, action: `[player:eject|${go({ a: "home", t })}]` },
+      { ...navegar, layout: "0,0,7,1", title: "{col:msx-red}●{col:msx-white}  Categorias", truncation: "titleFooter", focus: !atualCanal ? true : undefined },
+      // o amarelo precisa de um item com a tecla: fica só um quadradinho com a casinha
+      { layout: "0,0,1,1", title: "{col:msx-yellow}{ico:home}", alignment: "center", centration: "title", key: "yellow", color: VID.voltar, action: `[player:eject|${go({ a: "home", t })}]` },
     ];
     return {
       ...atualizaCoracao,
-      type: "list", transparent: 2, headline: "Canais",
+      type: "list", transparent: 2, headline: "Canais   {col:msx-red}●{col:msx-white-soft} Categorias   {col:msx-yellow}●{col:msx-white-soft} Início",
       template: { type: "default", layout: "0,0,8,1", color: COR.vidro },
       items: [...botoes, ...fixo, ...canais],
     };
@@ -1440,7 +1439,7 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
     const ic = itemContinuar(ult, cred, t) as any;
     blocosHome.push({ ...ic, title: undefined, titleFooter: undefined, type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit",
       image: blocoImg({ t: "Continuar assistindo", a1: ult.nome, a2: `${pct ? pct + "% · " : ""}parou em ${fmtTempo(ult.pos)}`, p: pct, i: ult.tipo === "ep" ? "series" : "movie", c: ult.icone ? 1 : 0 }) });
-    if (ult.icone) blocosHome.push({ type: "space", layout: "8,4,4,2", offset: "2.75,0.2,-2.95,-0.55", image: ult.icone, imageFiller: "fit", enable: false });
+    if (ult.icone) blocosHome.push({ type: "space", layout: "8,4,4,2", offset: "2.75,0.32,-3.05,-0.72", image: ult.icone, imageFiller: "fit", enable: false });
   } else {
     blocosHome.push({ type: "default", layout: "8,4,4,2", color: "transparent", imageFiller: "fit", action: go({ a: "cats", k: "vod", t }),
       image: blocoImg({ t: "Continuar assistindo", a1: "Nada começado ainda", a2: "Escolha um filme ou série", i: "movie" }) });
@@ -1485,7 +1484,7 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       card("8,1,4,3", "card-series.png", go({ a: "cats", k: "series", t }), selo(qtd.series)),
       ...qtdTxt(0, qtd.live), ...qtdTxt(4, qtd.vod), ...qtdTxt(8, qtd.series),
       { type: "default", layout: "0,4,4,2", image: `${SELF()}?${q({ a: "jgif", d: diaLocal(), h: Math.floor(Date.now() / 1800_000), th: TEMA })}`, imageFiller: "fit", color: "transparent", action: lst.length ? todos : "none" },
-      { type: "space", layout: "0,4,4,2", offset: "0,1.05,0,-1.05", alignment: "center", enable: false,
+      { type: "space", layout: "0,4,4,2", offset: "0,1.08,0,-1.12", alignment: "center", enable: false,
         text: "{col:msx-white}Jogos de hoje{br}" + (jogos === null ? "{col:msx-white-soft}Placar indisponível agora" : lst.length ? `{col:msx-white}${lst.length} partida${lst.length > 1 ? "s" : ""}${vivos ? `  |  {col:${TEMA === "onix" ? "msx-yellow" : "msx-red"}}${vivos} ao vivo{col:msx-white}` : ""}{br}{col:msx-white-soft}Ver todos  ›` : "{col:msx-white-soft}Nenhuma partida hoje") },
       ...destaques,
       ...blocosHome,
@@ -2041,31 +2040,35 @@ async function jogosGif(): Promise<Uint8Array | null> {
     .slice(0, 12);
   if (jogos.length < 2) return null;
   if (!_fonte) _fonte = new Uint8Array(await (await fetch(IMG + "fontes/DejaVuSans-Bold.ttf")).arrayBuffer());
-  const logo = async (u: string) => { try { const im = await Img.decode(new Uint8Array(await (await fetch(u, { signal: AbortSignal.timeout(4000) })).arrayBuffer())); return im.contain(120, 120); } catch { return null; } };
-  const W = 600, H = 380;
+  const logo = async (u: string) => { try { const im = await Img.decode(new Uint8Array(await (await fetch(u, { signal: AbortSignal.timeout(4000) })).arrayBuffer())); return im.contain(110, 110); } catch { return null; } };
+  const W = 640, H = 360;
   const onix = TEMA === "onix";
-  // fundo do tema (a mesma imagem das telas), escurecido embaixo para o texto do app
-  let fundo: Img;
-  try {
-    const bg = await Img.decode(new Uint8Array(await (await fetch(im("bg-tv.jpg"), { signal: AbortSignal.timeout(5000) })).arrayBuffer()));
-    fundo = (bg as Img).cover(W, H);
-  } catch { fundo = new Img(W, H).fill(onix ? 0x15130FFF : 0x141838FF); }
-  const sombra = new Img(W, H).fill((_x: number, y: number) => Img.rgbaToColor(0, 0, 0, Math.round(Math.min(1, Math.max(0, (y / H - 0.45) / 0.55)) * 170)));
-  fundo.composite(sombra, 0, 0);
+  // cartão igual aos blocos do lado (Guia / Continuar): degradê do tema, cantos arredondados e borda dourada
+  const c1 = onix ? [28, 26, 30] : [42, 33, 96], c2 = onix ? [14, 13, 16] : [18, 20, 51], ouro = onix ? [214, 178, 94] : [245, 180, 0];
+  const R = 26, M = 6;
+  const fundo = new Img(W, H).fill((x: number, y: number) => {
+    const fx = x - 1, fy = y - 1; // a biblioteca conta a partir de 1
+    const dx = Math.max(M + R - fx, 0, fx - (W - M - R)), dy = Math.max(M + R - fy, 0, fy - (H - M - R));
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d > R) return Img.rgbaToColor(0, 0, 0, 0);
+    if (d > R - 2.5 || (dx === 0 && dy === 0 && (fx < M + 2.5 || fx > W - M - 2.5 || fy < M + 2.5 || fy > H - M - 2.5))) return Img.rgbaToColor(ouro[0], ouro[1], ouro[2], onix ? 200 : 110);
+    const t = Math.min(1, (fx / W + fy / H) / 2);
+    return Img.rgbaToColor(Math.round(c1[0] + (c2[0] - c1[0]) * t), Math.round(c1[1] + (c2[1] - c1[1]) * t), Math.round(c1[2] + (c2[2] - c1[2]) * t), 255);
+  });
   const destaque = onix ? 0xD6B25EFF : 0xF5B400FF;
   const frames: Frame[] = [];
   for (const j of jogos) {
     const [l1, l2] = await Promise.all([logo(j.casa.logo), logo(j.fora.logo)]);
     if (!l1 || !l2) continue;
     const f = fundo.clone();
-    f.composite(l1, 120 - l1.width / 2, 40 + (120 - l1.height) / 2);
-    f.composite(l2, W - 120 - l2.width / 2, 40 + (120 - l2.height) / 2);
-    const vs = Img.renderText(_fonte!, 40, "x", destaque); f.composite(vs, W / 2 - vs.width / 2, 78);
+    f.composite(l1, 140 - l1.width / 2, 46 + (110 - l1.height) / 2);
+    f.composite(l2, W - 140 - l2.width / 2, 46 + (110 - l2.height) / 2);
+    const vs = Img.renderText(_fonte!, 40, "x", destaque); f.composite(vs, W / 2 - vs.width / 2, 80);
     const nome = (t: string) => Img.renderText(_fonte!, 22, t.length > 14 ? t.slice(0, 13) + "…" : t, 0xFFFFFFFF);
     const n1 = nome(j.casa.nome), n2 = nome(j.fora.nome);
-    f.composite(n1, Math.max(8, 120 - n1.width / 2), 168); f.composite(n2, Math.min(W - 8 - n2.width, W - 120 - n2.width / 2), 168);
+    f.composite(n1, Math.max(24, 140 - n1.width / 2), 160); f.composite(n2, Math.min(W - 24 - n2.width, W - 140 - n2.width / 2), 160);
     const liga = Img.renderText(_fonte!, 16, (j.liga + (j.status ? "  ·  " + j.status : "")).toUpperCase().slice(0, 48), destaque);
-    f.composite(liga, W / 2 - liga.width / 2, 12);
+    f.composite(liga, W / 2 - liga.width / 2, 20);
     frames.push(Frame.from(f, 2200));
   }
   if (frames.length < 2) return null;
@@ -2096,20 +2099,16 @@ function blocoSvg(g: URLSearchParams) {
 const blocoImg = (o: Record<string, string | number>) => `${SELF()}?${q({ a: "bloco", th: TEMA, ...o })}`;
 // canais principais para o Guia de Programação (um por rede, na melhor qualidade)
 const REDES = [/^globo (sp|rj)|^globo\b/, /^sbt/, /^record/, /^band\b|bandeirantes/, /globonews/, /^sportv\b/, /^espn\b/, /premiere/, /^tnt\b/, /cnn brasil/, /discovery channel|^discovery\b/, /^hbo\b/];
-async function telaGuiaHome(cred: Cred, t: string) {
-  const cat = await catalogoAoVivo(cred);
-  const escolhidos: CanalProv[] = [];
-  for (const re of REDES) {
-    // prefere a versão comum de SP (as 4K/FHDR/H265 costumam vir sem guia)
-    const nota = (x: CanalProv) => { const n = semAcento(x.nome); return (/\b(4k|uhd|fhdr|h265|hevc)\b/.test(n) ? -10 : 0) + (/\bsp\b/.test(n) ? 3 : 0) + x.qual; };
-    const c = cat.canais.filter((x) => re.test(semAcento(x.nome))).sort((a, b) => nota(b) - nota(a))[0];
-    if (c && !escolhidos.includes(c)) escolhidos.push(c);
-  }
-  const ep = await epgVarios(cred, escolhidos.map((c) => c.id), 2500);
+async function telaGuiaHome(cred: Cred, t: string, pg: number) {
+  // todos os canais que têm guia (epg_channel_id preenchido pelo provedor), sem adultos quando protegido
+  const [dados, semAdulto] = await Promise.all([api(cred, "&action=get_live_streams"), filtroAdulto(cred, "live")]);
+  const todos = ((Array.isArray(dados) ? dados : []) as any[]).filter((x) => String(x.epg_channel_id ?? "").trim() && !semAdulto(String(x.category_id), "live"));
+  const fatia = todos.slice(pg * POR_PAGINA, (pg + 1) * POR_PAGINA);
+  const ep = await epgVarios(cred, fatia.map((x) => String(x.stream_id)), 2500);
   const favs = new Set((await favoritosDe(quem(cred))).map((f) => f.stream_id));
-  const itens = escolhidos.map((c) => canalItem({ name: c.nome, stream_id: c.id, category_id: c.cat }, cred, t, c.cat, false, "", cat.cats.get(c.cat) ?? "", 0, ep.get(c.id), favs));
-  if (!itens.length) return aviso("Guia de Programação", "Não encontramos os canais principais na sua lista.");
-  return lista("Guia de Programação", itens, "0,0,6,1", {}, "O que está passando agora", "live");
+  if (!todos.length) return aviso("Guia de Programação", "Nenhum canal da sua lista tem programação disponível.");
+  return paginar("Guia de Programação", todos, pg, (x) => canalItem(x, cred, t, String(x.category_id ?? ""), false, "", "", 0, ep.get(String(x.stream_id)), favs),
+    (n) => go({ a: "guiahome", t, pg: n }), "0,0,6,1", "live", `${todos.length} canais com programação`, { title: "‹   INÍCIO", titleFooter: "Voltar" });
 }
 
 const jogoAcao = (j: Jogo, t: string) => go({ a: "jogo", t, n1: j.casa.nome, n2: j.fora.nome });

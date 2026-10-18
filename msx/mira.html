@@ -33,7 +33,7 @@
   // Servidores que não deixam o Supabase falar com eles: o servidor pede, a TV busca no provedor
   // e devolve o texto; o servidor então monta a tela. Até 4 idas e voltas por tela.
   // Listas grandes (milhares de canais) são enxugadas antes de subir: só os campos que o servidor usa.
-  var CAMPOS = ['num', 'name', 'stream_type', 'stream_id', 'stream_icon', 'category_id', 'category_name', 'container_extension', 'rating', 'rating_5based', 'cover', 'series_id', 'is_adult', 'added', 'last_modified'];
+  var CAMPOS = ['num', 'name', 'stream_type', 'stream_id', 'stream_icon', 'category_id', 'category_name', 'container_extension', 'rating', 'rating_5based', 'cover', 'series_id', 'is_adult', 'added', 'last_modified', 'epg_channel_id'];
   function enxugar(txt) {
     if (txt.length < 120000 || txt.charAt(0) !== '[') { return txt; }
     try {
