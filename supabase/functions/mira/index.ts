@@ -485,6 +485,9 @@ const tocar = (tipo: string, cred: { u: string; p: string }, id: string | number
   return `video:plugin:${PLAYER}?${q({ f: b64(new TextEncoder().encode(fontes)), m: oque })}`;
 };
 
+// "Continuar de onde parou" (filmes e episódios): o próprio MSX guarda a posição na TV, por usuário
+const retomar = (tipo: string, id: string | number, u: string) => ({ "resume:key": `gp:${tipo}:${id}`, "resume:context": `gp:${u}` });
+
 function inputAction(servico: string, titulo: string, dica: string) {
   // {INPUT} fica sem codificar: o plugin do MSX o substitui pelo que foi digitado
   return `content:request:interaction:${servico}|default|pt|${titulo}|||${dica}|@${INPUT}`;
@@ -875,7 +878,7 @@ async function tratar(url: URL) {
           title: nome, image: x.stream_icon || cartao("vod", nome, "Filme", "movie", true), imageFiller: "cover", color: COR.vidro,
           tag: nota(x.rating), tagColor: COR.destaque,
           action: tocar("movie", cred, x.stream_id, x.container_extension || "mp4", "o filme"), playerLabel: nome,
-          properties: { "trigger:back": "quiet" },
+          properties: { "trigger:back": "quiet", ...retomar("filme", x.stream_id, cred.u) },
         };
       }, prox, "0,0,2,3", tipoQ);
     }
@@ -972,7 +975,7 @@ async function tratar(url: URL) {
       image: e.info?.movie_image || undefined, imageFiller: "cover", icon: e.info?.movie_image ? undefined : "play-arrow", color: COR.vidro,
       action: tocar("series", cred, e.id, e.container_extension || "mp4", "o episódio"),
       playerLabel: `${nome} T${temp}E${e.episode_num}`,
-      properties: { "trigger:back": "quiet" },
+      properties: { "trigger:back": "quiet", ...retomar("ep", e.id, cred.u) },
     })), "0,0,4,2", {}, `Temporada ${temp}`, "series");
   }
 
@@ -1243,7 +1246,7 @@ function itemBusca(x: ItemBusca, cred: Cred, t: string) {
     return { ...canalItem({ name: x.nome, stream_id: x.id, stream_icon: x.icon || undefined }, cred, t, x.cat, false), enumerate: false, titleFooter: "TV ao vivo" };
   }
   if (x.k === "vod") {
-    return { title: x.nome, titleFooter: "Filme", truncation: "title", color: VID.n, icon: "movie", iconSize: "small", playerLabel: x.nome, action: tocar("movie", cred, x.id, x.ext || "mp4", "o filme"), properties: { "trigger:back": "quiet" } };
+    return { title: x.nome, titleFooter: "Filme", truncation: "title", color: VID.n, icon: "movie", iconSize: "small", playerLabel: x.nome, action: tocar("movie", cred, x.id, x.ext || "mp4", "o filme"), properties: { "trigger:back": "quiet", ...retomar("filme", x.id, cred.u) } };
   }
   return { title: x.nome, titleFooter: "Série", truncation: "title", color: VID.n, icon: "video-library", iconSize: "small", action: go({ a: "serie", t, s: x.id }) };
 }
