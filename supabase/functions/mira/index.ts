@@ -1886,7 +1886,7 @@ function itemContinuar(h: Hist, cred: Cred, t: string) {
   return {
     title: h.nome, titleFooter: rodape, image: img, imageFiller: "cover", color: COR.vidro, truncation: "title", playerLabel: h.nome,
     action: tocar("movie", cred, h.item_id, ext, "o filme", { t, tp: "filme", nome: h.nome, icone: h.icone }),
-    properties: { "trigger:back": "quiet", ...retomar("filme", h.item_id, quem(cred)) },
+    properties: { "trigger:back": "quiet", ...visualPlayer(h.nome, "", h.icone), ...retomar("filme", h.item_id, quem(cred)) },
   };
 }
 
