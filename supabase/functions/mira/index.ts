@@ -1832,7 +1832,7 @@ const fmtQtd = (n?: number) => (n ? n.toLocaleString("pt-BR") : undefined);
 async function catalogoBusca(cred: Cred, k: ItemBusca["k"]): Promise<ItemBusca[]> {
   const chaveC = `${cred.u}|${k}`;
   const c = cacheBusca.get(chaveC);
-  if (c && Date.now() - c.em < 10 * 60 * 1000) return c.v; // guardado: as próximas letras não buscam de novo
+  if (c && Date.now() - c.em < 10 * 60 * 1000) { anotarContagem(cred.u, k, c.v.length); return c.v; } // guardado: as próximas letras não buscam de novo
   const dados = await api(cred, `&action=${ACOES_BUSCA[k]}`);
   const v: ItemBusca[] = ((Array.isArray(dados) ? dados : []) as any[]).map((x) => {
     const nome = limparNome(String(x.name ?? ""));
