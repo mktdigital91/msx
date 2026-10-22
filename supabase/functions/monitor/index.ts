@@ -190,6 +190,73 @@ async function ciclo(forcar: boolean, soDns: string | null) {
   return { checadas: resultados.length, quedas: novasQuedas.length, voltas: voltas.length, trocas: trocas.length };
 }
 
+// ---------- qualidade de reprodução (telemetria enviada pelo player da TV) ----------
+type Ev = { owner_id: string | null; host: string | null; canal: string | null; tipo: string; dur_ms: number | null; ctrl_ms: number | null; prov_ms: number | null; causa: string | null; em: string };
+const LIM_TRAVADAS = 3, JANELA_MIN = 10, DUR_LONGA_MS = 20_000, ESPERA_ALERTA_MS = 30 * 60 * 1000;
+const _alertaQ = new Map<string, number>(); // reserva em memória se a coluna do banco não existir
+const mediana = (n: number[]) => { if (!n.length) return null; const s = [...n].sort((a, b) => a - b); return s[Math.floor(s.length / 2)]; };
+const ROTULO: Record<string, string> = {
+  internet: "🌐 Sua internet/Wi-Fi: o teste contra o nosso servidor também ficou lento ou falhou na hora da travada.",
+  provedor: "📡 O provedor: a sua internet estava boa, mas o servidor do provedor respondeu lento ou não respondeu.",
+  tv: "📺 A TV: rede e provedor normais, mas o aparelho perdeu muitos quadros de vídeo.",
+  canal: "🎞️ A origem do canal: rede e provedor responderam bem; a falha foi no sinal desse canal específico.",
+};
+async function qualidade() {
+  let evs: Ev[] = [];
+  try {
+    const desde = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    evs = await rest(`play_eventos?em=gte.${desde}&select=owner_id,host,canal,tipo,dur_ms,ctrl_ms,prov_ms,causa,em&order=em.desc&limit=3000`) ?? [];
+  } catch { return { avaliados: 0 }; } // tabela ainda não criada
+  if (!evs.length) return { avaliados: 0 };
+  const dnsTodas: Dns[] = await rest("dns?select=*");
+  const corte = Date.now() - JANELA_MIN * 60 * 1000;
+  const grupos = new Map<string, Ev[]>();
+  for (const e of evs) { const k = `${e.owner_id ?? ""}|${e.host ?? ""}`; (grupos.get(k) ?? grupos.set(k, []).get(k)!).push(e); }
+  let enviados = 0;
+  for (const [k, lista] of grupos) {
+    const [owner, host] = k.split("|");
+    const rec = lista.filter((e) => new Date(e.em).getTime() >= corte);
+    const trav = rec.filter((e) => e.tipo === "travada" || e.tipo === "reconexao");
+    const maior = Math.max(0, ...trav.map((e) => e.dur_ms ?? 0));
+    const dns = dnsTodas.find((d) => d.host === host && (d.owner_id ?? "") === owner) ?? dnsTodas.find((d) => d.host === host);
+    const antes = dns && (dns as unknown as { qualidade_alertada?: string | null }).qualidade_alertada
+      ? new Date((dns as unknown as { qualidade_alertada: string }).qualidade_alertada).getTime() : (_alertaQ.get(k) ?? 0);
+    const marcar = async (v: string | null) => {
+      if (v) _alertaQ.set(k, Date.now()); else _alertaQ.delete(k);
+      if (dns) { try { await patch("dns", `id=eq.${dns.id}`, { qualidade_alertada: v }); } catch { /* coluna ainda não existe */ } }
+    };
+    const critico = trav.length >= LIM_TRAVADAS || maior >= DUR_LONGA_MS;
+    if (critico && Date.now() - antes >= ESPERA_ALERTA_MS) {
+      const cont: Record<string, number> = {};
+      for (const e of trav) cont[e.causa ?? "canal"] = (cont[e.causa ?? "canal"] ?? 0) + 1;
+      const principal = Object.entries(cont).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "canal";
+      const amostras = rec.filter((e) => e.tipo === "amostra");
+      const ct = mediana([...trav, ...amostras].map((e) => e.ctrl_ms).filter((x): x is number => typeof x === "number" && x >= 0));
+      const pv = mediana([...trav, ...amostras].map((e) => e.prov_ms).filter((x): x is number => typeof x === "number" && x >= 0));
+      const canais = [...new Set(trav.map((e) => e.canal).filter(Boolean))].slice(0, 4);
+      const nomeH = dns ? nomeDns(dns) : esc(host);
+      let txt = `⚠️ <b>Travamentos na reprodução</b>\n${nomeH}\n${trav.length} travada(s) em ${JANELA_MIN} min, a maior de ${Math.round(maior / 1000)} s`;
+      if (canais.length) txt += `\nCanais: ${esc(canais.join(", "))}`;
+      txt += `\n\n<b>Causa mais provável</b>\n${ROTULO[principal] ?? principal}`;
+      const detalhes = Object.entries(cont).map(([c, n]) => `${c}: ${n}`).join(" · ");
+      txt += `\n\nDistribuição: ${esc(detalhes)}`;
+      if (ct !== null || pv !== null) txt += `\nTempo de resposta típico: nosso servidor ${ct ?? "–"} ms · provedor ${pv ?? "–"} ms`;
+      if (principal === "canal" && canais.length === 1) txt += `\n\nSó este canal falhou: tente outro canal para confirmar.`;
+      if (await avisar(owner || null, txt)) { await marcar(new Date().toISOString()); enviados++; }
+    } else if (!critico && antes && Date.now() - antes >= 5 * 60 * 1000) {
+      const calmo = rec.some((e) => e.tipo === "amostra") && trav.length === 0;
+      if (calmo) {
+        const nomeH = dns ? nomeDns(dns) : esc(host);
+        if (await avisar(owner || null, `🟢 <b>Reprodução normalizada</b>\n${nomeH}\nSem travadas nos últimos ${JANELA_MIN} min.`)) await marcar(null);
+      }
+    }
+  }
+  if (new Date().getMinutes() === 0) { // limpeza semanal dos eventos antigos
+    try { await rest(`play_eventos?em=lt.${new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()}`, { method: "DELETE", headers: { prefer: "return=minimal" } }); } catch { /* ignora */ }
+  }
+  return { avaliados: evs.length, alertas: enviados };
+}
+
 function melhorAlternativa(d: Dns, todas: Dns[]): Dns | null {
   return todas
     .filter((x) => x.grupo_id === d.grupo_id && x.id !== d.id && x.ativo && x.status === "online")
@@ -203,7 +270,9 @@ Deno.serve(async (req) => {
   if (forcar && !(await ehPainel(req))) return new Response(JSON.stringify({ erro: "não autorizado" }), { status: 401, headers: CORS });
   try {
     const r = await ciclo(forcar, u.searchParams.get("dns"));
-    return new Response(JSON.stringify({ ok: true, ...r }), { headers: CORS });
+    let ql: unknown = null;
+    try { ql = await qualidade(); } catch (e) { console.log("erro na qualidade", String(e)); }
+    return new Response(JSON.stringify({ ok: true, ...r, qualidade: ql }), { headers: CORS });
   } catch (e) {
     console.log("erro no ciclo", String(e));
     return new Response(JSON.stringify({ ok: false, erro: String((e as Error)?.message ?? e) }), { status: 500, headers: CORS });

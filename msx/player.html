@@ -156,6 +156,7 @@
   function reconectar() {
     if (falhou || pausado || !v.src) return;
     parado = 0; refeitos++;
+    fecharTravada("reconexao");
     if (refeitos > 2 && fontes.length > 1) { refeitos = 0; tentar((atual + 1) % fontes.length); return; }
     tentar(atual);
   }
@@ -166,6 +167,7 @@
     if (v.ended) return; // terminou: não é travamento
     if (v.paused) { try { v.play(); } catch (e) {} }
     parado += 2;
+    if (parado >= 4) iniciarTravada(parado * 1000);
     if (parado >= 8) { mostrarCarregando(true); reconectar(); }
   }, 2000);
   v.addEventListener("playing", function () {
@@ -187,6 +189,90 @@
   });
   v.addEventListener("waiting", function () { if (!falhou) mostrarCarregando(true); });
   v.addEventListener("error", function () { if (!falhou) tentar(atual + 1); });
+
+  // ---- telemetria de qualidade: mede travadas na TV e manda ao Mira (a=tel) para diagnosticar onde está o problema ----
+  var tl = param("tl"), usr = param("usr"), canalNome = param("c");
+  var tel = { t0: new Date().getTime(), tocou: false, stall: 0, ct: null, pv: null, env: 0, dp0: 0, tt0: 0, aberta: null };
+  function agora() { return new Date().getTime(); }
+  function qualidade() {
+    var d = 0, t = 0;
+    try {
+      if (v.getVideoPlaybackQuality) { var q = v.getVideoPlaybackQuality(); d = q.droppedVideoFrames || 0; t = q.totalVideoFrames || 0; }
+      else { d = v.webkitDroppedFrameCount || 0; t = v.webkitDecodedFrameCount || 0; }
+    } catch (e) {}
+    var r = { dp: Math.max(0, d - tel.dp0), tt: Math.max(0, t - tel.tt0) };
+    tel.dp0 = d; tel.tt0 = t;
+    return r;
+  }
+  function enviar(o) {
+    if (!tl || !usr || tel.env > 400) return;
+    tel.env++;
+    var qs = "a=tel&usr=" + encodeURIComponent(usr) + "&h=" + encodeURIComponent(so_host(fontes[atual] || fontes[0] || "")) + "&c=" + encodeURIComponent(canalNome);
+    for (var k in o) { if (o.hasOwnProperty(k) && o[k] !== null && o[k] !== undefined) qs += "&" + k + "=" + encodeURIComponent(o[k]); }
+    try { var x = new XMLHttpRequest(); x.open("GET", tl + (tl.indexOf("?") < 0 ? "?" : "&") + qs); x.send(); } catch (e) {}
+  }
+  // tempo até o endereço responder (mesmo erro de CORS conta como "respondeu"); -1 = sem resposta em 8 s
+  function medir(url, cb) {
+    var t0 = agora(), feito = false, x = new XMLHttpRequest();
+    function fim(sem) { if (feito) return; feito = true; cb(sem ? -1 : agora() - t0); }
+    try {
+      x.open("GET", url + (url.indexOf("?") < 0 ? "?" : "&") + "_=" + t0);
+      x.timeout = 8000;
+      x.onload = function () { fim(false); };
+      x.onerror = function () { fim(false); };
+      x.ontimeout = function () { fim(true); };
+      x.send();
+    } catch (e) { fim(true); }
+  }
+  function sondar() {
+    tel.ct = null; tel.pv = null;
+    if (!tl) return;
+    medir(tl + (tl.indexOf("?") < 0 ? "?" : "&") + "a=ping", function (ms) { tel.ct = ms; });
+    var f = fontes[atual] || fontes[0] || "";
+    var m = /^([a-z]+:\/\/[^\/?#]+)/i.exec(f);
+    if (m) medir(m[1] + "/", function (ms) { tel.pv = ms; }); else tel.pv = -2;
+  }
+  function aguardarSondas(cb, ate) {
+    var n = 0;
+    (function espera() {
+      if ((tel.ct !== null && tel.pv !== null) || n++ > (ate || 45)) { cb(); return; }
+      setTimeout(espera, 200);
+    })();
+  }
+  function iniciarTravada(atraso) {
+    if (tel.stall || !tel.tocou || pausado || falhou) return;
+    tel.stall = agora() - (atraso || 0);
+    sondar();
+  }
+  function fecharTravada(motivo) {
+    if (!tel.stall) return;
+    var dur = agora() - tel.stall; tel.stall = 0;
+    if (dur < 1500 && !motivo) return;
+    var qa = qualidade();
+    aguardarSondas(function () {
+      enviar({ e: motivo || "travada", dur: dur, ct: tel.ct, pv: tel.pv === -2 ? null : tel.pv, dp: qa.dp, tt: qa.tt, d: motivo ? motivo : "" });
+    });
+  }
+  function eventoPontual(e, det) {
+    var qa = qualidade();
+    sondar();
+    aguardarSondas(function () { enviar({ e: e, ct: tel.ct, pv: tel.pv === -2 ? null : tel.pv, dp: qa.dp, tt: qa.tt, d: det || "" }); });
+  }
+  v.addEventListener("playing", function () {
+    if (!tel.tocou) { tel.tocou = true; enviar({ e: "inicio", dur: agora() - tel.t0 }); }
+    fecharTravada();
+  });
+  v.addEventListener("timeupdate", function () { if (tel.stall && !v.paused && !v.seeking) fecharTravada(); });
+  v.addEventListener("waiting", function () { if (!v.seeking) iniciarTravada(0); });
+  v.addEventListener("stalled", function () { iniciarTravada(0); });
+  v.addEventListener("error", function () { var c = v.error ? v.error.code : 0; eventoPontual("erro", "midia" + c); });
+  // amostra a cada minuto enquanto assiste: dá a linha de base (rede e provedor normais) para comparar com as travadas
+  setInterval(function () {
+    if (!tel.tocou || pausado || falhou || v.paused || tel.stall) return;
+    var qa = qualidade();
+    sondar();
+    aguardarSondas(function () { enviar({ e: "amostra", ct: tel.ct, pv: tel.pv === -2 ? null : tel.pv, dp: qa.dp, tt: qa.tt }); });
+  }, 60000);
 
   function Player() {
     this.init = function () {};

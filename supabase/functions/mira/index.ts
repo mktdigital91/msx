@@ -338,6 +338,50 @@ async function apagarSessao(d: string | null) {
   try { await fetch(`${REST()}?aparelho=eq.${encodeURIComponent(d)}`, { method: "DELETE", headers: cab(), signal: AbortSignal.timeout(8000) }); } catch { /* ignora */ }
 }
 
+// ---------- contas salvas por TV (entrar com um toque) ----------
+const REST_CTA = () => `${Deno.env.get("SUPABASE_URL")}/rest/v1/contas_salvas`;
+async function cifrar(s: string) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const c = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await chave(), new TextEncoder().encode(s)));
+  const t = new Uint8Array(iv.length + c.length); t.set(iv); t.set(c, iv.length);
+  return b64(t);
+}
+async function decifrar(s: string): Promise<string | null> {
+  try {
+    const raw = unb64(s);
+    return new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: raw.slice(0, 12) }, await chave(), raw.slice(12)));
+  } catch { return null; }
+}
+async function lembrarConta(d: string | null, u: string, p: string) {
+  if (!d || !u || !p) return;
+  try {
+    await fetch(`${REST_CTA()}?on_conflict=aparelho,usuario`, {
+      method: "POST", headers: { ...cab(), prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({ aparelho: d, usuario: u, senha_enc: await cifrar(p), ultimo_uso: new Date().toISOString() }), signal: AbortSignal.timeout(6000),
+    });
+  } catch { /* sem contas salvas: só não oferece o atalho */ }
+}
+async function contasDe(d: string | null): Promise<string[]> {
+  if (!d) return [];
+  try {
+    const r = await fetch(`${REST_CTA()}?aparelho=eq.${encodeURIComponent(d)}&select=usuario&order=ultimo_uso.desc&limit=12`, { headers: cab(), signal: AbortSignal.timeout(4000) });
+    const j = await r.json();
+    return Array.isArray(j) ? j.map((x: { usuario: string }) => x.usuario) : [];
+  } catch { return []; }
+}
+async function senhaSalva(d: string | null, u: string): Promise<string | null> {
+  if (!d || !u) return null;
+  try {
+    const r = await fetch(`${REST_CTA()}?aparelho=eq.${encodeURIComponent(d)}&usuario=eq.${encodeURIComponent(u)}&select=senha_enc&limit=1`, { headers: cab(), signal: AbortSignal.timeout(4000) });
+    const j = await r.json();
+    return Array.isArray(j) && j[0] ? await decifrar(j[0].senha_enc) : null;
+  } catch { return null; }
+}
+async function esquecerConta(d: string | null, u: string) {
+  if (!d || !u) return;
+  try { await fetch(`${REST_CTA()}?aparelho=eq.${encodeURIComponent(d)}&usuario=eq.${encodeURIComponent(u)}`, { method: "DELETE", headers: cab(), signal: AbortSignal.timeout(6000) }); } catch { /* ignora */ }
+}
+
 // ---------- pareamento pelo celular (código de 6 letras/números, vale 24 h) ----------
 const REST_COD = () => `${Deno.env.get("SUPABASE_URL")}/rest/v1/pareamentos`;
 const VALIDADE_COD_MS = 24 * 3600 * 1000;
@@ -497,6 +541,7 @@ async function parear(corpo: { c?: string; m?: string; u?: string; p?: string })
   await salvarVence(u, info);
   if (au.dnsId) await fixarDnsDoUsuario(u, au.dnsId);
   await salvarSessao(aparelho, await criarToken(u, p, undefined, provisorio));
+  if (!provisorio) await lembrarConta(aparelho, u, p);
   if (!porMac) await apagarCodigo(codigo);
   return { ok: true, usuario: u };
 }
@@ -603,7 +648,7 @@ type Reg = { t: string; tp: "live" | "filme" | "ep"; nome: string; icone?: strin
 const tocar = (tipo: string, cred: { u: string; p: string }, id: string | number, ext: string, oque: string, reg?: Reg) => {
   const fontes = [urlFluxo(tipo, cred, id, ext), ...(tipo === "live" ? [urlFluxo(tipo, cred, id, "m3u8")] : [])].join("\n");
   const h = reg ? `${SELF()}?${q({ a: "visto", t: reg.t, tp: reg.tp, s: String(id), n: reg.nome.slice(0, 120), i: (reg.icone ?? "").slice(0, 400), x: JSON.stringify({ ext, ...(reg.extra ?? {}) }) })}` : "";
-  return `video:plugin:${PLAYER}?${q({ f: b64(new TextEncoder().encode(fontes)), m: oque, ...(h ? { h: b64(new TextEncoder().encode(h)) } : {}) })}`;
+  return `video:plugin:${PLAYER}?${q({ f: b64(new TextEncoder().encode(fontes)), m: oque, usr: cred.u, c: (reg?.nome ?? `${tipo}:${id}`).slice(0, 60), tl: SELF(), ...(h ? { h: b64(new TextEncoder().encode(h)) } : {}) })}`;
 };
 
 // "Continuar de onde parou" (filmes e episódios): o próprio MSX guarda a posição na TV, por usuário
@@ -651,7 +696,13 @@ function aviso(titulo: string, msg: string, voltar?: unknown[]) {
   return lista(titulo, [{ title: msg, action: "[]" }, ...(voltar ?? [])], "0,0,12,1");
 }
 // Tela única de login: à esquerda o QR code / código para entrar pelo celular, à direita usuário e senha na TV.
-function telaLogin(codigo: string | null, d: string | null, msg?: string, u = "", p = "", auto = false, mac = "") {
+function telaLogin(codigo: string | null, d: string | null, msg?: string, u = "", p = "", auto = false, mac = "", contas: string[] = []) {
+  // usuários já usados nesta TV: um toque e entra (até 4 atalhos; com mais, o último abre a lista completa)
+  const atalhos = (d ? (contas.length <= 4 ? contas : contas.slice(0, 3)) : []).map((n, i) => ({
+    type: "default", layout: `${i * 3},4,3,1`, offset: "0.1,0.1,-0.2,-0.2", color: COR.vidro, titleHeader: "USUÁRIO SALVO", title: n, titleFooter: "Toque para entrar",
+    truncation: "title", action: go({ a: "conta", u: n, d: d! }),
+  }));
+  if (d && contas.length > 4) atalhos.push({ type: "default", layout: "9,4,3,1", offset: "0.1,0.1,-0.2,-0.2", color: COR.vidro, titleHeader: "MAIS", title: `Ver todos (${contas.length})`, titleFooter: "Lista de usuários", truncation: "title", action: go({ a: "contas", d: d! }) } as any);
   const link = codigo ? `${PAGINA_CELULAR}?c=${codigo}` : PAGINA_CELULAR;
   const qr = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=2&data=${encodeURIComponent(link)}`;
   const base = (o: Record<string, string>) => (d ? { ...o, d } : o);
@@ -672,6 +723,7 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
       { type: "default", layout: "3,1,3,2", offset: "0,0.25,0,-0.3", color: "transparent", titleHeader: "Código celular:", title: codigo ? codigo.split("").join(" ") : "indisponível", titleFooter: "Válido por: 24h", action: "[]" },
       { type: "space", layout: "3,3,3,1", offset: "-0.1,0.38,0.2,0.15", image: im("login-novo.png"), imageFiller: "fit" },
       { type: "default", layout: "3,3,3,1", offset: "-0.1,0.27,0.2,0.15", color: "transparent", alignment: "center", title: "Novo código", titleFooter: "Gerar outro QR code", action: go(d ? { a: "inicio", d, r: Date.now() } : { a: "inicio" }) },
+      ...atalhos,
       { type: "space", layout: "0,5,6,1", text: `{col:msx-white-soft}Número do MAC: {col:msx-white}${mac || "indisponível"}` },
       // ---- divisória ----
       { type: "space", layout: "6,2,1,2", offset: "0,0.4,0,0", title: "ou", alignment: "center", centration: "title" },
@@ -701,11 +753,11 @@ function telaLogin(codigo: string | null, d: string | null, msg?: string, u = ""
 }
 async function telaCelular(codigo: string | null, d: string | null, msg?: string, tv?: Tv | null) {
   const mac = (tv ?? (await tvDoAparelho(d)))?.mac ?? "";
-  return telaLogin(codigo, d, msg, "", "", false, mac);
+  return telaLogin(codigo, d, msg, "", "", false, mac, await contasDe(d));
 }
 async function telaEntrar(msg?: string, d?: string | null, u = "", p = "", auto = false) {
   const mac = (await tvDoAparelho(d ?? null))?.mac ?? "";
-  return telaLogin(await codigoDoAparelho(d ?? null), d ?? null, msg, u, p, auto, mac);
+  return telaLogin(await codigoDoAparelho(d ?? null), d ?? null, msg, u, p, auto, mac, await contasDe(d ?? null));
 }
 
 async function paginar(
@@ -936,10 +988,32 @@ async function tratar(url: URL) {
     return telaEntrar(undefined, d, u, p, true);
   }
 
-  if (a === "login") {
+  // ---- usuários salvos nesta TV ----
+  if (a === "contas" || a === "esquecerlista") {
+    const dele = a === "esquecerlista";
+    const us = await contasDe(d);
+    const atual = url.searchParams.get("cu") ?? "";
+    const itens: any[] = us.map((n, i) => ({
+      title: n, titleFooter: dele ? "Toque para remover desta TV" : n === atual ? "Usuário atual" : "Toque para entrar", color: VID.n, focus: i === 0,
+      action: dele ? go({ a: "esquecer", d: d ?? "", u: n }) : go({ a: "conta", d: d ?? "", u: n }),
+    }));
+    if (!dele) {
+      itens.push({ title: "Adicionar usuário", titleFooter: "Entrar com outro usuário e senha", color: VID.n, focus: !us.length, action: go({ a: "novo", d: d ?? "" }) });
+      if (us.length) itens.push({ title: "Remover usuário salvo", titleFooter: "Apaga o atalho desta TV", color: VID.n, action: go({ a: "esquecerlista", d: d ?? "" }) });
+    } else if (!us.length) itens.push({ title: "Nenhum usuário salvo", action: "none" });
+    return lista(dele ? "Remover usuário" : "Usuários", itens, "0,0,6,1", {}, `${us.length} salvo(s)`, "live");
+  }
+  if (a === "esquecer") {
+    await esquecerConta(d, (url.searchParams.get("u") ?? "").trim());
+    return telaEntrar("Usuário removido desta TV.", d);
+  }
+  if (a === "novo") return telaEntrar(undefined, d);
+
+  if (a === "login" || a === "conta") {
     const u = (url.searchParams.get("u") ?? "").trim();
-    const p = url.searchParams.get("p") ?? "";
-    if (!u || !p) return telaEntrar("Informe usuário e senha", d, u, "");
+    const salvo = a === "conta";
+    const p = salvo ? (await senhaSalva(d, u)) ?? "" : url.searchParams.get("p") ?? "";
+    if (!u || !p) return telaEntrar(salvo ? "Não achei a senha salva. Digite de novo." : "Informe usuário e senha", d, u, "");
     let info;
     const x = await infoUsuario(u);
     if (x.bloq) return telaEntrar("Acesso bloqueado. Fale com o suporte.", d, u, "");
@@ -948,7 +1022,7 @@ async function tratar(url: URL) {
     if (!au.ok && cx.need.size) { // o servidor não alcança algum provedor: a TV tenta por ele
       if (cx.cap) throw new RelayNeed();
       // o MSX só aceita telas aqui: uma tela "Entrando…" que dispara sozinha o login pelo plugin da TV
-      const acao = `content:request:interaction:${q({ a: "login", u, p, d: d ?? "", rl: 1 })}@${PLUGIN}`;
+      const acao = `content:request:interaction:${q(salvo ? { a: "conta", u, d: d ?? "", rl: 1 } : { a: "login", u, p, d: d ?? "", rl: 1 })}@${PLUGIN}`;
       return { type: "list", headline: "Gold Play", ready: { action: acao }, template: { type: "separate", layout: "0,0,12,1", color: "msx-glass" }, items: [{ title: "Entrando…", titleFooter: "Aguarde um instante", action: acao, focus: true }] };
     }
     if (!au.ok) return telaEntrar(au.erroProv ? "Provedor indisponível. Tente de novo." : "Usuário ou senha incorretos", d, u, "");
@@ -960,6 +1034,7 @@ async function tratar(url: URL) {
     if (au.dnsId) await fixarDnsDoUsuario(u, au.dnsId);
     const tk = await criarToken(u, p);
     await salvarSessao(d, tk);
+    await lembrarConta(d, u, p);
     return await home(tk, `${u} · vence ${exp}`, d, true);
   }
 
@@ -2376,6 +2451,42 @@ async function telaJogo(cred: { u: string; p: string }, t: string, n1: string, n
   return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-tv.jpg"), pages: [{ items: [...topo, aviso1, ...opcoes] }] };
 }
 
+// Telemetria de reprodução enviada pelo player da TV (msx/player.html). Guarda o evento e já indica a causa provável.
+const _tel = new Map<string, { owner: string | null; dns: string | null; t: number }>();
+function causaDoEvento(tipo: string, ct: number | null, pv: number | null, dp: number | null, tt: number | null): string | null {
+  if (tipo !== "travada" && tipo !== "erro" && tipo !== "reconexao") return null;
+  if (ct === null || ct < 0 || ct > 1500) return "internet"; // nem o nosso servidor respondeu direito: rede/Wi-Fi da TV
+  if (pv !== null && (pv < 0 || pv > 2000)) return "provedor"; // rede ok, provedor lento ou sem resposta
+  if (dp !== null && tt && tt > 200 && dp / tt > 0.05) return "tv"; // muitos quadros perdidos: decodificador da TV
+  return "canal"; // tudo respondeu bem: a origem desse canal falhou
+}
+async function telemetria(g: URLSearchParams) {
+  try {
+    const usuario = (g.get("usr") ?? "").slice(0, 80);
+    const tipo = g.get("e") ?? "";
+    if (!usuario || !["travada", "erro", "reconexao", "inicio", "amostra"].includes(tipo)) return;
+    const n = (k: string) => { const v = g.get(k); if (v === null || v === "") return null; const x = Math.round(Number(v)); return Number.isFinite(x) ? x : null; };
+    let inf = _tel.get(usuario);
+    if (!inf || Date.now() - inf.t > 10 * 60 * 1000) {
+      let owner: string | null = null, dns: string | null = null;
+      try {
+        const r = await fetch(`${SB()}/rest/v1/usuarios_app?usuario=eq.${encodeURIComponent(usuario)}&select=owner_id,dns_id&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+        const j = await r.json();
+        if (Array.isArray(j) && j[0]) { owner = j[0].owner_id ?? null; dns = j[0].dns_id ?? null; }
+      } catch { /* segue sem dono */ }
+      inf = { owner, dns, t: Date.now() };
+      _tel.set(usuario, inf);
+    }
+    const ct = n("ct"), pv = n("pv"), dp = n("dp"), tt = n("tt");
+    const linha = {
+      usuario, owner_id: inf.owner, dns_id: inf.dns, host: (g.get("h") ?? "").slice(0, 120) || null, canal: (g.get("c") ?? "").slice(0, 80) || null,
+      aparelho: (g.get("ap") ?? "").slice(0, 80) || null, tipo, dur_ms: n("dur"), ctrl_ms: ct, prov_ms: pv, perdidos: dp, total: tt,
+      causa: causaDoEvento(tipo, ct, pv, dp, tt), detalhe: (g.get("d") ?? "").slice(0, 200) || null,
+    };
+    await fetch(`${SB()}/rest/v1/play_eventos`, { method: "POST", headers: { ...sbh(), prefer: "return=minimal" }, body: JSON.stringify(linha), signal: AbortSignal.timeout(4000) });
+  } catch { /* telemetria nunca derruba o app */ }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   const u0 = new URL(req.url);
@@ -2383,6 +2494,9 @@ Deno.serve(async (req: Request) => {
   return await ALS.run(ctx, async () => {
   try {
     _ctx = { ip: (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim(), ua: req.headers.get("user-agent") ?? "" };
+    const a0 = u0.searchParams.get("a");
+    if (req.method === "GET" && a0 === "ping") return new Response("{}", { headers: { ...CORS, "cache-control": "no-store" } });
+    if (req.method === "GET" && a0 === "tel") { await telemetria(u0.searchParams); return new Response("{}", { headers: { ...CORS, "cache-control": "no-store" } }); }
     await carregarConfig();
     {
       let dev = idOk(u0.searchParams.get("d"));
