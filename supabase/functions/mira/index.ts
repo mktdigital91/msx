@@ -1808,6 +1808,7 @@ async function telaPerfis(cred: Cred, t: string, d: string | null) {
   ];
   if (v.length < 5) itens.push({ type: "default", layout: `${x0 + v.length * 2},2,2,2`, color: VID.n, icon: "add", iconSize: "large", title: "Adicionar", alignment: "center",
     action: inputAction(`${SELF()}?${q(base({ a: "perfilnovo", t }))}&v={INPUT}`, "Novo perfil", "Digite o nome e confirme") });
+  if (d) itens.push({ type: "default", layout: "4,4,4,1", color: VID.n, title: "{ico:people}  Trocar de usuário", titleFooter: "Contas salvas nesta TV: entre com um toque", action: go({ a: "contas", d, cu: cred.u }) });
   itens.push({ type: "default", layout: "4,5,4,1", color: VID.n, title: "{ico:settings}  Gerenciar perfis", titleFooter: "Nomes, infantil e controle parental", action: go(base({ a: "perfisger", t })) });
   return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-tv.jpg"), pages: [{ items: itens }] };
 }
