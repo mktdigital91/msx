@@ -834,9 +834,12 @@ Object.assign(acoes, {
 
 // ---------- personalizar app ----------
 var IMG_APP = "https://mktdigital91.github.io/msx/msx/img/";
+var MIRA_APP = "https://tmaqxzqswtaejvxkqgfg.supabase.co/functions/v1/mira";
 var TEMAS_APP = [
   { id: "classico", nome: "Clássico", desc: "Colorido, com gradientes", pasta: "" },
-  { id: "onix", nome: "Ônix", desc: "Preto com dourado, elegante", pasta: "temas/onix/" }
+  { id: "onix", nome: "Ônix", desc: "Preto com dourado, elegante", pasta: "temas/onix/" },
+  { id: "moderno", nome: "Moderno", desc: "Azul escuro, telas limpas e capas grandes", pasta: "",
+    bg: MIRA_APP + "?a=mt&k=bg", cards: ["live|TV ao vivo", "movie|Filmes", "series|Séries"].map(function (x) { var p = x.split("|"); return MIRA_APP + "?a=mt&k=tile&i=" + p[0] + "&t=" + encodeURIComponent(p[1]); }) }
 ];
 var CORES = [
   ["cor_tv", "TV ao vivo", "#6D5BFF"], ["cor_filmes", "Filmes", "#FF5C8A"], ["cor_series", "Séries", "#22D3EE"],
@@ -857,8 +860,8 @@ async function vApp(el) {
     '<h2 style="margin-top:8px">Tema do app</h2><div class="temas">' +
     TEMAS_APP.map(function (t) {
       var on = (cfg.tema_app || "classico") === t.id;
-      return '<label class="tema" style="background-image:url(' + IMG_APP + t.pasta + 'bg-tv.jpg)"><input type="radio" name="tema_app" value="' + t.id + '"' + (on ? " checked" : "") + '>' +
-        '<div class="mini"><img src="' + IMG_APP + t.pasta + 'card-tv.png" alt=""><img src="' + IMG_APP + t.pasta + 'card-filmes.png" alt=""><img src="' + IMG_APP + t.pasta + 'card-series.png" alt=""></div>' +
+      return '<label class="tema" style="background-image:url(' + (t.bg || IMG_APP + t.pasta + 'bg-tv.jpg') + ')"><input type="radio" name="tema_app" value="' + t.id + '"' + (on ? " checked" : "") + '>' +
+        '<div class="mini"><img src="' + (t.cards ? t.cards[0] : IMG_APP + t.pasta + 'card-tv.png') + '" alt=""><img src="' + (t.cards ? t.cards[1] : IMG_APP + t.pasta + 'card-filmes.png') + '" alt=""><img src="' + (t.cards ? t.cards[2] : IMG_APP + t.pasta + 'card-series.png') + '" alt=""></div>' +
         '<div class="rot">' + t.nome + '<small>' + t.desc + '</small></div></label>';
     }).join("") + '</div>' +
     '<p class="suave" id="nota-tema" style="font-size:13px"></p>' +
@@ -881,10 +884,10 @@ async function vApp(el) {
     $("#pv-tv").style.boxShadow = $("#pv-filmes").style.boxShadow = $("#pv-series").style.boxShadow = "0 0 0 2px " + f.cor_destaque.value + " inset";
   };
   var tema = function () {
-    var onix = (f.querySelector('input[name="tema_app"]:checked') || {}).value === "onix";
+    var tv = (f.querySelector('input[name="tema_app"]:checked') || {}).value, onix = tv === "onix" || tv === "moderno";
     $("#campos-cores").querySelectorAll("input").forEach(function (i) { i.disabled = onix; });
     $("#campos-cores").style.opacity = onix ? ".45" : "";
-    $("#nota-tema").textContent = onix ? "No tema Ônix as cores são do próprio tema; as cores abaixo valem só para o Clássico." : "O tema muda imagens de fundo, cartões e botões do app na TV.";
+    $("#nota-tema").textContent = onix ? "Nos temas Ônix e Moderno as cores são do próprio tema; as cores abaixo valem só para o Clássico." : "O tema muda imagens de fundo, cartões e botões do app na TV.";
   };
   f.addEventListener("change", tema); tema();
   f.addEventListener("input", pintar); f._pintar = pintar; pintar();

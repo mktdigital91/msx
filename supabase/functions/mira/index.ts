@@ -27,10 +27,10 @@ let TEMA_PAINEL = "classico"; // o escolhido no painel; cada TV pode trocar pelo
 let _cfgCores: any = {};
 // aplica um tema (imagens + cores) para a resposta atual
 function usarTema(tm: string) {
-  TEMA = tm === "onix" ? "onix" : "classico";
-  // o Ônix tem cores próprias; no Clássico valem as cores escolhidas no painel
-  Object.assign(COR, TEMA === "onix" ? COR_ONIX : COR_CLASSICO);
-  Object.assign(VID, TEMA === "onix" ? VID_ONIX : VID_CLASSICO);
+  TEMA = tm === "onix" ? "onix" : tm === "moderno" ? "moderno" : "classico";
+  // Ônix e Moderno têm cores próprias; no Clássico valem as cores escolhidas no painel
+  Object.assign(COR, TEMA === "onix" ? COR_ONIX : TEMA === "moderno" ? COR_MODERNO : COR_CLASSICO);
+  Object.assign(VID, TEMA === "onix" ? VID_ONIX : TEMA === "moderno" ? VID_MODERNO : VID_CLASSICO);
   const c = _cfgCores;
   if (TEMA === "classico" && c) {
     COR.tv = rgba(c.cor_tv, 0.40) ?? COR.tv;
@@ -66,6 +66,7 @@ let CONTATO = ""; // contato para renovar o plano (painel > Personalizar app)
 let AVISO_DIAS = 5; // quantos dias antes do vencimento o aviso aparece
 const COR_CLASSICO = { tv: "rgba(124,92,255,0.40)", vod: "rgba(244,63,142,0.38)", series: "rgba(34,211,238,0.32)", vidro: "rgba(14,16,36,0.55)", destaque: "#7C5CFF" };
 const COR_ONIX = { tv: "rgba(214,178,94,0.22)", vod: "rgba(205,132,72,0.22)", series: "rgba(196,186,160,0.20)", vidro: "rgba(16,15,19,0.74)", destaque: "#D6B25E" };
+const COR_MODERNO = { tv: "rgba(37,99,235,0.28)", vod: "rgba(59,130,246,0.26)", series: "rgba(14,165,233,0.26)", vidro: "rgba(8,14,34,0.80)", destaque: "#3B82F6" };
 const COR = { ...COR_CLASSICO };
 
 const BASE_PROV = `${PROVEDOR.protocolo}://${PROVEDOR.host}`; // reserva, se o painel/banco não responder
@@ -172,7 +173,7 @@ async function carregarConfig() {
     const j = await r.json(); const c = Array.isArray(j) ? j[0] : null; if (!c) return;
     if (c.logo_url && /^https:\/\//.test(c.logo_url)) LOGO = c.logo_url;
     FUNDO_CFG = c.fundo_url && /^https:\/\//.test(c.fundo_url) ? c.fundo_url : "";
-    TEMA_PAINEL = c.tema_app === "onix" ? "onix" : "classico";
+    TEMA_PAINEL = c.tema_app === "onix" ? "onix" : c.tema_app === "moderno" ? "moderno" : "classico";
     _cfgCores = c;
     usarTema(TEMA_PAINEL);
     CONTATO = String(c.extra?.contato ?? "").replace(/[{}]/g, "").trim().slice(0, 60);
@@ -563,6 +564,9 @@ const ICONES: Record<string, string> = {
   apps: "M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z",
   next: "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
   prev: "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z",
+  settings: "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z",
+  refresh: "M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z",
+  logout: "M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z",
 };
 // cartões desenhados (capas sem imagem): no Ônix, tons escuros com dourado
 const PALETAS_ONIX: Record<string, string[][]> = {
@@ -625,6 +629,7 @@ const cartao = (k: string, t: string, s = "", i = "play", retrato = false) => `$
 // botões de vidro retos: só cor do MSX (sem imagem), mais leve e sem cantos aparecendo atrás
 const VID_CLASSICO = { n: "rgba(10,12,28,0.62)", ouro: "rgba(245,180,0,0.32)", voltar: "rgba(6,7,14,0.88)" };
 const VID_ONIX = { n: "rgba(18,17,21,0.72)", ouro: "rgba(214,178,94,0.30)", voltar: "rgba(8,8,10,0.92)" };
+const VID_MODERNO = { n: "rgba(10,17,40,0.80)", ouro: "rgba(59,130,246,0.35)", voltar: "rgba(4,8,22,0.92)" };
 const VID = { ...VID_CLASSICO };
 
 const SELF = () => `${Deno.env.get("SUPABASE_URL")}/functions/v1/mira`;
@@ -1148,9 +1153,10 @@ async function tratar(url: URL) {
     if (a === "tema" && dev) { await salvarTemaAparelho(dev, url.searchParams.get("v") ?? ""); usarTema((url.searchParams.get("v") ?? "") || TEMA_PAINEL); return await home(t, cred.u, dev, false); }
     const atual = dev ? await temaDoAparelho(dev) : "";
     const opc = [
-      { id: "", nome: "Padrão do app", desc: `O tema escolhido no painel (${TEMA_PAINEL === "onix" ? "Ônix" : "Clássico"})`, img: IMG + (TEMA_PAINEL === "onix" ? "temas/onix/" : "") + "card-tv.png" },
+      { id: "", nome: "Padrão do app", desc: `O tema escolhido no painel (${TEMA_PAINEL === "onix" ? "Ônix" : TEMA_PAINEL === "moderno" ? "Moderno" : "Clássico"})`, img: IMG + (TEMA_PAINEL === "onix" ? "temas/onix/" : "") + "card-tv.png" },
       { id: "classico", nome: "Clássico", desc: "Colorido, com gradientes", img: IMG + "card-tv.png" },
       { id: "onix", nome: "Ônix", desc: "Preto com dourado, elegante", img: IMG + "temas/onix/card-tv.png" },
+      { id: "moderno", nome: "Moderno", desc: "Azul escuro, telas limpas e capas grandes", img: mt({ k: "tile", i: "live", t: "Moderno", s: "Azul escuro" }) },
     ];
     return lista("Temas", opc.map((o) => ({
       title: (o.id === atual ? "{col:msx-yellow}●{col:msx-white}  " : "") + o.nome, titleFooter: o.desc, image: o.img, imageWidth: 2, imageFiller: "fit", color: VID.n,
@@ -1633,6 +1639,39 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
     if (j.casa.logo) destaques.push(logo(j.casa.logo, 0.678));
     if (j.fora.logo) destaques.push(logo(j.fora.logo, 1.15));
   });
+  if (TEMA === "moderno") {
+    const mac = (await tvDoAparelho(d))?.mac ?? "";
+    const n = (v: number | undefined, un: string) => (fmtQtd(v) ? `${fmtQtd(v)} ${un}` : "");
+    const bt = (x: number, i: string, acao: string) => ({ type: "default", layout: `${x},0,1,1`, offset: "0.12,0.1,-0.24,-0.2", image: mt({ k: "btn", i }), imageFiller: "fit", color: "transparent", action: acao });
+    const tile = (x: number, i: string, t0: string, s0: string, acao: string, extra: Record<string, unknown> = {}) =>
+      ({ type: "default", layout: `${x},1,3,3`, offset: "0.06,0.35,-0.12,-0.7", image: mt({ k: "tile", i, t: t0, s: s0 }), imageFiller: "fit", color: "transparent", action: acao, ...extra });
+    const pill = (x: number, i: string, t0: string, s0: string, acao: string) =>
+      ({ type: "default", layout: `${x},4,4,1`, offset: "0.08,0.2,-0.16,-0.4", image: mt({ k: "pill", i, t: t0, s: s0 }), imageFiller: "fit", color: "transparent", action: acao });
+    const fundoM = mt({ k: "bg" });
+    return {
+      type: "pages", transparent: 2, ready: { action: "quiet" }, background: fundoM,
+      pages: [{ items: [
+        { type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", image: fundoM, imageFiller: "cover", enable: false },
+        { type: "space", layout: "0,0,2,1", image: LOGO, imageFiller: "fit" },
+        { type: "default", layout: "2,0,6,1", color: "transparent", image: perfil ? avatar(perfil) : undefined, imageWidth: perfil ? 1 : undefined, imageFiller: "fit",
+          title: `Olá, ${perfil?.nome ?? usuario}`, titleFooter: subtitulo.replace("{br}", "  ·  "), truncation: "titleFooter",
+          action: go(d ? { a: "perfis", t, d } : { a: "perfis", t }) },
+        bt(8, "search", abrirBusca(t, "")),
+        bt(9, "settings", go(d ? { a: "config", t, d } : { a: "config", t })),
+        bt(10, "refresh", go(d ? { a: "inicio", d, x: Date.now() } : { a: "inicio", x: Date.now() })),
+        bt(11, "logout", d ? `content:request:interaction:sair@${PLUGIN}` : go({ a: "inicio" })),
+        tile(0, "live", "TV ao vivo", n(qtd.live, "canais"), go({ a: "cats", k: "live", t }), { id: "tv", focus: true }),
+        tile(3, "movie", "Filmes", n(qtd.vod, "títulos"), go({ a: "cats", k: "vod", t })),
+        tile(6, "series", "Séries", n(qtd.series, "títulos"), go({ a: "cats", k: "series", t })),
+        tile(9, "bolt", "Jogos de hoje", jogos === null ? "Placar indisponível" : lst.length ? `${lst.length} jogos${vivos ? ` · ${vivos} ao vivo` : ""}` : "Nenhuma partida hoje", lst.length ? todos : "none"),
+        pill(0, "play", "Continuar assistindo", ult ? "Continue de onde parou" : "Nada começado ainda", ult ? go({ a: "continuar", t }) : go({ a: "cats", k: "vod", t })),
+        pill(4, "apps", "Guia de programação", "O que está passando agora", go({ a: "guiahome", t })),
+        pill(8, "star", "Favoritos", "Seus canais favoritos", go({ a: "itens", k: "live", t, c: "fav", cn: "FAVORITOS" })),
+        { type: "space", layout: "0,5,6,1", offset: "0.2,0.1,0,-0.1", text: mac ? `{col:msx-white-soft}Número do MAC: {col:msx-white}${mac}` : "" },
+        { type: "space", layout: "6,5,6,1", offset: "0,0.1,-0.2,-0.1", alignment: "right", text: `{col:msx-white-soft}${usuario}` },
+      ] }, ...paginaContinuar(hist, cred, t)],
+    };
+  }
   return {
     type: "pages", transparent: 2, ready: { action: "quiet" }, background: FUNDO_CFG || im("bg-tv.jpg"),
     pages: [{ items: [
@@ -2318,6 +2357,35 @@ async function capasGif(t: string, th: string): Promise<Uint8Array | null> {
   _capas.set(ch, { em: Date.now(), v });
   return v;
 }
+// ---------- tema Moderno: peças desenhadas pelo servidor (SVG) ----------
+const mt = (o: Record<string, string | number>) => `${SELF()}?${q({ a: "mt", ...o })}`;
+function moderno(g: URLSearchParams) {
+  const k = g.get("k") ?? "tile";
+  const ic = ICONES[g.get("i") ?? "play"] ?? ICONES.play;
+  const titulo = xml(limparNome(g.get("t") ?? "").slice(0, 40)), sub = xml(limparNome(g.get("s") ?? "").slice(0, 44));
+  const F = 'font-family="Arial, Helvetica, sans-serif"';
+  if (k === "bg") { // fundo escuro com formas geométricas em azul
+    let sd = 7;
+    const r = () => { sd = (sd * 1664525 + 1013904223) >>> 0; return sd / 4294967296; };
+    const cores = ["#0F2A6B", "#0B1E55", "#1D4ED8", "#0A1740", "#1E3A8A"];
+    let poli = "", pts = "";
+    for (let n = 0; n < 30; n++) {
+      const cx = r() * 1920, cy = r() * 1080, t = 160 + r() * 380, a = r() * 6.28;
+      const p = [0, 1, 2].map((m) => `${(cx + Math.cos(a + m * 2.1 + r() * 0.8) * t).toFixed(0)},${(cy + Math.sin(a + m * 2.1 + r() * 0.8) * t * 0.8).toFixed(0)}`).join(" ");
+      poli += `<polygon points="${p}" fill="${cores[n % cores.length]}" fill-opacity="${(0.07 + r() * 0.22).toFixed(2)}"/>`;
+    }
+    for (let n = 0; n < 16; n++) pts += `<circle cx="${(r() * 1920).toFixed(0)}" cy="${(r() * 1080).toFixed(0)}" r="${(2 + r() * 4).toFixed(1)}" fill="#3B82F6" fill-opacity="${(0.25 + r() * 0.4).toFixed(2)}"/>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#050A1A"/><stop offset="1" stop-color="#0A1636"/></linearGradient><radialGradient id="r" cx=".5" cy=".5" r=".6"><stop offset="0" stop-color="#1D4ED8" stop-opacity=".22"/><stop offset="1" stop-color="#1D4ED8" stop-opacity="0"/></radialGradient></defs><rect width="1920" height="1080" fill="url(#g)"/><rect width="1920" height="1080" fill="url(#r)"/>${poli}${pts}</svg>`;
+  }
+  if (k === "btn") { // botão redondo só com ícone
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect x="6" y="6" width="148" height="148" rx="38" fill="#0B1534" fill-opacity=".92" stroke="#3B82F6" stroke-opacity=".35" stroke-width="3"/><g transform="translate(42 42) scale(3.2)" fill="#DCE8FF"><path d="${ic}"/></g></svg>`;
+  }
+  if (k === "pill") { // atalho horizontal: ícone + título + legenda
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="180" viewBox="0 0 640 180"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#12204A"/><stop offset="1" stop-color="#0A1230"/></linearGradient></defs><rect x="4" y="4" width="632" height="172" rx="40" fill="url(#g)" stroke="#3B82F6" stroke-opacity=".3" stroke-width="3"/><g transform="translate(40 52) scale(3.2)" fill="#60A5FA"><path d="${ic}"/></g><text x="150" y="${sub ? 84 : 104}" font-size="40" font-weight="700" fill="#fff" ${F}>${titulo}</text>${sub ? `<text x="150" y="128" font-size="26" fill="#8FA6D9" ${F}>${sub}</text>` : ""}</svg>`;
+  }
+  // tile: caixa grande do menu principal
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="480" viewBox="0 0 640 480"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#14245A"/><stop offset="1" stop-color="#090F2A"/></linearGradient><clipPath id="c"><rect x="4" y="4" width="632" height="472" rx="44"/></clipPath></defs><rect x="4" y="4" width="632" height="472" rx="44" fill="url(#g)"/><g clip-path="url(#c)"><g transform="translate(330 190) scale(13)" fill="#3B82F6" fill-opacity=".10"><path d="${ic}"/></g></g><rect x="4" y="4" width="632" height="472" rx="44" fill="none" stroke="#3B82F6" stroke-opacity=".38" stroke-width="3"/><g transform="translate(236 92) scale(7)" fill="#DCE8FF"><path d="${ic}"/></g><text x="320" y="352" font-size="54" font-weight="800" fill="#fff" text-anchor="middle" ${F}>${titulo}</text>${sub ? `<text x="320" y="406" font-size="30" fill="#8FA6D9" text-anchor="middle" ${F}>${sub}</text>` : ""}</svg>`;
+}
 const blocoImg = (o: Record<string, string | number>) => `${SELF()}?${q({ a: "bloco", th: TEMA, ...o })}`;
 // canais principais para o Guia de Programação (um por rede, na melhor qualidade)
 const REDES = [/^globo (sp|rj)|^globo\b/, /^sbt/, /^record/, /^band\b|bandeirantes/, /globonews/, /^sportv\b/, /^espn\b/, /premiere/, /^tnt\b/, /cnn brasil/, /discovery channel|^discovery\b/, /^hbo\b/];
@@ -2535,6 +2603,9 @@ Deno.serve(async (req: Request) => {
         const g = new URLSearchParams(u0.searchParams); g.set("a", "jg");
         return new Response(null, { status: 302, headers: { location: `${SELF()}?${g}` } });
       }
+    }
+    if (req.method === "GET" && u0.searchParams.get("a") === "mt") {
+      return new Response(moderno(u0.searchParams), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=3600" } });
     }
     if (req.method === "GET" && u0.searchParams.get("a") === "bloco") {
       return new Response(blocoSvg(u0.searchParams), { headers: { "access-control-allow-origin": "*", "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=3600" } });
