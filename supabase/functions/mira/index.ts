@@ -669,7 +669,7 @@ function inputAction(servico: string, titulo: string, dica: string) {
 
 const FUNDO: Record<string, string> = { live: "bg-tv.jpg", vod: "bg-filmes.jpg", series: "bg-series.jpg" };
 // O MSX ignora o "background" da raiz nessas telas; então o fundo vira um item de tela cheia atrás dos blocos.
-const camadaFundo = (img: string) => ({ type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", image: FUNDO_CFG || im(img), imageFiller: "cover", enable: false });
+const camadaFundo = (img: string) => ({ type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", image: TEMA === "moderno" ? mt({ k: "bg" }) : FUNDO_CFG || im(img), imageFiller: "cover", enable: false });
 // Monta uma lista como páginas (grade 12x6) para poder ter o fundo em cada página.
 const ROLAGEM_VERTICAL = true; // listas rolam para baixo (false = páginas laterais, como antes)
 function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Record<string, unknown> = {}, extensao?: string, kind = "") {
@@ -677,7 +677,7 @@ function lista(headline: string, items: unknown[], layout = "0,0,4,1", extra: Re
   if (ROLAGEM_VERTICAL) {
     return {
       type: "list", headline, extension: extensao, transparent: 2, ready: { action: "quiet" },
-      background: FUNDO_CFG || im(FUNDO[kind] ?? "bg-tv.jpg"),
+      background: TEMA === "moderno" ? mt({ k: "bg" }) : FUNDO_CFG || im(FUNDO[kind] ?? "bg-tv.jpg"),
       // o "background" da raiz não aparece; a camada "underlay" fica atrás de cada página da lista
       underlay: { items: [camadaFundo(FUNDO[kind] ?? "bg-tv.jpg")] },
       template: { type: "default", color: COR.vidro, ...extra, layout: `0,0,${w},${h}` },
@@ -1250,7 +1250,16 @@ async function tratar(url: URL) {
       const favs = new Set((await favoritosDe(quem(cred))).map((f) => f.stream_id));
       return paginar("Canais", todos, pg, (x) => canalItem(x, cred, t, c, false, "", url.searchParams.get("cn") ?? "", 0, ep.get(String(x.stream_id)), favs), prox, "0,0,4,1", tipoQ);
     }
-    if (TEMA === "moderno") return gradeModerna({ tipoQ, nomeTipo: T.nome, t, c, cn: cnQ, o, pk: pkQ, pg, todos, favVod: favVod ?? undefined });
+    if (TEMA === "moderno") { // grade de 4 colunas com rolagem vertical infinita (a página seguinte carrega sozinha ao chegar no fim)
+      const fino = (x: Record<string, unknown>) => ({ ...x, layout: "0,0,3,1" });
+      const topoM = [
+        fino({ title: "{ico:search}  Pesquisar", titleFooter: `Procurar em ${T.nome}`, color: VID.ouro, action: abrirBusca(t, tipoQ) }),
+        fino({ title: "{ico:sort}  Ordem: " + (ORDENS[o] ?? "Padrão"), titleFooter: `Trocar para ${ORDENS[po]}`, color: VID.n, action: botaoOrdem.action }),
+        fino({ title: "{ico:apps}  Categorias", titleFooter: cnQ || "Escolher uma categoria", color: VID.n, action: go({ a: "cats", k: tipoQ, t }) }),
+      ];
+      const montarM = (x: any) => (tipoQ === "vod" ? cartaoFilme(x, t, favVod ?? undefined) : cartaoSerie(x, t, favVod ?? undefined));
+      return paginar(cnQ || T.nome, todos, pg, montarM, prox, "0,0,3,4", tipoQ, `${todos.length.toLocaleString("pt-BR")} títulos`, { title: "‹   INÍCIO", titleFooter: "Voltar", layout: "0,0,3,1" } as any, topoM);
+    }
     const voltar = { title: "‹   CATEGORIAS", titleFooter: "Voltar às categorias" };
     if (tipoQ === "vod") return paginar(cnQ || "Filmes", todos, pg, (x) => cartaoFilme(x, t, favVod ?? undefined), prox, "0,0,2,3", tipoQ, undefined, voltar, [botaoOrdem]);
     return paginar(cnQ || "Séries", todos, pg, (x) => cartaoSerie(x, t, favVod ?? undefined), prox, "0,0,2,3", tipoQ, undefined, voltar, [botaoOrdem]);
@@ -1662,7 +1671,7 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
     const tile = (x: number, i: string, t0: string, s0: string, acao: string, extra: Record<string, unknown> = {}) =>
       ({ type: "default", layout: `${x},1,3,3`, offset: "0.06,0.35,-0.12,-0.7", image: mt({ k: "tile", i, t: t0, s: s0 }), imageFiller: "fit", color: "transparent", action: acao, ...extra });
     const pill = (x: number, i: string, t0: string, s0: string, acao: string) =>
-      ({ type: "default", layout: `${x},4,4,1`, offset: "0.08,0.2,-0.16,-0.4", image: mt({ k: "pill", i, t: t0, s: s0 }), imageFiller: "fit", color: "transparent", action: acao });
+      ({ type: "default", layout: `${x},4,4,1`, offset: "0.1,0.1,-0.2,-0.2", color: VID.n, icon: i, iconSize: "large", title: t0, titleFooter: s0, truncation: "title|titleFooter", action: acao });
     const fundoM = mt({ k: "bg" });
     return {
       type: "pages", transparent: 2, ready: { action: "quiet" }, background: fundoM,
@@ -1680,8 +1689,8 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
         tile(3, "movie", "Filmes", n(qtd.vod, "títulos"), go({ a: "itens", k: "vod", t, c: "", cn: "" })),
         tile(6, "series", "Séries", n(qtd.series, "títulos"), go({ a: "itens", k: "series", t, c: "", cn: "" })),
         tile(9, "bolt", "Jogos de hoje", jogos === null ? "Placar indisponível" : lst.length ? `${lst.length} jogos${vivos ? ` · ${vivos} ao vivo` : ""}` : "Nenhuma partida hoje", lst.length ? todos : "none"),
-        pill(0, "play", "Continuar assistindo", ult ? "Continue de onde parou" : "Nada começado ainda", ult ? go({ a: "continuar", t }) : go({ a: "cats", k: "vod", t })),
-        pill(4, "apps", "Guia de programação", "O que está passando agora", go({ a: "guiahome", t })),
+        pill(0, "play-circle-outline", "Continuar assistindo", ult ? "Continue de onde parou" : "Nada começado ainda", ult ? go({ a: "continuar", t }) : go({ a: "cats", k: "vod", t })),
+        pill(4, "view-list", "Guia de programação", "O que está passando agora", go({ a: "guiahome", t })),
         pill(8, "star", "Favoritos", "Seus canais favoritos", go({ a: "itens", k: "live", t, c: "fav", cn: "FAVORITOS" })),
         { type: "space", layout: "0,5,6,1", offset: "0.2,0.1,0,-0.1", text: mac ? `{col:msx-white-soft}Número do MAC: {col:msx-white}${mac}` : "" },
         { type: "space", layout: "6,5,6,1", offset: "0,0.1,-0.2,-0.1", alignment: "right", text: `{col:msx-white-soft}${usuario}` },
@@ -1951,43 +1960,6 @@ function arrumarBotoes(bs: any[], y: number) {
   return bs;
 }
 // ordem das listas de filmes/séries: padrão do provedor → recentes → nota → A–Z
-// Tema Moderno: Filmes e Séries com barra lateral fixa (à esquerda) e 8 capas por tela (4 colunas x 2 linhas)
-function gradeModerna(g: { tipoQ: string; nomeTipo: string; t: string; c: string; cn: string; o: string; pk: string; pg: number; todos: any[]; favVod?: Set<string> }) {
-  const { tipoQ, t, c, cn, o, pk, pg, todos } = g;
-  const POR = 8, total = Math.max(1, Math.ceil(todos.length / POR)), ini = pg * POR;
-  const rep = (acao: string) => acao.replace(/^content:/, "replace:content:pag:"); // troca esta tela sem empilhar no "voltar"
-  const ir = (extra: Record<string, string | number>) => go({ a: "itens", k: tipoQ, t, ...extra } as Record<string, string | number>);
-  const fav = tipoQ === "vod" ? "Filmes favoritos" : "Séries favoritas";
-  const ativo = c === "fav" ? "fav" : o === "rec" ? "rec" : o === "nota" ? "nota" : !c ? "todos" : "cat";
-  const lado = [
-    { id: "todos", t: "Todos", s: g.nomeTipo, a: rep(ir({ c: "", cn: "" })) },
-    { id: "rec", t: "Recentes", s: "Os últimos que chegaram", a: rep(ir({ c: "", cn: "Recentes", o: "rec" })) },
-    { id: "fav", t: "Favoritos", s: fav, a: rep(ir({ c: "fav", cn: fav })) },
-    { id: "nota", t: "Mais avaliados", s: "Pela nota", a: rep(ir({ c: "", cn: "Mais bem avaliados", o: "nota" })) },
-    { id: "cat", t: "Categorias  ›", s: ativo === "cat" && cn ? cn : "Escolher uma categoria", a: go({ a: "cats", k: tipoQ, t }) },
-  ];
-  const fundoM = mt({ k: "bg" });
-  const itens: any[] = [
-    { type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", image: fundoM, imageFiller: "cover", enable: false },
-    { type: "space", layout: "0,0,8,1", offset: "0.2,0,0,0", headline: cn || g.nomeTipo, text: `{col:msx-white-soft}${todos.length.toLocaleString("pt-BR")} títulos  ·  Ordem: ${ORDENS[o] ?? "Padrão"}` },
-    { type: "default", layout: "8,0,2,1", offset: "0.1,0.12,-0.2,-0.24", color: VID.n, title: "Pesquisar", alignment: "center", action: abrirBusca(t, tipoQ) },
-    { type: "default", layout: "10,0,2,1", offset: "0.1,0.12,-0.2,-0.24", color: VID.n, title: "Ordenar", alignment: "center", titleFooter: ORDENS[PROX_ORDEM[o] ?? ""], truncation: "titleFooter",
-      action: rep(go({ a: "itens", k: tipoQ, t, c, cn, ...(PROX_ORDEM[o] ? { o: PROX_ORDEM[o] } : {}), ...(pk ? { pk } : {}) })) },
-    ...lado.map((x, i) => ({ type: "default", layout: `0,${1 + i},3,1`, offset: "0.12,0.08,-0.24,-0.16", color: x.id === ativo ? COR.destaque : VID.n,
-      title: (x.id === ativo ? "●  " : "") + x.t, titleFooter: x.s, truncation: "titleFooter", action: x.a })),
-  ];
-  todos.slice(ini, ini + POR).forEach((x, i) => {
-    const base = (tipoQ === "vod" ? cartaoFilme(x, t, g.favVod) : cartaoSerie(x, t, g.favVod)) as any;
-    itens.push({ ...base, title: limparNome(String(x.name)), truncation: "title", layout: `${3 + (i % 4) * 2},${1 + Math.floor(i / 4) * 2},2,2`, offset: "0.25,0.05,-0.5,-0.1", ...(i === 0 ? { focus: true } : {}) });
-  });
-  if (!todos.length) itens.push({ type: "default", layout: "3,1,8,2", color: VID.n, title: "Nada encontrado", titleFooter: c === "fav" ? "Favorite pela tela de detalhes" : "Tente outra categoria", action: "none" });
-  const nav = (x: number, w: number, tit: string, sub: string, p: number) => ({ type: "default", layout: `${x},5,${w},1`, offset: "0.1,0.12,-0.2,-0.24", color: VID.n, title: tit, titleFooter: sub, alignment: "center",
-    action: rep(go({ a: "itens", k: tipoQ, t, c, cn, pg: p, ...(o ? { o } : {}), ...(pk ? { pk } : {}) })) });
-  if (pg > 0) itens.push(nav(3, 2, "‹  Anterior", `${pg} de ${total}`, pg - 1));
-  if (todos.length > POR) itens.push({ type: "space", layout: "5,5,4,1", alignment: "center", centration: "text", text: `{col:msx-white-soft}Página ${pg + 1} de ${total}` });
-  if (ini + POR < todos.length) itens.push(nav(9, 2, "Próxima  ›", `${pg + 2} de ${total}`, pg + 1));
-  return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: fundoM, flag: "pag", pages: [{ items: itens }] };
-}
 const ORDENS: Record<string, string> = { "": "Padrão", rec: "Recentes", nota: "Nota", az: "A–Z" };
 const PROX_ORDEM: Record<string, string> = { "": "rec", rec: "nota", nota: "az", az: "" };
 function ordenar(lst: any[], o: string) {
