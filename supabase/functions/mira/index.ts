@@ -1146,7 +1146,22 @@ async function tratar(url: URL) {
       { title: "{ico:search}  Pesquisar", titleFooter: "Procurar canais, filmes e séries", color: VID.n, action: abrirBusca(t, "") },
       { title: "{ico:people}  Perfis", titleFooter: "Trocar ou criar perfis", color: VID.n, action: go(base({ a: "perfis", t })) },
       { title: "{ico:lock}  Controle parental e perfis", titleFooter: "Senha, modo infantil, nomes", color: VID.n, action: go(base({ a: "perfisger", t })) },
+      ...(TEMA === "moderno" ? [{ title: "{ico:science}  Teste de layout (Moderno)", titleFooter: "Tela de teste: tire uma foto e envie", color: VID.n, action: go(base({ a: "modteste", t })) }] : []),
     ], "0,0,6,1");
+  }
+  if (a === "modteste") { // tela de teste: confere se a TV aceita medidas fracionadas e qual texto de relógio funciona
+    const fundoM = mt({ k: "bg" });
+    const caixa = (layout: string, tit: string, sub = "") => ({ type: "default", layout, color: VID.n, title: tit, titleFooter: sub, focus: false, action: "none" });
+    const itens: any[] = [
+      { type: "space", layout: "0,0,12,6", offset: "-1,-1,2,2", image: fundoM, imageFiller: "cover", enable: false },
+      { type: "space", layout: "0,0,6,1", headline: "Teste de layout", text: "{col:msx-white-soft}Envie uma foto desta tela" },
+      { type: "space", layout: "8,0,4,1", text: "A {now:time}{br}B {now:time:HH:mm}{br}C {now:tvx:time}{br}D {now:date}" },
+      ...[0, 1, 2, 3, 4].map((i) => caixa(`0,${1 + i * 0.5},3,0.5`, `Meia altura ${i + 1}`)),
+      ...[0, 1, 2, 3].map((i) => caixa(`${3 + i * 2},1,2,2.5`, `Capa ${i + 1}`, "2 x 2,5")),
+      ...[0, 1, 2, 3].map((i) => caixa(`${3 + i * 2},3.5,2,2.5`, `Capa ${i + 5}`, "2 x 2,5")),
+      { type: "default", layout: "0,3.5,3,1.5", color: VID.ouro, title: "Foco aqui", titleFooter: "OK volta", focus: true, action: "back" },
+    ];
+    return { type: "pages", transparent: 2, ready: { action: "quiet" }, background: fundoM, pages: [{ items: itens }] };
   }
   if (a === "temas" || a === "tema") {
     const dev = d ?? (await aparelhoDoToken(t));
