@@ -1671,7 +1671,7 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
     const tile = (x: number, i: string, t0: string, s0: string, acao: string, extra: Record<string, unknown> = {}) =>
       ({ type: "default", layout: `${x},1,3,3`, offset: "0.06,0.35,-0.12,-0.7", image: mt({ k: "tile", i, t: t0, s: s0 }), imageFiller: "fit", color: "transparent", action: acao, ...extra });
     const pill = (x: number, i: string, t0: string, s0: string, acao: string) =>
-      ({ type: "default", layout: `${x},4,4,1`, offset: "0.1,0.1,-0.2,-0.2", color: VID.n, icon: i, iconSize: "large", title: t0, titleFooter: s0, truncation: "title|titleFooter", action: acao });
+      ({ type: "default", layout: `${x},4,4,1`, offset: "0.1,0.04,-0.2,-0.08", color: VID.n, icon: i, iconSize: "large", title: t0, titleFooter: s0, truncation: "title|titleFooter", action: acao });
     const fundoM = mt({ k: "bg" });
     return {
       type: "pages", transparent: 2, ready: { action: "quiet" }, background: fundoM,
