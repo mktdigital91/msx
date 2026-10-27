@@ -1148,6 +1148,7 @@ async function tratar(url: URL) {
       { title: "{ico:search}  Pesquisar", titleFooter: "Procurar canais, filmes e séries", color: VID.n, action: abrirBusca(t, "") },
       { title: "{ico:people}  Perfis", titleFooter: "Trocar ou criar perfis", color: VID.n, action: go(base({ a: "perfis", t })) },
       { title: "{ico:lock}  Controle parental e perfis", titleFooter: "Senha, modo infantil, nomes", color: VID.n, action: go(base({ a: "perfisger", t })) },
+      { title: "{ico:auto-awesome}  Nova interface (prévia)", titleFooter: "Tela inicial, filmes, séries, TV ao vivo e player novos", color: VID.ouro, action: `link:${APP_NOVO}?${q({ t, api: SELF() })}` },
       { title: "{ico:science}  Teste: interface nova", titleFooter: "Prova do app próprio: lista fina, relógio e prévia do canal", color: VID.ouro, action: `link:${APP_TESTE}?${q({ t, api: SELF() })}` },
       ...(TEMA === "moderno" ? [{ title: "{ico:science}  Teste de layout (Moderno)", titleFooter: "Tela de teste: tire uma foto e envie", color: VID.n, action: go(base({ a: "modteste", t })) }] : []),
     ], "0,0,6,1");
@@ -1964,10 +1965,53 @@ function arrumarBotoes(bs: any[], y: number) {
 }
 // ordem das listas de filmes/séries: padrão do provedor → recentes → nota → A–Z
 // ---------- API em JSON para a interface própria (msx/app): mesma sessão e o mesmo relay das telas do MSX ----------
+const _appCache = new Map<string, { em: number; v: unknown }>();
+async function listaApp(cred: Cred, acao: string, minutos = 10): Promise<any[]> {
+  const k = `${cred.u}|${acao}`, c = _appCache.get(k);
+  if (c && Date.now() - c.em < minutos * 60_000) return c.v as any[];
+  const d = await api(cred, `&action=${acao}`);
+  const v = Array.isArray(d) ? d : [];
+  if (_appCache.size > 80) _appCache.clear();
+  _appCache.set(k, { em: Date.now(), v });
+  return v;
+}
+// várias buscas ao provedor de uma vez: no relay, junta todos os pedidos numa só ida à TV
+async function juntos<T>(ps: Promise<T>[]): Promise<(T | null)[]> {
+  const r = await Promise.allSettled(ps);
+  if (r.some((x) => x.status === "rejected" && x.reason instanceof RelayNeed)) throw new RelayNeed();
+  return r.map((x) => (x.status === "fulfilled" ? x.value : null));
+}
+const txtApp = (v: unknown, max = 600) => { const t = String(v ?? "").replace(/\s+/g, " ").trim(); return t.length > max ? t.slice(0, max - 1) + "…" : t; };
+const duracaoApp = (inf: any) => inf?.duration_secs ? Number(inf.duration_secs) : /^\d+$/.test(String(inf?.duration ?? "").trim()) ? Number(inf.duration) * 60 : /^\d+:\d+/.test(String(inf?.duration ?? "")) ? String(inf.duration).split(":").map(Number).reduce((a: number, b: number) => a * 60 + b, 0) : 0;
+const itemVod = (x: any) => ({ id: String(x.stream_id), nome: limparNome(String(x.name ?? "")), img: String(x.stream_icon || ""), r: nota(x.rating) ?? "", x: String(x.container_extension || "mp4") });
+const itemSerie = (x: any) => ({ id: String(x.series_id), nome: limparNome(String(x.name ?? "")), img: String(x.cover || ""), r: nota(x.rating) ?? "" });
 async function apiApp(cred: Cred, url: URL) {
-  const op = url.searchParams.get("op") ?? "", k = url.searchParams.get("k") ?? "live", c = url.searchParams.get("c") ?? "", s = url.searchParams.get("s") ?? "";
+  const P = url.searchParams, op = P.get("op") ?? "", k = P.get("k") ?? "live", c = P.get("c") ?? "", s = P.get("s") ?? "";
   const ACT: Record<string, [string, string]> = { live: ["get_live_categories", "get_live_streams"], vod: ["get_vod_categories", "get_vod_streams"], series: ["get_series_categories", "get_series"] };
   const A = ACT[k] ?? ACT.live;
+  const eu = quem(cred);
+  if (op === "home") {
+    const [l, hist, perfis, vence] = await Promise.all([juntos([listaApp(cred, "get_vod_streams"), listaApp(cred, "get_series")]), historicoDe(eu, ["filme", "ep", "live"], 60), perfisDe(cred.u).catch(() => [] as Perfil[]), venceDe(cred.u)]);
+    const vods = (l[0] ?? []) as any[], series = (l[1] ?? []) as any[];
+    const regra = await regraAdulto(cred);
+    const fv = regra.protege ? await filtroAdulto(cred, "vod") : null, fs = regra.protege ? await filtroAdulto(cred, "series") : null;
+    const recV = vods.filter((x) => !fv || !fv(String(x.category_id), "vod")).sort((a, b) => Number(b.added || 0) - Number(a.added || 0)).slice(0, 30);
+    const recS = series.filter((x) => !fs || !fs(String(x.category_id), "series")).sort((a, b) => Number(b.last_modified || 0) - Number(a.last_modified || 0)).slice(0, 30);
+    const candidatos = recV.filter((x) => x.stream_icon).slice(0, 6);
+    const infos = await juntos(candidatos.map((x) => api(cred, `&action=get_vod_info&vod_id=${encodeURIComponent(String(x.stream_id))}`)));
+    const destaques = candidatos.map((x, i) => {
+      const inf = (infos[i] as any)?.info ?? {};
+      const fundo = imgOk(inf.backdrop_path) || imgOk(inf.cover_big) || imgOk(inf.movie_image) || String(x.stream_icon);
+      return { ...itemVod(x), fundo, ano: String(inf.releasedate || inf.release_date || "").slice(0, 4), gen: txtApp(inf.genre, 60), sin: txtApp(inf.plot || inf.description, 320), dur: duracaoApp(inf) };
+    }).filter((d) => d.fundo);
+    const perfil = perfis.find((x) => x.id === (cred.pf || "p0")) ?? null;
+    return {
+      ok: true, usuario: cred.u, perfil: perfil?.nome ?? "", vence,
+      destaques, filmes: recV.map(itemVod), series: recS.map(itemSerie),
+      continuar: hist.filter((h) => h.tipo !== "live" && emAndamento(h)).slice(0, 15).map((h) => ({ tp: h.tipo, id: h.item_id, nome: h.nome, img: h.icone, pos: h.pos, dur: h.dur, extra: h.extra })),
+      canais: hist.filter((h) => h.tipo === "live").slice(0, 15).map((h) => ({ id: h.item_id, nome: h.nome, img: h.icone })),
+    };
+  }
   if (op === "cats") {
     const [r, regra] = await Promise.all([api(cred, `&action=${A[0]}`), regraAdulto(cred)]);
     const lst = ((Array.isArray(r) ? r : []) as any[]).filter((x) => !(regra.protege && ehAdulto(String(x.category_name))));
@@ -1975,22 +2019,82 @@ async function apiApp(cred: Cred, url: URL) {
   }
   if (op === "itens") {
     const regra = await regraAdulto(cred);
-    const dados = c === "fav" && k === "live" ? await favoritosDe(quem(cred)) : await api(cred, `&action=${A[1]}${c && c !== "fav" ? "&category_id=" + encodeURIComponent(c) : ""}`);
-    let lst = (Array.isArray(dados) ? dados : []) as any[];
+    let lst: any[];
+    if (c === "fav") lst = k === "live" ? await favoritosDe(eu) : (await favoritosVod(eu, k === "vod" ? "v" : "s")).map((f) => ({ stream_id: f.stream_id, series_id: f.stream_id, name: f.name, stream_icon: f.stream_icon, cover: f.stream_icon }));
+    else if (!c) lst = await listaApp(cred, A[1]);
+    else lst = ((await api(cred, `&action=${A[1]}&category_id=${encodeURIComponent(c)}`)) ?? []) as any[];
+    if (!Array.isArray(lst)) lst = [];
     if (!c && regra.protege) { const f = await filtroAdulto(cred, k); if (f) lst = lst.filter((x) => !f(String(x.category_id), k)); }
-    return { ok: true, total: lst.length, itens: lst.slice(0, 3000).map((x, i) => ({ id: String(x.stream_id ?? x.series_id ?? ""), n: x.num ?? i + 1, nome: limparNome(String(x.name ?? "")), img: String(x.stream_icon || x.cover || "") })) };
+    const o = P.get("o") ?? "";
+    if (k !== "live") {
+      if (o === "rec") lst = [...lst].sort((a, b) => Number(b.added || b.last_modified || 0) - Number(a.added || a.last_modified || 0));
+      else if (o === "nota") lst = [...lst].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
+      else if (o === "az") lst = [...lst].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    }
+    if (!c) anotarContagem(cred.u, k as any, lst.length);
+    const mapa: (x: any, i: number) => unknown = k === "live" ? (x: any, i: number) => ({ id: String(x.stream_id ?? ""), n: x.num ?? i + 1, nome: limparNome(String(x.name ?? "")), img: String(x.stream_icon || "") })
+      : k === "vod" ? (x: any) => itemVod(x) : (x: any) => itemSerie(x);
+    return { ok: true, total: lst.length, itens: lst.slice(0, 6000).map(mapa) };
+  }
+  if (op === "info" && k === "vod") {
+    const [info, hist, favs] = await Promise.all([api(cred, `&action=get_vod_info&vod_id=${encodeURIComponent(s)}`), historicoDe(eu, ["filme"], 80), favoritosVod(eu, "v")]);
+    const inf = info?.info ?? {}, md = info?.movie_data ?? {};
+    const h = hist.find((x) => x.item_id === s);
+    return {
+      ok: true, id: s, nome: limparNome(String(inf.name || md.name || "Filme")), img: imgOk(inf.cover_big) || imgOk(inf.movie_image), fundo: imgOk(inf.backdrop_path) || imgOk(inf.cover_big) || imgOk(inf.movie_image),
+      ano: String(inf.releasedate || inf.release_date || "").slice(0, 4), dur: duracaoApp(inf), r: nota(inf.rating) ?? "", gen: txtApp(inf.genre, 80), sin: txtApp(inf.plot || inf.description, 900),
+      dir: txtApp(inf.director, 100), elenco: txtApp(inf.cast || inf.actors, 200), x: String(md.container_extension || "mp4"), trailer: youtubeId(inf.youtube_trailer) || "",
+      pos: h && emAndamento(h) ? h.pos : 0, fav: favs.some((f) => f.stream_id === s),
+    };
+  }
+  if (op === "info" && k === "series") {
+    const [info, hist, favs] = await Promise.all([api(cred, `&action=get_series_info&series_id=${encodeURIComponent(s)}`), historicoDe(eu, ["ep"], 120), favoritosVod(eu, "s")]);
+    const inf = info?.info ?? {}, eps = (info?.episodes ?? {}) as Record<string, any[]>;
+    const temps = Object.keys(eps).filter((n) => Array.isArray(eps[n]) && eps[n].length).sort((a, b) => Number(a) - Number(b)).map((n) => ({
+      n, eps: eps[n].map((e) => {
+        const h = hist.find((x) => x.item_id === String(e.id));
+        return { id: String(e.id), ep: Number(e.episode_num) || 0, nome: txtApp(e.title, 90), x: String(e.container_extension || "mp4"), img: imgOk(e.info?.movie_image), dur: duracaoApp(e.info), sin: txtApp(e.info?.plot, 260), pos: h ? h.pos : 0, visto: !!h && !emAndamento(h) && h.pos > 0 };
+      }),
+    }));
+    const ult = hist.find((x) => String(x.extra?.serie) === s);
+    return {
+      ok: true, id: s, nome: limparNome(String(inf.name || "Série")), img: imgOk(inf.cover), fundo: imgOk(inf.backdrop_path) || imgOk(inf.cover),
+      ano: String(inf.releaseDate || inf.release_date || "").slice(0, 4), r: nota(inf.rating) ?? "", gen: txtApp(inf.genre, 80), sin: txtApp(inf.plot, 900), elenco: txtApp(inf.cast, 200),
+      trailer: youtubeId(inf.youtube_trailer) || "", fav: favs.some((f) => f.stream_id === s), temps,
+      ultimo: ult ? { temp: String(ult.extra?.temp ?? ""), ep: String(ult.extra?.ep ?? ""), id: ult.item_id, pos: ult.pos, dur: ult.dur, andamento: emAndamento(ult) } : null,
+    };
   }
   if (op === "url") {
     if (!s) return { ok: false };
-    return { ok: true, fontes: k === "live" ? [urlFluxo("live", cred, s, "m3u8"), urlFluxo("live", cred, s, "ts")] : [urlFluxo(k === "vod" ? "movie" : "series", cred, s, url.searchParams.get("x") || "mp4")] };
+    return { ok: true, fontes: k === "live" ? [urlFluxo("live", cred, s, "m3u8"), urlFluxo("live", cred, s, "ts")] : [urlFluxo(k === "vod" ? "movie" : "series", cred, s, (P.get("x") || "mp4").replace(/[^a-z0-9]/gi, ""))] };
   }
   if (op === "epg") {
     const v = s ? await epgDe(cred, s) : [];
     return { ok: true, epg: v.slice(0, 3).map((p) => ({ t: p.titulo, i: p.ini, f: p.fim })) };
   }
+  if (op === "fav") {
+    const id = k === "live" ? s : `${k === "vod" ? "v" : "s"}:${s}`;
+    return { ok: true, fav: await alternarFavorito(eu, id, P.get("n") ?? "", P.get("i") ?? "") };
+  }
+  if (op === "visto") {
+    const tp = P.get("tp") ?? "";
+    if (!["live", "filme", "ep"].includes(tp) || !s) return { ok: false };
+    let extra: unknown = {};
+    try { extra = JSON.parse(P.get("extra") ?? "{}"); } catch { /* sem extra */ }
+    const num = (n: string) => Math.max(0, Math.min(1e6, parseInt(P.get(n) ?? "0", 10) || 0));
+    await gravarVisto(eu, tp, s.slice(0, 40), limparNome(P.get("n") ?? "").slice(0, 120), (P.get("i") ?? "").slice(0, 400), extra, tp === "live" ? 0 : num("pos"), tp === "live" ? 0 : num("dur"));
+    return { ok: true };
+  }
+  if (op === "busca") {
+    const q = (P.get("q") ?? "").slice(0, 40);
+    if (q.trim().length < 2) return { ok: true, itens: [] };
+    const r = await resultadosBusca(cred, k === "tudo" ? "" : k, q);
+    return { ok: true, total: r.length, itens: r.slice(0, 80).map((x) => ({ k: x.k, id: x.id, nome: x.nome, img: x.icon, x: x.ext })) };
+  }
   return { ok: false, erro: "op" };
 }
 const APP_TESTE = "https://mktdigital91.github.io/msx/msx/app/teste.html";
+const APP_NOVO = "https://mktdigital91.github.io/msx/msx/app/index.html";
 const ORDENS: Record<string, string> = { "": "Padrão", rec: "Recentes", nota: "Nota", az: "A–Z" };
 const PROX_ORDEM: Record<string, string> = { "": "rec", rec: "nota", nota: "az", az: "" };
 function ordenar(lst: any[], o: string) {
