@@ -263,7 +263,13 @@ body.vod #pl { display: block; }
 #lgCarreg span { position: absolute; left: 0; right: 0; top: 606px; font-size: 24px; color: #9AA3B5; }
 #lgMac { position: absolute; left: 150px; bottom: 30px; font-size: 20px; color: #9AA3B5; }
 
-#aviso { position: absolute; left: 50%; bottom: 60px; -webkit-transform: translateX(-50%) translateY(30px); transform: translateX(-50%) translateY(30px); padding: 18px 34px; border-radius: 18px; background: #1B2130; font-size: 24px; opacity: 0; -webkit-transition: opacity .25s, -webkit-transform .25s; transition: opacity .25s, transform .25s; z-index: 90; }
+#dlg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 95; background: rgba(3,4,8,.78); display: none; }
+#dlg.on { display: block; }
+#dlg .cx { position: absolute; left: 50%; top: 50%; width: 960px; margin: -230px 0 0 -480px; white-space: nowrap; box-sizing: border-box; padding: 54px 56px 50px; border-radius: 30px; background: #121724; border: 1px solid rgba(245,180,0,.35); box-shadow: 0 40px 120px rgba(0,0,0,.6); text-align: center; }
+#dlg h2 { margin: 0; font-size: 44px; font-weight: 800; } #dlg p { white-space: normal; margin: 16px 0 40px; font-size: 26px; color: #C7CCD6; line-height: 1.45; }
+#dlg .bt { display: inline-block; margin: 0 12px; padding: 24px 46px; border-radius: 18px; font-size: 28px; font-weight: 800; background: rgba(255,255,255,.1); }
+#dlg .bt.f { background: #F5B400; color: #14100A; -webkit-transform: scale(1.06); transform: scale(1.06); }
+#aviso { position: absolute; left: 50%; bottom: 90px; -webkit-transform: translateX(-50%) translateY(30px); transform: translateX(-50%) translateY(30px); padding: 26px 48px; border-radius: 22px; background: #1B2130; border: 2px solid rgba(245,180,0,.5); box-shadow: 0 20px 60px rgba(0,0,0,.5); font-size: 30px; font-weight: 700; opacity: 0; -webkit-transition: opacity .25s, -webkit-transform .25s; transition: opacity .25s, transform .25s; z-index: 90; }
 #aviso.on { opacity: 1; -webkit-transform: translateX(-50%); transform: translateX(-50%); }
 </style>
 </head>
@@ -347,6 +353,7 @@ body.vod #pl { display: block; }
 
   <div id="topo"><img id="logo" src="https://mktdigital91.github.io/msx/msx/img/logo-goldplay.png" alt=""><div id="nav"></div><div id="hora"><b id="hh">--:--</b><span id="dd"></span></div></div>
   <div id="aviso"></div>
+  <div id="dlg"><div class="cx"><h2 id="dlgT"></h2><p id="dlgX"></p><div id="dlgB"></div></div></div>
 </div>
 <script>
 (function () {
@@ -384,6 +391,15 @@ body.vod #pl { display: block; }
   function relogio() { var d = br(); $("hh").innerHTML = dois(d.getUTCHours()) + ":" + dois(d.getUTCMinutes()); $("dd").innerHTML = DIAS[d.getUTCDay()] + ", " + d.getUTCDate() + " " + MESES[d.getUTCMonth()]; }
   relogio(); setInterval(relogio, 5000);
 
+  // caixa de confirmação grande no meio da tela: ◀ ▶ escolhem, OK confirma, Voltar fecha
+  var DLG = null;
+  function confirmar(titulo, texto, botoes) { DLG = { b: botoes, i: 0 }; $("dlgT").innerHTML = esc(titulo); $("dlgX").innerHTML = esc(texto); dlgRender(); $("dlg").className = "on"; }
+  function dlgRender() { var h = ""; for (var i = 0; i < DLG.b.length; i++) h += '<span class="bt' + (i === DLG.i ? " f" : "") + '">' + esc(DLG.b[i].t) + "</span>"; $("dlgB").innerHTML = h; }
+  function dlgFechar() { DLG = null; $("dlg").className = ""; }
+  function dlgTecla(k) {
+    if (k === 37) { if (DLG.i > 0) DLG.i--; dlgRender(); } else if (k === 39) { if (DLG.i < DLG.b.length - 1) DLG.i++; dlgRender(); }
+    else if (k === 13) { var a = DLG.b[DLG.i].a; dlgFechar(); if (a) a(); }
+  }
   var tAviso;
   function aviso(txt) { var a = $("aviso"); a.innerHTML = esc(txt); a.className = "on"; clearTimeout(tAviso); tAviso = setTimeout(function () { a.className = ""; }, 2800); }
 
@@ -520,8 +536,7 @@ body.vod #pl { display: block; }
       var els = document.querySelectorAll(".tela"); for (var i = 0; i < els.length; i++) els[i].className = "tela"; if (t.el) t.el.className = "tela on";
       noTopo = false; if (t.retomar) t.retomar(); else t.entrar(p.p); navRender(); return; }
     if (atual && atual.nome !== "home") { abrir("home"); return; }
-    if (agora() - tSair < 2500) { sairApp(); return; }
-    tSair = agora(); aviso("Aperte Voltar de novo para sair");
+    confirmar("Sair do Gold Play?", "Você pode voltar quando quiser. Seu progresso fica salvo.", [{ t: "Ficar no app", a: null }, { t: "Sair do app", a: sairApp }]);
   }
   function sair() { if (history.length > 1) history.back(); else aviso("Use o botão Home do controle para sair"); }
 
@@ -1227,10 +1242,12 @@ body.vod #pl { display: block; }
       if (k === 40) { var b = C.i; while (b < C.itens.length && grupo(b) === x.tipo) b++; if (b < C.itens.length) { C.i = b; cRender(); } return true; }
       if (k === 13) {
         if (x.tipo === "pf") { if (x.v.id === (CFG || {}).pf) { abrir("home"); return true; } chamar({ op: "perfil", pf: x.v.id, d: AP }, function (r) { if (r.t) { aviso("Perfil: " + x.v.nome); trocarSessao(r.t); } else aviso("Não foi possível trocar o perfil"); }); return true; }
-        if (x.tipo === "ct") { if (x.v === (CFG || {}).usuario) { abrir("home"); return true; } aviso("Entrando como " + x.v + "…"); chamar({ op: "conta", u: x.v, d: AP }, function (r) { if (r.t) trocarSessao(r.t); else aviso(r.erro || "Não foi possível entrar"); }, function () { aviso("Não foi possível entrar"); }); return true; }
-        if (x.a === "classico") { chamar({ op: "tema", v: "", d: AP }, function () { aviso("Visual clássico ativado"); setTimeout(sairApp, 900); }); return true; }
-        if (x.a === "sair") { sairApp(); return true; }
-        if (x.a === "trocar") { chamar({ op: "sair", d: AP }, function () {}, function () {}); T = ""; abrir("login", { msg: "Você saiu. Entre com outro usuário." }); return true; }
+        if (x.tipo === "ct" && x.v === (CFG || {}).usuario) { abrir("home"); return true; }
+        if (x.a === "classico") { confirmar("Voltar ao visual clássico?", "Esta TV passa a abrir as telas antigas do app.", [{ t: "Cancelar", a: null }, { t: "Usar o clássico", a: function () { chamar({ op: "tema", v: "", d: AP }, function () { aviso("Visual clássico ativado"); setTimeout(sairApp, 900); }); } }]); return true; }
+        if (x.a === "classico_antigo") { chamar({ op: "tema", v: "", d: AP }, function () { aviso("Visual clássico ativado"); setTimeout(sairApp, 900); }); return true; }
+        if (x.a === "sair") { confirmar("Sair do Gold Play?", "Você pode voltar quando quiser. Seu progresso fica salvo.", [{ t: "Cancelar", a: null }, { t: "Sair do app", a: sairApp }]); return true; }
+        if (x.a === "trocar") { confirmar("Sair da conta " + ((CFG && CFG.usuario) || "") + "?", "Você vai para a tela de entrada para usar outro usuário. Esta conta continua salva nesta TV.", [{ t: "Cancelar", a: null }, { t: "Sair da conta", a: function () { chamar({ op: "sair", d: AP }, function () {}, function () {}); T = ""; abrir("login", { msg: "Você saiu. Entre com outro usuário." }); } }]); return true; }
+        if (x.tipo === "ct" && x.v !== (CFG || {}).usuario) { var u2 = x.v; confirmar("Entrar como " + u2 + "?", "O app vai trocar para esse usuário salvo nesta TV.", [{ t: "Cancelar", a: null }, { t: "Trocar de usuário", a: function () { aviso("Entrando como " + u2 + "…"); chamar({ op: "conta", u: u2, d: AP }, function (r) { if (r.t) trocarSessao(r.t); else aviso(r.erro || "Não foi possível entrar"); }, function () { aviso("Não foi possível entrar"); }); } }]); return true; }
       }
       return false;
     },
@@ -1343,6 +1360,7 @@ body.vod #pl { display: block; }
   var VOLTAR = { 461: 1, 10009: 1, 27: 1 }, ultVoltar = 0, saindo = false;
   function teclaVoltar() {
     if (agora() - ultVoltar < 400) return; ultVoltar = agora();
+    if (DLG) { dlgFechar(); return; }
     var ae = document.activeElement; if (ae && ae.tagName === "INPUT") { ae.blur(); return; }
     if (noTopo) { sairTopo(); return; }
     if (atual && atual.voltar && atual.voltar()) return;
@@ -1354,6 +1372,7 @@ body.vod #pl { display: block; }
   document.addEventListener("keydown", function (e) {
     var k = e.keyCode, ae = document.activeElement;
     if (ae && ae.tagName === "INPUT" && !VOLTAR[k]) return; // digitando no teclado da TV
+    if (DLG) { e.preventDefault(); if (VOLTAR[k] || k === 8) dlgFechar(); else dlgTecla(k); return; }
     var ehVoltar = VOLTAR[k] || (k === 8 && !(atual === TELAS.busca && B.zona === "tec" && B.q));
     if (ehVoltar) { e.preventDefault(); teclaVoltar(); return; }
     if (noTopo) {
