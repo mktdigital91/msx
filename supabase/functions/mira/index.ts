@@ -2843,7 +2843,7 @@ Deno.serve(async (req: Request) => {
   try {
     _ctx = { ip: (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim(), ua: req.headers.get("user-agent") ?? "" };
     const a0 = u0.searchParams.get("a");
-    if (req.method === "GET" && a0 === "ping") return new Response("{}", { headers: { ...CORS, "cache-control": "no-store" } });
+    if (req.method === "GET" && a0 === "ping") return new Response(u0.searchParams.get("x") === "tmdb" ? JSON.stringify({ tmdb: !!(Deno.env.get("TMDB_KEY") ?? Deno.env.get("TMDB_API_KEY")), ok: !!(await tmdbGet("/configuration")) }) : "{}", { headers: { ...CORS, "cache-control": "no-store" } });
     if (req.method === "GET" && a0 === "tel") { await telemetria(u0.searchParams); return new Response("{}", { headers: { ...CORS, "cache-control": "no-store" } }); }
     await carregarConfig();
     {
