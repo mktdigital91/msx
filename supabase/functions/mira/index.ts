@@ -1979,36 +1979,63 @@ function arrumarBotoes(bs: any[], y: number) {
 // ---------- API em JSON para a interface própria (msx/app): mesma sessão e o mesmo relay das telas do MSX ----------
 const _appCache = new Map<string, { em: number; v: unknown }>();
 const _homeCache = new Map<string, { em: number; v: any }>();
-// catálogo guardado também no banco (tabela catalogo_cache): o servidor "frio" não precisa baixar tudo do provedor de novo
-const CAMPOS_CAT = ["stream_id", "series_id", "name", "stream_icon", "cover", "category_id", "rating", "added", "last_modified", "container_extension", "num"];
-const enxuto = (l: any[]) => l.map((x) => { const o: any = {}; for (const f of CAMPOS_CAT) if (x?.[f] !== undefined && x[f] !== null && x[f] !== "") o[f] = x[f]; return o; });
-async function lerCatalogoBanco(chave: string, horas: number): Promise<any[] | null> {
-  try {
-    const r = await fetch(`${SB()}/rest/v1/catalogo_cache?chave=eq.${encodeURIComponent(chave)}&select=dados,em&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(6000) });
-    if (!r.ok) return null;
-    const j = await r.json();
-    if (!Array.isArray(j) || !j[0] || Date.now() - Date.parse(j[0].em) > horas * 3600_000) return null;
-    return Array.isArray(j[0].dados) ? j[0].dados : null;
-  } catch { return null; }
-}
-function gravarCatalogoBanco(chave: string, v: any[]) {
-  const t = fetch(`${SB()}/rest/v1/catalogo_cache?on_conflict=chave`, { method: "POST", headers: { ...sbh(), prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ chave, dados: enxuto(v), em: new Date().toISOString() }), signal: AbortSignal.timeout(20000) }).catch(() => {});
-  const er = (globalThis as any).EdgeRuntime; if (er?.waitUntil) er.waitUntil(t);
-}
 async function listaApp(cred: Cred, acao: string, minutos = 10): Promise<any[]> {
   const k = `${cred.u}|${acao}`, c = _appCache.get(k);
   if (c && Date.now() - c.em < minutos * 60_000) return c.v as any[];
-  const grande = acao === "get_vod_streams" || acao === "get_series" || acao === "get_live_streams";
-  const chaveB = `${(cred.b ?? BASE_PROV).replace(/^https?:\/\//, "")}|${cred.u}|${acao}`;
-  let v: any[] | null = grande && !(c) ? await lerCatalogoBanco(chaveB, 6) : null;
-  if (!v) {
-    const d = await api(cred, `&action=${acao}`);
-    v = Array.isArray(d) ? d : [];
-    if (grande && v.length) gravarCatalogoBanco(chaveB, v);
-  }
+  const d = await api(cred, `&action=${acao}`);
+  const v = Array.isArray(d) ? d : [];
   if (_appCache.size > 80) _appCache.clear();
   _appCache.set(k, { em: Date.now(), v });
   return v;
+}
+// ---------- catálogo indexado no banco (catalogo_itens): páginas, categorias e ordem saem prontas em milissegundos ----------
+const chaveCat = (cred: Cred) => `${(cred.b ?? BASE_PROV).replace(/^https?:\/\//, "")}|${cred.u}`;
+const ACAO_ITENS: Record<string, string> = { vod: "get_vod_streams", series: "get_series", live: "get_live_streams" };
+const _meta = new Map<string, { em: number; t: number }>();
+const _atualizando = new Set<string>();
+async function metaCat(chave: string, k: string): Promise<number | null> { // quando foi guardado (ms) ou null
+  const m = _meta.get(chave + "|" + k); if (m && Date.now() - m.t < 60_000) return m.em;
+  try {
+    const r = await fetch(`${SB()}/rest/v1/catalogo_meta?chave=eq.${encodeURIComponent(chave)}&k=eq.${k}&select=em&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(4000) });
+    if (!r.ok) return null;
+    const j = await r.json(); const em = Array.isArray(j) && j[0] ? Date.parse(j[0].em) : null;
+    _meta.set(chave + "|" + k, { em: em ?? 0, t: Date.now() }); return em || null;
+  } catch { return null; }
+}
+const linhaCat = (chave: string, k: string, v: number) => (x: any) => {
+  const id = String(k === "series" ? x.series_id : x.stream_id ?? "");
+  const nome = limparNome(String(x.name ?? ""));
+  return { chave, k, id, nome, img: String((k === "series" ? x.cover : x.stream_icon) || ""), r: Number(x.rating) > 0 ? Number(x.rating) : null, x: String(x.container_extension || ""),
+    cat: String(x.category_id ?? ""), added: Number(x.added || x.last_modified || 0) || 0, n: Number(x.num) || null, ord_nome: semAcento(nome), v };
+};
+async function gravarCatalogo(chave: string, k: string, lista: any[]) {
+  if (_atualizando.has(chave + k)) return; _atualizando.add(chave + k);
+  try {
+    const v = Date.now(), mk = linhaCat(chave, k, v);
+    const linhas = lista.map(mk).filter((x) => x.id && x.id !== "undefined");
+    for (let i = 0; i < linhas.length; i += 4000) {
+      const r = await fetch(`${SB()}/rest/v1/catalogo_itens?on_conflict=chave,k,id`, { method: "POST", headers: { ...sbh(), prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(linhas.slice(i, i + 4000)), signal: AbortSignal.timeout(30000) });
+      if (!r.ok) { console.log("catalogo_itens", r.status, (await r.text()).slice(0, 200)); return; }
+    }
+    await fetch(`${SB()}/rest/v1/catalogo_itens?chave=eq.${encodeURIComponent(chave)}&k=eq.${k}&v=lt.${v}`, { method: "DELETE", headers: sbh(), signal: AbortSignal.timeout(30000) });
+    await fetch(`${SB()}/rest/v1/catalogo_meta?on_conflict=chave,k`, { method: "POST", headers: { ...sbh(), prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ chave, k, em: new Date(v).toISOString(), total: linhas.length }), signal: AbortSignal.timeout(8000) });
+    _meta.set(chave + "|" + k, { em: v, t: Date.now() });
+  } catch (e) { console.log("gravarCatalogo", String(e)); } finally { _atualizando.delete(chave + k); }
+}
+function emSegundoPlano(p: Promise<unknown>) { const er = (globalThis as any).EdgeRuntime; if (er?.waitUntil) er.waitUntil(p); }
+// página do catálogo pelo banco; null = ainda não guardado (aí usa a lista do provedor e guarda por trás)
+async function paginaCat(cred: Cred, k: string, c: string, o: string, ini: number, lim: number, semCats: string[]): Promise<{ total: number; itens: any[] } | null> {
+  const chave = chaveCat(cred), em = await metaCat(chave, k);
+  if (!em) return null;
+  if (Date.now() - em > 6 * 3600_000 && !_atualizando.has(chave + k)) emSegundoPlano(listaApp(cred, ACAO_ITENS[k], 1).then((l) => gravarCatalogo(chave, k, l)).catch(() => {}));
+  const ordem = o === "rec" ? "added.desc.nullslast" : o === "nota" ? "r.desc.nullslast" : o === "az" ? "ord_nome.asc" : k === "live" ? "n.asc.nullslast" : "added.desc.nullslast";
+  const filtro = `chave=eq.${encodeURIComponent(chave)}&k=eq.${k}` + (c ? `&cat=eq.${encodeURIComponent(c)}` : "") + (!c && semCats.length ? `&cat=not.in.(${semCats.map((x) => encodeURIComponent(x)).join(",")})` : "");
+  try {
+    const r = await fetch(`${SB()}/rest/v1/catalogo_itens?${filtro}&select=id,nome,img,r,x,cat,n&order=${ordem}&offset=${ini}&limit=${lim}`, { headers: { ...sbh(), prefer: "count=exact" }, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return null;
+    const total = Number((r.headers.get("content-range") ?? "").split("/")[1]) || 0;
+    return { total, itens: await r.json() };
+  } catch { return null; }
 }
 // várias buscas ao provedor de uma vez: no relay, junta todos os pedidos numa só ida à TV
 async function juntos<T>(ps: Promise<T>[]): Promise<(T | null)[]> {
@@ -2175,12 +2202,22 @@ async function apiApp(cred: Cred, url: URL) {
       const hist2 = await historicoDe(eu, ["filme", "ep", "live"], 60);
       return { ...hc.v, continuar: hist2.filter((h) => h.tipo !== "live" && emAndamento(h)).slice(0, 15).map((h) => ({ tp: h.tipo, id: h.item_id, nome: h.nome, img: h.icone, pos: h.pos, dur: h.dur, extra: h.extra })), canais: hist2.filter((h) => h.tipo === "live").slice(0, 15).map((h) => ({ id: h.item_id, nome: h.nome, img: h.icone })) };
     }
-    const [l, hist, perfis, vence] = await Promise.all([juntos([listaApp(cred, "get_vod_streams"), listaApp(cred, "get_series")]), historicoDe(eu, ["filme", "ep", "live"], 60), perfisDe(cred.u).catch(() => [] as Perfil[]), venceDe(cred.u)]);
-    const vods = (l[0] ?? []) as any[], series = (l[1] ?? []) as any[];
     const regra = await regraAdulto(cred);
-    const fv = regra.protege ? await filtroAdulto(cred, "vod") : null, fs = regra.protege ? await filtroAdulto(cred, "series") : null;
-    const recV = vods.filter((x) => !fv || !fv(String(x.category_id), "vod")).sort((a, b) => Number(b.added || 0) - Number(a.added || 0)).slice(0, 30);
-    const recS = series.filter((x) => !fs || !fs(String(x.category_id), "series")).sort((a, b) => Number(b.last_modified || 0) - Number(a.last_modified || 0)).slice(0, 30);
+    const [semV, semS] = regra.protege ? await Promise.all([catsAdultas(cred, "vod"), catsAdultas(cred, "series")]).then((x) => [[...x[0]], [...x[1]]]) : [[], []];
+    // recentes pelo catálogo do banco (rápido); se ainda não existe, pela lista do provedor
+    const [pv, ps, hist, perfis, vence] = await Promise.all([paginaCat(cred, "vod", "", "rec", 0, 30, semV), paginaCat(cred, "series", "", "rec", 0, 30, semS), historicoDe(eu, ["filme", "ep", "live"], 60), perfisDe(cred.u).catch(() => [] as Perfil[]), venceDe(cred.u)]);
+    let recV: any[], recS: any[];
+    if (pv && ps && pv.itens.length) {
+      recV = pv.itens.map((x: any) => ({ stream_id: x.id, name: x.nome, stream_icon: x.img, rating: x.r, container_extension: x.x }));
+      recS = ps.itens.map((x: any) => ({ series_id: x.id, name: x.nome, cover: x.img, rating: x.r }));
+    } else {
+      const l = await juntos([listaApp(cred, "get_vod_streams"), listaApp(cred, "get_series")]);
+      const vods = (l[0] ?? []) as any[], series = (l[1] ?? []) as any[], ch = chaveCat(cred);
+      emSegundoPlano(gravarCatalogo(ch, "vod", vods).then(() => gravarCatalogo(ch, "series", series)));
+      const fv = regra.protege ? await filtroAdulto(cred, "vod") : null, fs = regra.protege ? await filtroAdulto(cred, "series") : null;
+      recV = vods.filter((x) => !fv || !fv(String(x.category_id), "vod")).sort((a, b) => Number(b.added || 0) - Number(a.added || 0)).slice(0, 30);
+      recS = series.filter((x) => !fs || !fs(String(x.category_id), "series")).sort((a, b) => Number(b.last_modified || 0) - Number(a.last_modified || 0)).slice(0, 30);
+    }
     const candidatos = recV.filter((x) => x.stream_icon).slice(0, 6);
     const infos = await juntos(candidatos.map((x) => api(cred, `&action=get_vod_info&vod_id=${encodeURIComponent(String(x.stream_id))}`)));
     const extras = await Promise.all(candidatos.map((x, i) => { const inf = (infos[i] as any)?.info ?? {}; return tmdbExtra("movie", String(x.name ?? ""), String(inf.releasedate || inf.release_date || "").slice(0, 4), inf.tmdb_id || inf.tmdb).catch(() => null); }));
@@ -2201,9 +2238,22 @@ async function apiApp(cred: Cred, url: URL) {
     return saida;
   }
   if (op === "cats") {
-    const [r, regra] = await Promise.all([api(cred, `&action=${A[0]}`), regraAdulto(cred)]);
+    const [r, regra] = await Promise.all([listaApp(cred, A[0], 30), regraAdulto(cred)]);
     const lst = ((Array.isArray(r) ? r : []) as any[]).filter((x) => !(regra.protege && ehAdulto(String(x.category_name))));
     return { ok: true, cats: lst.map((x) => ({ id: String(x.category_id), nome: limparNome(String(x.category_name)) })) };
+  }
+  if (op === "itens" && c !== "fav") {
+    const ini0 = Math.max(0, parseInt(P.get("ini") ?? "0", 10) || 0), lim0 = Math.min(8000, parseInt(P.get("lim") ?? "0", 10) || (k === "live" ? 8000 : 6000));
+    const regra0 = await regraAdulto(cred);
+    const sem = !c && regra0.protege ? [...(await catsAdultas(cred, k))] : [];
+    const pg0 = await paginaCat(cred, k, c, P.get("o") ?? "", ini0, lim0, sem);
+    if (pg0) {
+      if (!c) anotarContagem(cred.u, k as any, pg0.total);
+      return { ok: true, total: pg0.total, ini: ini0, itens: pg0.itens.map((x: any, i: number) => k === "live" ? { id: x.id, n: x.n ?? ini0 + i + 1, nome: x.nome, img: x.img, c: x.cat } : { id: x.id, nome: x.nome, img: x.img, r: x.r ? Number(x.r).toFixed(1) : "", x: x.x || "mp4" }) };
+    }
+    // primeira vez: lista do provedor agora, e guarda no banco por trás
+    const ch = chaveCat(cred);
+    emSegundoPlano(listaApp(cred, ACAO_ITENS[k] ?? A[1]).then((l) => gravarCatalogo(ch, k, l)).catch(() => {}));
   }
   if (op === "itens") {
     const regra = await regraAdulto(cred);
@@ -2235,12 +2285,12 @@ async function apiApp(cred: Cred, url: URL) {
     const inf = info?.info ?? {}, md = info?.movie_data ?? {};
     const h = hist.find((x) => x.item_id === s);
     const nomeF = limparNome(String(inf.name || md.name || "Filme")), anoF = String(inf.releasedate || inf.release_date || "").slice(0, 4);
-    const ex: Extra = (await tmdbExtra("movie", String(inf.name || md.name || ""), anoF, inf.tmdb_id || inf.tmdb).catch(() => null)) ?? {};
+    const ex: Extra = P.get("tmdb") === "1" ? ((await tmdbExtra("movie", String(inf.name || md.name || ""), anoF, inf.tmdb_id || inf.tmdb).catch(() => null)) ?? {}) : {};
     return {
       ok: true, id: s, nome: nomeF, img: imgOk(inf.cover_big) || imgOk(inf.movie_image) || ex.poster || "", fundo: ex.fundo || imgOk(inf.backdrop_path) || imgOk(inf.cover_big) || imgOk(inf.movie_image),
       ano: anoF || ex.ano || "", dur: duracaoApp(inf), r: nota(inf.rating) ?? ex.nota ?? "", gen: txtApp(inf.genre, 80) || ex.gen || "", sin: txtApp(inf.plot || inf.description, 900) || ex.sin || "",
       dir: txtApp(inf.director, 100), elenco: txtApp(inf.cast || inf.actors, 200) || ex.elenco || "", x: String(md.container_extension || "mp4"), trailer: youtubeId(inf.youtube_trailer) || ex.trailer || "",
-      pos: h && emAndamento(h) ? h.pos : 0, fav: favs.some((f) => f.stream_id === s),
+      pos: h && emAndamento(h) ? h.pos : 0, fav: favs.some((f) => f.stream_id === s), tm: String(inf.tmdb_id || inf.tmdb || ""), nomeOrig: String(inf.name || md.name || ""),
     };
   }
   if (op === "info" && k === "series") {
@@ -2254,13 +2304,17 @@ async function apiApp(cred: Cred, url: URL) {
     }));
     const ult = hist.find((x) => String(x.extra?.serie) === s);
     const anoS = String(inf.releaseDate || inf.release_date || "").slice(0, 4);
-    const ex: Extra = (await tmdbExtra("tv", String(inf.name || ""), anoS, inf.tmdb_id || inf.tmdb).catch(() => null)) ?? {};
+    const ex: Extra = P.get("tmdb") === "1" ? ((await tmdbExtra("tv", String(inf.name || ""), anoS, inf.tmdb_id || inf.tmdb).catch(() => null)) ?? {}) : {};
     return {
       ok: true, id: s, nome: limparNome(String(inf.name || "Série")), img: imgOk(inf.cover) || ex.poster || "", fundo: ex.fundo || imgOk(inf.backdrop_path) || imgOk(inf.cover),
       ano: anoS || ex.ano || "", r: nota(inf.rating) ?? ex.nota ?? "", gen: txtApp(inf.genre, 80) || ex.gen || "", sin: txtApp(inf.plot, 900) || ex.sin || "", elenco: txtApp(inf.cast, 200) || ex.elenco || "",
-      trailer: youtubeId(inf.youtube_trailer) || ex.trailer || "", fav: favs.some((f) => f.stream_id === s), temps,
+      trailer: youtubeId(inf.youtube_trailer) || ex.trailer || "", fav: favs.some((f) => f.stream_id === s), temps, tm: String(inf.tmdb_id || inf.tmdb || ""), nomeOrig: String(inf.name || ""),
       ultimo: ult ? { temp: String(ult.extra?.temp ?? ""), ep: String(ult.extra?.ep ?? ""), id: ult.item_id, pos: ult.pos, dur: ult.dur, andamento: emAndamento(ult) } : null,
     };
+  }
+  if (op === "extra") { // TMDB à parte: a tela de detalhes abre na hora e completa depois
+    const ex = await tmdbExtra(k === "series" ? "tv" : "movie", P.get("n") ?? "", P.get("ano") ?? "", P.get("tm") ?? "").catch(() => null);
+    return { ok: !!ex, ...(ex ?? {}) };
   }
   if (op === "url") {
     if (!s) return { ok: false };

@@ -919,7 +919,15 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
       $("dNome").innerHTML = esc(p.nome || ""); $("dMeta").innerHTML = "Carregando…"; $("dSin").innerHTML = ""; $("dCred").innerHTML = ""; $("dBotoes").innerHTML = ""; $("dTemps").innerHTML = ""; $("dEps").innerHTML = "";
       $("dFundo").style.backgroundImage = p.img ? "url('" + p.img.replace(/'/g, "%27") + "')" : "";
       var self = this;
-      chamar({ op: "info", k: p.k, s: p.id }, function (r) { if (TELAS.det.p !== p) return; D.info = r; D.k = p.k; self.desenhar(); }, function () { $("dMeta").innerHTML = "Não foi possível carregar os detalhes."; });
+      chamar({ op: "info", k: p.k, s: p.id }, function (r) {
+        if (TELAS.det.p !== p) return; D.info = r; D.k = p.k; self.desenhar();
+        // imagem de fundo e textos do TMDB chegam depois, sem segurar a tela
+        chamar({ op: "extra", k: p.k, n: r.nomeOrig || r.nome || "", ano: r.ano || "", tm: r.tm || "" }, function (x) {
+          if (TELAS.det.p !== p || !x || !x.ok || !D.info) return; var i = D.info;
+          if (x.fundo) i.fundo = x.fundo; if (!i.sin && x.sin) i.sin = x.sin; if (!i.gen && x.gen) i.gen = x.gen; if (!i.elenco && x.elenco) i.elenco = x.elenco; if (!i.r && x.nota) i.r = x.nota; if (!i.img && x.poster) i.img = x.poster;
+          self.desenhar();
+        }, function () {});
+      }, function () { $("dMeta").innerHTML = "Não foi possível carregar os detalhes."; });
     },
     retomar: function () { modoVideo(""); pararVideo(); if (D.info) { var self = this, p = this.p; chamar({ op: "info", k: p.k, s: p.id }, function (r) { if (TELAS.det.p !== p) return; D.info = r; self.desenhar(); }, function () {}); this.desenhar(); } },
     desenhar: function () {
