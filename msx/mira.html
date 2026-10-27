@@ -12,6 +12,16 @@
 (function () {
   var SERVIDOR = 'https://tmaqxzqswtaejvxkqgfg.supabase.co/functions/v1/mira';
   var idAparelho = '';
+  // quando o MSX não informa o identificador da TV, criamos um próprio e guardamos (o mesmo vale para a interface nova)
+  function idProprio() {
+    var id = '';
+    try { id = localStorage.getItem('gp_ap') || ''; if (id) { id = JSON.parse(id); } } catch (e) { id = ''; }
+    if (!id || id === 'sem-id') {
+      id = 'gpw' + new Date().getTime().toString(36) + Math.random().toString(36).slice(2, 8);
+      try { localStorage.setItem('gp_ap', JSON.stringify(id)); } catch (e) {}
+    }
+    return id;
+  }
   var espera = null;
 
   function falha(msg) {
@@ -290,7 +300,7 @@
       // qualquer outro id é uma tela do app (texto da consulta): passa pelo relay
       // a tela inicial entrou no lugar do splash; ao voltar para ela (Voltar / Home do menu), o MSX pede de novo:
       // na primeira vez entrega a que já veio; depois carrega a tela inicial de novo (atualizada, sem splash)
-      if (dataId === 'pronto') { if (telaPronta) { var tp = telaPronta; telaPronta = null; callback(tp); } else { abrir(idAparelho || TVXSettings.ID || 'sem-id', callback, 'inicio', true); } return; }
+      if (dataId === 'pronto') { if (telaPronta) { var tp = telaPronta; telaPronta = null; callback(tp); } else { abrir(idAparelho || TVXSettings.ID || idProprio(), callback, 'inicio', true); } return; }
       if (dataId !== 'init' && dataId !== 'sair') {
         if (!dataId) { callback(null); return; }
         var qs = String(dataId); if (qs.indexOf('rl=1') < 0) { qs += '&rl=1'; }
@@ -312,7 +322,7 @@
         return;
       }
       var feito = false;
-      function seguir(id) { if (feito) return; feito = true; abrir(id || 'sem-id', callback, dataId === 'sair' ? 'sair' : 'inicio'); }
+      function seguir(id) { if (feito) return; feito = true; abrir(id && id !== 'sem-id' ? id : idProprio(), callback, dataId === 'sair' ? 'sair' : 'inicio'); }
       try {
         TVXInteractionPlugin.requestDeviceId(function (id) {
           seguir(typeof id === 'string' && id ? id : (TVXSettings.ID || ''));

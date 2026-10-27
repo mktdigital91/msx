@@ -584,7 +584,7 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
         setTimeout(function () { // deixa "Todos os filmes" e "Todas as séries" prontos (servidor aquecido e 1ª página guardada na TV)
           var ks = ["vod", "series"]; for (var i = 0; i < ks.length; i++) (function (k) {
             chamar({ op: "itens", k: k, c: "", o: "rec", ini: 0, lim: 120 }, function (r) { if (r.itens) ls(chaveLS("g_" + k + "__rec"), { em: agora(), total: r.total, v: r.itens }); }, function () {});
-            chamar({ op: "cats", k: k }, function () {}, function () {});
+            chamar({ op: "cats", k: k }, function (r) { if (r.cats) ls(chaveLS("gc_" + k), { em: agora(), v: r.cats }); }, function () {});
           })(ks[i]);
         }, 4000);
       }, function () { $("heroNome").innerHTML = "Não foi possível carregar"; $("heroSin").innerHTML = "Aperte OK para tentar de novo."; H.falhou = true; });
@@ -881,8 +881,11 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
         G.k = k; $("gLadoTit").innerHTML = k === "vod" ? "Filmes" : "Séries"; gFocar("lado");
         var base = [{ ord: 1 }, { id: "", nome: k === "vod" ? "Todos os filmes" : "Todas as séries" }, { id: "fav", nome: "★  Favoritos" }];
         if (G.catsPor[k]) { gLado.usar(G.catsPor[k], 1); gCarregar(gLado.atual(), false); return; }
-        gLado.usar(base, 1); gCarregar(gLado.atual(), false);
-        chamar({ op: "cats", k: k }, function (r) { if (G.k !== k) return; var l = base.slice(), cs = r.cats || []; for (var i = 0; i < cs.length; i++) l.push(cs[i]); G.catsPor[k] = l; var i0 = gLado.i, s0 = gLado.sel; gLado.itens = l; gLado.i = i0; gLado.sel = s0; gLado.render(); });
+        // categorias guardadas na TV aparecem junto com as capas; a lista nova chega por trás
+        var gc = ls(chaveLS("gc_" + k)), lista0 = base.slice();
+        if (gc && gc.v) for (var j = 0; j < gc.v.length; j++) lista0.push(gc.v[j]);
+        gLado.usar(lista0, 1); gCarregar(gLado.atual(), false);
+        chamar({ op: "cats", k: k }, function (r) { if (!r.cats) return; ls(chaveLS("gc_" + k), { em: agora(), v: r.cats }); if (G.k !== k) return; var l = base.slice(), cs = r.cats; for (var i = 0; i < cs.length; i++) l.push(cs[i]); l[1].q = gLado.itens[1] && gLado.itens[1].q; G.catsPor[k] = l; var i0 = gLado.i, s0 = gLado.sel, cat0 = G.catSel; gLado.itens = l; gLado.i = Math.min(i0, l.length - 1); gLado.sel = s0; if (cat0 && s0 >= 0 && l[s0]) { l[s0].q = cat0.q; G.catSel = l[s0]; } gLado.render(); });
       },
       retomar: function () { modoVideo(""); pararVideo(); G.k = k; gLado.render(); gFocar(G.zona); },
       focar: function () { gFocar(G.zona); }, desfocar: function () { gLado.ativa = false; gGrade.ativa = false; gLado.render(); gGrade.render(); },
@@ -1449,7 +1452,7 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   // =====================================================================
   //  Início
   // =====================================================================
-  if (!AP) { AP = ls("gp_ap"); if (!AP) { AP = "gpw" + agora().toString(36) + Math.random().toString(36).slice(2, 8); ls("gp_ap", AP); } }
+  if (!AP || AP === "sem-id") { AP = ls("gp_ap"); if (!AP || AP === "sem-id") { AP = "gpw" + agora().toString(36) + Math.random().toString(36).slice(2, 8); ls("gp_ap", AP); } }
   if (T || DEMO) carregarCfg(function () { abrir("home"); });
   else chamar({ op: "ver", d: AP }, function (r) { if (r.ok && r.t) entrarCom(r.t); else abrir("login", r.erro ? { msg: r.erro, erro: true } : {}); }, function () { abrir("login"); });
 })();
