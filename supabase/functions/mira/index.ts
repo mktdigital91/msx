@@ -2192,15 +2192,21 @@ async function apiApp(cred: Cred, url: URL) {
     if (!Array.isArray(lst)) lst = [];
     if (!c && regra.protege) { const f = await filtroAdulto(cred, k); if (f) lst = lst.filter((x) => !f(String(x.category_id), k)); }
     const o = P.get("o") ?? "";
-    if (k !== "live") {
-      if (o === "rec") lst = [...lst].sort((a, b) => Number(b.added || b.last_modified || 0) - Number(a.added || a.last_modified || 0));
-      else if (o === "nota") lst = [...lst].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
-      else if (o === "az") lst = [...lst].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    if (k !== "live" && o) {
+      const ck = `${cred.u}|ord|${k}|${c}|${o}|${lst.length}`, oc = _appCache.get(ck);
+      if (oc) lst = oc.v as any[];
+      else {
+        if (o === "rec") lst = [...lst].sort((a, b) => Number(b.added || b.last_modified || 0) - Number(a.added || a.last_modified || 0));
+        else if (o === "nota") lst = [...lst].sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0));
+        else if (o === "az") lst = [...lst].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+        _appCache.set(ck, { em: Date.now(), v: lst });
+      }
     }
     if (!c) anotarContagem(cred.u, k as any, lst.length);
     const mapa: (x: any, i: number) => unknown = k === "live" ? (x: any, i: number) => ({ id: String(x.stream_id ?? ""), n: x.num ?? i + 1, nome: limparNome(String(x.name ?? "")), img: String(x.stream_icon || ""), c: String(x.category_id ?? "") })
       : k === "vod" ? (x: any) => itemVod(x) : (x: any) => itemSerie(x);
-    return { ok: true, total: lst.length, itens: lst.slice(0, k === "live" ? 8000 : 6000).map(mapa) };
+    const ini = Math.max(0, parseInt(P.get("ini") ?? "0", 10) || 0), lim = Math.min(8000, parseInt(P.get("lim") ?? "0", 10) || (k === "live" ? 8000 : 6000));
+    return { ok: true, total: lst.length, ini, itens: lst.slice(ini, ini + lim).map((x, i) => mapa(x, ini + i)) };
   }
   if (op === "info" && k === "vod") {
     const [info, hist, favs] = await Promise.all([api(cred, `&action=get_vod_info&vod_id=${encodeURIComponent(s)}`), historicoDe(eu, ["filme"], 80), favoritosVod(eu, "v")]);
@@ -2254,6 +2260,13 @@ async function apiApp(cred: Cred, url: URL) {
     const num = (n: string) => Math.max(0, Math.min(1e6, parseInt(P.get(n) ?? "0", 10) || 0));
     await gravarVisto(eu, tp, s.slice(0, 40), limparNome(P.get("n") ?? "").slice(0, 120), (P.get("i") ?? "").slice(0, 400), extra, tp === "live" ? 0 : num("pos"), tp === "live" ? 0 : num("dur"));
     return { ok: true };
+  }
+  if (op === "catalogo") { // nomes de tudo, compacto: a pesquisa roda na própria TV, sem esperar o servidor a cada letra
+    const tp = (k === "vod" || k === "series" || k === "live" ? k : "vod") as ItemBusca["k"];
+    const v = await catalogoBusca(cred, tp);
+    const regra = await regraAdulto(cred);
+    const f = regra.protege ? await filtroAdulto(cred, tp) : null;
+    return { ok: true, k: tp, itens: v.filter((x) => !f || !f(x.cat, tp)).map((x) => [x.id, x.nome, x.icon, x.ext]) };
   }
   if (op === "busca") {
     const q = (P.get("q") ?? "").slice(0, 40);

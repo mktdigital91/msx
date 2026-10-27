@@ -130,10 +130,10 @@ body.zap #zap { display: block; }
 #zap .lin.cab { background: rgba(245,180,0,.14); color: #F5B400; }
 
 /* ---------- filmes e séries ---------- */
-#gLado { left: 56px; width: 400px; }
-#gArea { position: absolute; left: 488px; top: 160px; right: 0; bottom: 0; overflow: hidden; }
+#gLado { left: 48px; width: 330px; }
+#gArea { position: absolute; left: 402px; top: 160px; right: 0; bottom: 0; overflow: hidden; }
 #gTit { position: absolute; left: 0; top: 0; font-size: 22px; font-weight: 700; color: #9AA3B5; }
-#gGrade { position: absolute; left: 0; top: 50px; right: 0; bottom: 0; }
+#gGrade { position: absolute; left: 18px; top: 56px; right: 0; bottom: 0; }
 #gGrade .vazio, #gGrade .carreg { font-size: 26px; }
 
 /* ---------- detalhes ---------- */
@@ -235,7 +235,7 @@ body.vod #pl { display: block; }
 #lgQr img { position: absolute; left: 40px; top: 40px; width: 300px; height: 300px; border-radius: 18px; background: #fff; padding: 12px; box-sizing: border-box; }
 #lgQr .tx { position: absolute; left: 380px; top: 48px; right: 30px; }
 #lgQr .tx b { display: block; font-size: 28px; } #lgQr .tx span { display: block; margin-top: 10px; font-size: 21px; color: #9AA3B5; line-height: 1.45; }
-#lgCod { margin-top: 26px; font-size: 64px; font-weight: 800; letter-spacing: 10px; color: #F5B400; }
+#lgCod { margin-top: 22px; font-size: 46px; font-weight: 800; letter-spacing: 6px; color: #F5B400; white-space: nowrap; }
 #lgForm h3 { margin: 0 0 24px; font-size: 28px; }
 .campo { position: relative; height: 96px; margin-bottom: 20px; border-radius: 18px; background: rgba(255,255,255,.06); border: 3px solid rgba(255,255,255,0); }
 .campo.f { border-color: #F5B400; background: rgba(245,180,0,.08); }
@@ -345,7 +345,14 @@ body.vod #pl { display: block; }
   var T = param("t"), API = param("api") || "https://tmaqxzqswtaejvxkqgfg.supabase.co/functions/v1/mira", DEMO = param("demo") === "1";
   var $ = function (id) { return document.getElementById(id); };
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
-  function bgUrl(u) { return u ? "background-image:url('" + esc(u).replace(/'/g, "%27") + "')" : ""; }
+  // capas em tamanho de TV: TMDB pede a versão pequena; as do provedor passam por um redimensionador (bem mais leve)
+  function mini(u, w) {
+    if (!u) return "";
+    if (/image\.tmdb\.org\/t\/p\//.test(u)) return u.replace(/\/t\/p\/[^\/]+\//, "/t/p/" + (w > 500 ? "w1280" : "w342") + "/");
+    if (!/^https?:\/\//.test(u) || DEMO) return u;
+    return "https://wsrv.nl/?url=" + encodeURIComponent(u) + "&w=" + w + "&output=webp&q=72";
+  }
+  function bgUrl(u, w) { if (u && w) u = mini(u, w); return u ? "background-image:url('" + esc(u).replace(/'/g, "%27") + "')" : ""; }
   function agora() { return new Date().getTime(); }
   function dois(n) { return (n < 10 ? "0" : "") + n; }
   function br(ms) { return new Date((ms == null ? agora() : ms) - 3 * 3600000); } // horário de Brasília, mesmo com o fuso da TV errado
@@ -470,7 +477,7 @@ body.vod #pl { display: block; }
   };
 
   function capaHtml(x, w, h, extra) {
-    return '<div class="cp img" style="width:' + w + "px;height:" + h + "px;" + bgUrl(x.img) + '">' + (x.img ? "" : '<div style="position:absolute;left:16px;right:16px;bottom:18px;font-size:22px;font-weight:800;color:#C7CCD6">' + esc(x.nome) + "</div>") +
+    return '<div class="cp img" style="width:' + w + "px;height:" + h + "px;" + bgUrl(x.img, 240) + '">' + (x.img ? "" : '<div style="position:absolute;left:16px;right:16px;bottom:18px;font-size:22px;font-weight:800;color:#C7CCD6">' + esc(x.nome) + "</div>") +
       (x.r && Number(x.r) > 0 ? '<span class="nota">★ ' + esc(x.r) + "</span>" : "") + (extra || "") + "</div>";
   }
 
@@ -563,7 +570,7 @@ body.vod #pl { display: block; }
     destaque: function () {
       var d = ((H.dados || {}).destaques || [])[H.dest];
       if (!d) { $("heroNome").innerHTML = "Bem-vindo ao Gold Play"; $("heroMeta").innerHTML = ""; $("heroSin").innerHTML = "Escolha TV ao vivo, Filmes ou Séries no menu acima."; $("heroImg").style.backgroundImage = ""; $("heroBtns").innerHTML = ""; return; }
-      $("heroImg").style.backgroundImage = d.fundo ? "url('" + d.fundo.replace(/'/g, "%27") + "')" : "";
+      $("heroImg").style.backgroundImage = d.fundo ? "url('" + mini(d.fundo, 1280).replace(/'/g, "%27") + "')" : "";
       $("heroNome").innerHTML = esc(d.nome);
       $("heroMeta").innerHTML = [d.ano, d.dur ? duracao(d.dur) : "", d.r ? "<b>★ " + esc(d.r) + "</b>" : "", esc(d.gen)].filter(function (x) { return !!x; }).join("  ·  ");
       $("heroSin").innerHTML = esc(d.sin);
@@ -800,17 +807,25 @@ body.vod #pl { display: block; }
     return '<div class="lin fx' + (f ? " f" : "") + (s ? " sel" : "") + '"><span class="cresce ell">' + esc(c.nome) + "</span>" + (c.q != null ? '<span class="q">' + c.q + "</span>" : "") + "</div>";
   }, 12);
   var gGrade = new Grade($("gGrade"), 6, 236, 400, function (x) { return capaHtml(x, 206, 306) + '<div class="nm ell" style="width:206px">' + esc(x.nome) + "</div>"; });
-  gGrade.visL = 3;
+  gGrade.visL = 2;
   function gFocar(z) { G.zona = z; gLado.ativa = z === "lado"; gGrade.ativa = z === "grade"; gLado.render(); gGrade.render(); }
   function gCarregar(c, irPara) {
     G.catSel = c; gLado.sel = gLado.i; gLado.render();
     $("gTit").innerHTML = esc(c.nome) + (ORD[G.ordI].o ? '  <span style="color:#5E6677">·  ' + ORD[G.ordI].t + "</span>" : "");
-    var meu = ++G.pedido; gGrade.itens = []; gGrade.vazio = '<div class="carreg">Carregando…</div>'; gGrade.render();
-    chamar({ op: "itens", k: G.k, c: c.id, o: ORD[G.ordI].o }, function (r) {
-      if (meu !== G.pedido) return; var l = r.itens || []; c.q = r.total != null ? r.total : l.length; gLado.render();
+    var meu = ++G.pedido; gGrade.itens = []; gGrade.vazio = '<div class="carreg">Carregando…</div>'; gGrade.render(); G.total = 0; G.mais = false;
+    chamar({ op: "itens", k: G.k, c: c.id, o: ORD[G.ordI].o, ini: 0, lim: 120 }, function (r) {
+      if (meu !== G.pedido) return; var l = r.itens || []; c.q = r.total != null ? r.total : l.length; G.total = c.q; gLado.render();
       gGrade.vazio = '<div class="vazio">' + (c.id === "fav" ? "Nenhum favorito ainda. Favorite pela tela de detalhes." : "Nada nesta categoria.") + "</div>";
       gGrade.usar(l); if (irPara && l.length) gFocar("grade");
     }, function () { if (meu === G.pedido) { gGrade.vazio = '<div class="vazio">Falha ao carregar. Aperte OK de novo.</div>'; gGrade.render(); } });
+  }
+  // rolagem infinita: perto do fim, busca a próxima leva de capas
+  function gMais() {
+    if (G.mais || !G.catSel || gGrade.itens.length >= G.total || gGrade.i < gGrade.itens.length - 24) return;
+    G.mais = true; var meu = G.pedido;
+    chamar({ op: "itens", k: G.k, c: G.catSel.id, o: ORD[G.ordI].o, ini: gGrade.itens.length, lim: 120 }, function (r) {
+      G.mais = false; if (meu !== G.pedido) return; var l = r.itens || []; for (var i = 0; i < l.length; i++) gGrade.itens.push(l[i]); gGrade.render();
+    }, function () { G.mais = false; });
   }
   function telaGrade(k) {
     return {
@@ -836,8 +851,8 @@ body.vod #pl { display: block; }
         if (c === 37) { if (!gGrade.mover(-1, 0)) gFocar("lado"); return true; }
         if (c === 39) { gGrade.mover(1, 0); return true; }
         if (c === 38) { if (!gGrade.mover(0, -1)) irTopo(); return true; }
-        if (c === 40) { gGrade.mover(0, 1); return true; }
-        if (c === 33) { gGrade.mover(0, -3); return true; } if (c === 34) { gGrade.mover(0, 3); return true; }
+        if (c === 40) { gGrade.mover(0, 1); gMais(); return true; }
+        if (c === 33) { gGrade.mover(0, -3); return true; } if (c === 34) { gGrade.mover(0, 3); gMais(); return true; }
         if (c === 13) { var x = gGrade.atual(); if (x) abrir("det", { k: k, id: x.id, nome: x.nome, img: x.img }, true); return true; }
         return false;
       },
@@ -863,7 +878,7 @@ body.vod #pl { display: block; }
     retomar: function () { modoVideo(""); pararVideo(); if (D.info) { var self = this, p = this.p; chamar({ op: "info", k: p.k, s: p.id }, function (r) { if (TELAS.det.p !== p) return; D.info = r; self.desenhar(); }, function () {}); this.desenhar(); } },
     desenhar: function () {
       var r = D.info; if (!r) return;
-      if (r.fundo) $("dFundo").style.backgroundImage = "url('" + r.fundo.replace(/'/g, "%27") + "')";
+      if (r.fundo) $("dFundo").style.backgroundImage = "url('" + mini(r.fundo, 1280).replace(/'/g, "%27") + "')";
       $("dNome").innerHTML = esc(r.nome);
       var meta = [r.ano, D.k === "vod" ? duracao(r.dur) : (r.temps ? r.temps.length + (r.temps.length === 1 ? " temporada" : " temporadas") : ""), r.r ? "<b>★ " + esc(r.r) + "</b>" : "", esc(r.gen)];
       $("dMeta").innerHTML = meta.filter(function (x) { return !!x; }).join("  ·  ");
@@ -905,7 +920,7 @@ body.vod #pl { display: block; }
       var eps = r.temps[D.temp].eps, e = "";
       for (var k = 0; k < eps.length; k++) {
         var x = eps[k], pg = x.dur && x.pos ? '<div class="pg"><i style="width:' + Math.min(100, Math.round(x.pos / x.dur * 100)) + '%"></i></div>' : "";
-        e += '<div class="ep' + (!noTopo && D.zona === "ep" && k === D.ep ? " f" : "") + '" style="left:' + (k * 410) + 'px"><div class="th img" style="' + bgUrl(x.img || r.fundo) + '"><span class="num">E' + x.ep + (x.visto ? " ✓" : "") + "</span>" + pg + '</div><div class="nm ell" style="width:380px">' + esc(x.nome || ("Episódio " + x.ep)) + "</div></div>";
+        e += '<div class="ep' + (!noTopo && D.zona === "ep" && k === D.ep ? " f" : "") + '" style="left:' + (k * 410) + 'px"><div class="th img" style="' + bgUrl(x.img || r.fundo, 420) + '"><span class="num">E' + x.ep + (x.visto ? " ✓" : "") + "</span>" + pg + '</div><div class="nm ell" style="width:380px">' + esc(x.nome || ("Episódio " + x.ep)) + "</div></div>";
       }
       var desl = Math.max(0, D.ep * 410 - 3 * 410);
       $("dEps").innerHTML = '<div style="position:absolute;left:0;top:0;-webkit-transform:translateX(' + (-desl) + 'px);transform:translateX(' + (-desl) + 'px)">' + e + "</div>";
@@ -1041,8 +1056,31 @@ body.vod #pl { display: block; }
     $("bTec").innerHTML = h;
     $("bCampo").innerHTML = B.q ? esc(B.q) + '<span style="color:#F5B400">|</span>' : "<i>Digite o nome…</i>";
   }
+  var CAT = { vod: null, series: null, live: null, pedido: false };
+  function normal(t) { return String(t || "").toLowerCase().replace(/[áàâãä]/g, "a").replace(/[éèêë]/g, "e").replace(/[íìîï]/g, "i").replace(/[óòôõö]/g, "o").replace(/[úùûü]/g, "u").replace(/ç/g, "c").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").replace(/^\s|\s$/g, ""); }
+  function carregarCatalogo() {
+    if (CAT.pedido || DEMO) return; CAT.pedido = true;
+    var tipos = ["vod", "series", "live"];
+    for (var i = 0; i < tipos.length; i++) (function (k) {
+      chamar({ op: "catalogo", k: k }, function (r) { var l = r.itens || [], out = []; for (var j = 0; j < l.length; j++) out.push({ k: k, id: l[j][0], nome: l[j][1], img: l[j][2], x: l[j][3], n: normal(l[j][1]) }); CAT[k] = out; if (atual === TELAS.busca && B.q) bBuscar(); }, function () { CAT.pedido = false; });
+    })(tipos[i]);
+  }
+  function buscaLocal(q) {
+    var qn = normal(q), pal = qn.split(" "), res = [[], [], []], listas = [CAT.vod || [], CAT.series || [], CAT.live || []];
+    for (var a = 0; a < listas.length; a++) for (var i = 0; i < listas[a].length; i++) {
+      var x = listas[a][i], ok = true;
+      for (var p = 0; p < pal.length; p++) if (x.n.indexOf(pal[p]) < 0) { ok = false; break; }
+      if (!ok) continue;
+      res[x.n.indexOf(qn) === 0 ? 0 : (" " + x.n).indexOf(" " + pal[0]) >= 0 ? 1 : 2].push(x);
+    }
+    return res[0].concat(res[1], res[2]);
+  }
   function bBuscar() {
     clearTimeout(B.t);
+    if (CAT.vod && CAT.series && B.q.replace(/\s/g, "").length >= 2) { // catálogo já na TV: resultado na hora
+      B.t = setTimeout(function () { var l = buscaLocal(B.q); $("bResTit").innerHTML = l.length ? l.length + " resultado" + (l.length > 1 ? "s" : "") : "Nada encontrado"; bGrade.vazio = ""; bGrade.usar(l.slice(0, 120)); }, 120);
+      return;
+    }
     if (B.q.replace(/\s/g, "").length < 2) { bGrade.usar([]); bGrade.vazio = '<div class="vazio">Digite pelo menos 2 letras.</div>'; bGrade.render(); $("bResTit").innerHTML = "Filmes, séries e canais"; return; }
     B.t = setTimeout(function () {
       var meu = ++B.pedido; $("bResTit").innerHTML = "Procurando…";
@@ -1053,7 +1091,7 @@ body.vod #pl { display: block; }
   function bLetra(c) { if (B.q.length < 30) { B.q += c; bTec(); bBuscar(); } }
   TELAS.busca = {
     el: $("s-busca"), secao: "busca",
-    entrar: function () { modoVideo(""); pararVideo(); B.zona = "tec"; bGrade.ativa = false; bTec(); if (!B.q) { bGrade.vazio = '<div class="vazio">Use o teclado ao lado para procurar.</div>'; bGrade.render(); } else bGrade.render(); },
+    entrar: function () { modoVideo(""); pararVideo(); carregarCatalogo(); B.zona = "tec"; bGrade.ativa = false; bTec(); if (!B.q) { bGrade.vazio = '<div class="vazio">Use o teclado ao lado para procurar.</div>'; bGrade.render(); } else bGrade.render(); },
     retomar: function () { modoVideo(""); pararVideo(); bTec(); bGrade.ativa = B.zona === "res"; bGrade.render(); },
     focar: function () { bTec(); bGrade.ativa = B.zona === "res"; bGrade.render(); }, desfocar: function () { bTec(); bGrade.ativa = false; bGrade.render(); },
     tecla: function (k, e) {
@@ -1200,7 +1238,7 @@ body.vod #pl { display: block; }
   function lgMsg(t, erro) { $("lgMsg").innerHTML = esc(t); $("lgMsg").className = erro ? "erro" : ""; }
   function lgCodigo(novo) {
     chamar({ op: "codigo", d: AP, r: novo ? 1 : undefined }, function (r) {
-      $("lgCod").innerHTML = r.codigo ? esc(r.codigo.split("").join(" ")) : "——";
+      $("lgCod").innerHTML = r.codigo ? esc(r.codigo) : "——";
       $("lgQrImg").src = "https://api.qrserver.com/v1/create-qr-code/?size=400x400&margin=2&data=" + encodeURIComponent(r.link || "");
       $("lgMac").innerHTML = r.mac ? "MAC desta TV: <b style=\"color:#F4F1EA\">" + esc(r.mac) + "</b>" : "";
       LG.contas = r.contas || []; lgRender();
