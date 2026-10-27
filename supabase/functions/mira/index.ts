@@ -1043,6 +1043,7 @@ async function tratar(url: URL) {
     return await home(tk, `${u} · vence ${exp}`, d, true);
   }
 
+  if (a === "japi" && ["codigo", "ver", "entrar", "conta0"].includes(url.searchParams.get("op") ?? "")) return await apiLogin(url, d);
   let cred = await lerToken(url.searchParams.get("t"));
   if (!cred && a === "japi") return { ok: false, erro: "sessao" };
   if (!cred) return telaEntrar("Sessão expirada, entre de novo", d);
@@ -1977,6 +1978,7 @@ function arrumarBotoes(bs: any[], y: number) {
 // ordem das listas de filmes/séries: padrão do provedor → recentes → nota → A–Z
 // ---------- API em JSON para a interface própria (msx/app): mesma sessão e o mesmo relay das telas do MSX ----------
 const _appCache = new Map<string, { em: number; v: unknown }>();
+const _homeCache = new Map<string, { em: number; v: any }>();
 async function listaApp(cred: Cred, acao: string, minutos = 10): Promise<any[]> {
   const k = `${cred.u}|${acao}`, c = _appCache.get(k);
   if (c && Date.now() - c.em < minutos * 60_000) return c.v as any[];
@@ -1996,6 +1998,46 @@ const txtApp = (v: unknown, max = 600) => { const t = String(v ?? "").replace(/\
 const duracaoApp = (inf: any) => inf?.duration_secs ? Number(inf.duration_secs) : /^\d+$/.test(String(inf?.duration ?? "").trim()) ? Number(inf.duration) * 60 : /^\d+:\d+/.test(String(inf?.duration ?? "")) ? String(inf.duration).split(":").map(Number).reduce((a: number, b: number) => a * 60 + b, 0) : 0;
 const itemVod = (x: any) => ({ id: String(x.stream_id), nome: limparNome(String(x.name ?? "")), img: String(x.stream_icon || ""), r: nota(x.rating) ?? "", x: String(x.container_extension || "mp4") });
 const itemSerie = (x: any) => ({ id: String(x.series_id), nome: limparNome(String(x.name ?? "")), img: String(x.cover || ""), r: nota(x.rating) ?? "" });
+// ---------- login da interface própria (sem sessão): QR code, código do celular, usuário e senha, contas salvas ----------
+async function entrarApp(u: string, p: string, d: string | null) {
+  if (!u || !p) return { ok: false, erro: "Informe usuário e senha." };
+  const x = await infoUsuario(u);
+  if (x.bloq) return { ok: false, erro: "Acesso bloqueado. Fale com o suporte." };
+  const au = await autenticar(u, p, x.b);
+  const cx = RC()!;
+  if (!au.ok && cx.need.size && cx.cap) throw new RelayNeed();
+  if (!au.ok) return { ok: false, erro: au.erroProv ? "Provedor indisponível. Tente de novo." : "Usuário ou senha incorretos." };
+  await registrarAcesso(u, d, "login", "tv", (await tvDoAparelho(d))?.mac ?? null);
+  await salvarVence(u, au.info);
+  if (au.dnsId) await fixarDnsDoUsuario(u, au.dnsId);
+  const tk = await criarToken(u, p);
+  await salvarSessao(d, tk); await lembrarConta(d, u, p);
+  return { ok: true, t: tk };
+}
+async function apiLogin(url: URL, d: string | null) {
+  const P = url.searchParams, op = P.get("op") ?? "";
+  if (!d) return { ok: false, erro: "aparelho" };
+  if (op === "codigo") {
+    if (P.get("r")) await fetch(`${REST_COD()}?aparelho=eq.${encodeURIComponent(d)}`, { method: "DELETE", headers: cab() }).catch(() => {});
+    const [codigo, tv, contas] = await Promise.all([codigoDoAparelho(d), tvDoAparelho(d), contasDe(d)]);
+    return { ok: true, codigo, link: codigo ? `${PAGINA_CELULAR}?c=${codigo}` : PAGINA_CELULAR, mac: tv?.mac ?? "", contas };
+  }
+  if (op === "ver") { // já entrou (pelo celular ou cadastro do painel)?
+    const tv = await tvDoAparelho(d);
+    if (tv?.bloqueado) return { ok: false, erro: "Esta TV está bloqueada. Fale com o suporte." };
+    const tk = await lerSessao(d), cr = await lerToken(tk);
+    if (tk && cr && !cr.bloq && (!tv?.usuario || cr.u === tv.usuario)) {
+      if (cr.pv) { const rv = await resolverPv(cr, d, tk); return rv ? { ok: true, t: rv.t } : { ok: false, erro: "Usuário ou senha incorretos." }; }
+      await registrarAcesso(cr.u, d, "sessao");
+      return { ok: true, t: tk };
+    }
+    if (tv?.usuario && tv.senha_enc) { const senha = await senhaDaTv(tv.senha_enc); if (senha) return await entrarApp(tv.usuario, senha, d); }
+    return { ok: false };
+  }
+  if (op === "entrar") return await entrarApp((P.get("u") ?? "").trim(), P.get("p") ?? "", d);
+  if (op === "conta0") { const u = (P.get("u") ?? "").trim(); const p = await senhaSalva(d, u); return p ? await entrarApp(u, p, d) : { ok: false, erro: "Senha salva não encontrada." }; }
+  return { ok: false };
+}
 // ---------- TMDB (imagens, sinopse e elenco em português quando o provedor não tem) ----------
 const _tmdb = new Map<string, { em: number; v: any }>();
 const TMDB_IMG = "https://image.tmdb.org/t/p/";
@@ -2093,6 +2135,7 @@ async function apiApp(cred: Cred, url: URL) {
     return { ok: true, t: tk };
   }
   if (op === "tema") { const dev = idOk(P.get("d")); if (dev) await salvarTemaAparelho(dev, (P.get("v") ?? "").slice(0, 20)); return { ok: true }; }
+  if (op === "sair") { await apagarSessao(idOk(P.get("d"))); return { ok: true }; }
   if (op === "esquecer") { await esquecerConta(idOk(P.get("d")), (P.get("u") ?? "").trim()); return { ok: true }; }
   if (op === "jogos") {
     const js = (await jogosDoDia(5000)) ?? [];
@@ -2105,6 +2148,11 @@ async function apiApp(cred: Cred, url: URL) {
     return { ok: true, ...(await canaisDoJogo(cred, j)) };
   }
   if (op === "home") {
+    const hc = _homeCache.get(eu);
+    if (hc && Date.now() - hc.em < 20 * 60_000 && !P.get("novo")) {
+      const hist2 = await historicoDe(eu, ["filme", "ep", "live"], 60);
+      return { ...hc.v, continuar: hist2.filter((h) => h.tipo !== "live" && emAndamento(h)).slice(0, 15).map((h) => ({ tp: h.tipo, id: h.item_id, nome: h.nome, img: h.icone, pos: h.pos, dur: h.dur, extra: h.extra })), canais: hist2.filter((h) => h.tipo === "live").slice(0, 15).map((h) => ({ id: h.item_id, nome: h.nome, img: h.icone })) };
+    }
     const [l, hist, perfis, vence] = await Promise.all([juntos([listaApp(cred, "get_vod_streams"), listaApp(cred, "get_series")]), historicoDe(eu, ["filme", "ep", "live"], 60), perfisDe(cred.u).catch(() => [] as Perfil[]), venceDe(cred.u)]);
     const vods = (l[0] ?? []) as any[], series = (l[1] ?? []) as any[];
     const regra = await regraAdulto(cred);
@@ -2120,12 +2168,15 @@ async function apiApp(cred: Cred, url: URL) {
       return { ...itemVod(x), fundo, ano: String(inf.releasedate || inf.release_date || "").slice(0, 4) || ex.ano || "", gen: txtApp(inf.genre, 60) || ex.gen || "", sin: txtApp(inf.plot || inf.description, 320) || txtApp(ex.sin, 320), dur: duracaoApp(inf), r: nota(inf.rating) ?? ex.nota ?? "" };
     }).filter((d) => d.fundo);
     const perfil = perfis.find((x) => x.id === (cred.pf || "p0")) ?? null;
-    return {
+    const saida = {
       ok: true, usuario: cred.u, perfil: perfil?.nome ?? "", vence,
       destaques, filmes: recV.map(itemVod), series: recS.map(itemSerie),
       continuar: hist.filter((h) => h.tipo !== "live" && emAndamento(h)).slice(0, 15).map((h) => ({ tp: h.tipo, id: h.item_id, nome: h.nome, img: h.icone, pos: h.pos, dur: h.dur, extra: h.extra })),
       canais: hist.filter((h) => h.tipo === "live").slice(0, 15).map((h) => ({ id: h.item_id, nome: h.nome, img: h.icone })),
     };
+    if (_homeCache.size > 200) _homeCache.clear();
+    _homeCache.set(eu, { em: Date.now(), v: saida });
+    return saida;
   }
   if (op === "cats") {
     const [r, regra] = await Promise.all([api(cred, `&action=${A[0]}`), regraAdulto(cred)]);
