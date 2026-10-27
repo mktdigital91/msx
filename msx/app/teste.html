@@ -71,6 +71,8 @@
   .carreg { padding: 24px; font-size: 22px; color: #9AA3B5; }
   #zap { position: absolute; left: 0; top: 0; bottom: 0; width: 640px; padding: 70px 40px; box-sizing: border-box; background: rgba(7,9,15,.88); z-index: 7; display: none; }
   #zap .tit { color: #F5B400; }
+  #zap .lin.cab { background: rgba(245,180,0,.14); color: #F5B400; }
+  #zap .lin.sel { background: rgba(255,255,255,.08); }
   #zap .lista { height: 900px; }
   #zap .lin { height: 84px; padding: 0 18px; background: rgba(255,255,255,.04); }
   #zap .lin .n { width: 60px; font-size: 22px; color: #9AA3B5; font-weight: 700; }
@@ -91,7 +93,7 @@
   <div id="lado" class="col">
     <div id="tela"><video id="v" playsinline></video><div class="msg" id="tmsg">Escolha um canal</div><div class="ao" id="ao">AO VIVO</div></div>
     <div id="info"><h2 id="nome">&nbsp;</h2><div id="epg"></div></div>
-    <div id="dica"><b>OK</b> tela cheia &nbsp; <b>◀ ▶</b> trocar coluna &nbsp; <b>Voltar</b> sair</div>
+    <div id="dica"><b>OK</b> assistir · 2× tela cheia &nbsp; <b>◀ ▶</b> trocar coluna &nbsp; <b>Voltar</b> sair</div>
   </div>
   <div id="zap"><div class="tit" id="zt">Canais</div><div class="lista" id="lz"></div></div>
   <div id="faixa"><h3 id="fn"></h3><p id="fp"></p><p style="font-size:20px;color:#9AA3B5;margin-top:14px">OK: lista de canais · ▲▼: trocar de canal · Voltar: sair da tela cheia</p></div>
@@ -197,22 +199,28 @@
     chamar({ op: "cats", k: "live" }, function (r) {
       var l = [{ id: "", nome: "Todos os canais" }, { id: "fav", nome: "★  Favoritos" }];
       var cs = (r && r.cats) || []; for (var i = 0; i < cs.length; i++) l.push(cs[i]);
-      cats.usar(l, 0); cats.sel = 0; cats.render(); abrirCat();
+      cats.usar(l, 0); cats.sel = -1; cats.render();
+      canais.vazio = '<div class="vazio">Escolha uma categoria e aperte OK</div>'; canais.render();
     }, function () { cats.vazio = '<div class="vazio">Não foi possível carregar. Aperte OK para tentar de novo.</div>'; cats.itens = []; cats.render(); });
   }
-  function abrirCat() {
+  // canais de uma categoria (guardados depois da 1ª vez)
+  function obterCanais(c, ok, erro) {
+    if (cacheItens[c.id]) { ok(cacheItens[c.id]); return; }
+    chamar({ op: "itens", k: "live", c: c.id }, function (r) { var l = (r && r.itens) || []; cacheItens[c.id] = l; c.q = l.length; cats.render(); ok(l); }, erro);
+  }
+  // só carrega quando aperta OK na categoria
+  function abrirCat(irPara) {
     var c = cats.atual(); if (!c) return;
     cats.sel = cats.i; cats.render();
     $("tc").innerHTML = esc(c.nome);
     var meu = ++pedidoCat;
-    if (cacheItens[c.id]) { canais.usar(cacheItens[c.id], 0); return; }
     canais.itens = []; canais.vazio = '<div class="carreg">Carregando canais…</div>'; canais.render();
-    chamar({ op: "itens", k: "live", c: c.id }, function (r) {
+    obterCanais(c, function (l) {
       if (meu !== pedidoCat) return;
-      var l = (r && r.itens) || []; cacheItens[c.id] = l; c.q = l.length; cats.render();
       canais.vazio = '<div class="vazio">' + (c.id === "fav" ? "Nenhum favorito ainda." : "Nenhum canal nesta categoria.") + "</div>";
       canais.usar(l, 0);
-    }, function () { if (meu === pedidoCat) { canais.vazio = '<div class="vazio">Falha ao carregar os canais.</div>'; canais.render(); } });
+      if (irPara && l.length) focar("canais");
+    }, function () { if (meu === pedidoCat) { canais.vazio = '<div class="vazio">Falha ao carregar os canais. Aperte OK de novo.</div>'; canais.render(); } });
   }
 
   // ---------- prévia e tela cheia ----------
@@ -245,11 +253,34 @@
   var cheia = false, zapAberto = false, tFaixa;
   function classes() { document.body.className = (cheia ? "cheia" : "") + (zapAberto ? " zap" : ""); }
   function telaCheia(sim) { cheia = sim; if (!sim) zapAberto = false; classes(); if (sim) { clearTimeout(tFaixa); $("faixa").style.opacity = 1; tFaixa = setTimeout(function () { $("faixa").style.opacity = 0; }, 4500); } }
-  // lista de canais por cima do vídeo (tela cheia): OK abre, ▲▼ navega, OK troca, Voltar fecha
+  // lista por cima do vídeo (tela cheia): canais da categoria, com "Categorias" no topo para trocar sem sair do vídeo
+  var CAB = { cab: 1, nome: "Categorias" }, zModo = "canais";
   var zap = new Lista($("lz"), 92, function (c, k, f) {
+    if (c.cab) return '<div class="lin cab' + (f ? " f" : "") + '"><span class="nm">☰  Categorias</span></div>';
+    if (zModo === "cats") return '<div class="lin' + (f ? " f" : "") + (k === cats.sel ? " sel" : "") + '"><span class="nm">' + esc(c.nome) + '</span>' + (c.q != null ? '<span class="n" style="text-align:right">' + c.q + "</span>" : "") + "</div>";
     return '<div class="lin' + (f ? " f" : "") + (c.id === tocandoId ? " tocando" : "") + '"><span class="n">' + esc(c.n) + '</span><span class="ic"' + (c.img ? ' style="background-image:url(\'' + esc(c.img).replace(/'/g, "%27") + '\')"' : "") + '></span><span class="nm">' + esc(c.nome) + "</span></div>";
   });
-  function abrirZap() { zapAberto = true; zap.ativa = true; $("zt").innerHTML = esc((cats.itens[cats.sel] || {}).nome || "Canais"); var i = 0; for (var k = 0; k < canais.itens.length; k++) if (canais.itens[k].id === tocandoId) { i = k; break; } classes(); zap.vis = 9; zap.usar(canais.itens, i); $("faixa").style.opacity = 0; }
+  zap.vis = 9;
+  function zapCanais() {
+    zModo = "canais"; $("zt").innerHTML = esc((cats.itens[cats.sel] || {}).nome || "Canais");
+    var i = 1; for (var k = 0; k < canais.itens.length; k++) if (canais.itens[k].id === tocandoId) { i = k + 1; break; }
+    zap.usar([CAB].concat(canais.itens), i);
+  }
+  function zapCats() { zModo = "cats"; $("zt").innerHTML = "Categorias"; zap.usar(cats.itens, Math.max(0, cats.sel)); }
+  function abrirZap() { zapAberto = true; zap.ativa = true; classes(); zapCanais(); $("faixa").style.opacity = 0; }
+  function zapOk() {
+    var it = zap.atual(); if (!it) return;
+    if (it.cab) { zapCats(); return; }
+    if (zModo === "cats") { // abre os canais da categoria escolhida, com o vídeo seguindo por trás
+      var idx = zap.i; $("zt").innerHTML = "Carregando…";
+      obterCanais(it, function (l) {
+        cats.i = idx; cats.sel = idx; cats.ajustar(); cats.render(); $("tc").innerHTML = esc(it.nome);
+        canais.usar(l, 0); zModo = "canais"; $("zt").innerHTML = esc(it.nome); zap.usar([CAB].concat(l), l.length ? 1 : 0);
+      }, function () { $("zt").innerHTML = "Falha ao carregar"; });
+      return;
+    }
+    canais.i = zap.i - 1; canais.ajustar(); canais.render(); tocar(it); zapAberto = false; classes(); telaCheia(true);
+  }
 
   // ---------- controle remoto ----------
   var VOLTAR = { 461: 1, 10009: 1, 8: 1, 27: 1 };
@@ -257,12 +288,12 @@
   document.addEventListener("keydown", function (e) {
     var k = e.keyCode, usado = true;
     if (cheia && zapAberto) {
-      if (VOLTAR[k]) { zapAberto = false; classes(); }
+      if (VOLTAR[k]) { if (zModo === "cats") zapCanais(); else { zapAberto = false; classes(); } }
       else if (k === 38) zap.mover(-1);
       else if (k === 40) zap.mover(1);
       else if (k === 33) zap.mover(-8);
       else if (k === 34) zap.mover(8);
-      else if (k === 13) { var z = zap.atual(); canais.i = zap.i; canais.ajustar(); tocar(z); zapAberto = false; classes(); telaCheia(true); }
+      else if (k === 13) zapOk();
       e.preventDefault(); return;
     }
     if (cheia) {
@@ -282,26 +313,24 @@
       else usado = false;
       navRender();
     } else if (zona === "cats") {
-      if (k === 38) { if (!cats.mover(-1)) focar("nav"); else agendarCat(); }
-      else if (k === 40) { if (cats.mover(1)) agendarCat(); }
-      else if (k === 33) { cats.mover(-8); agendarCat(); }
-      else if (k === 34) { cats.mover(8); agendarCat(); }
-      else if (k === 39 || k === 13) { if (!cats.itens.length) carregarCats(); else { clearTimeout(tDwellCat); if (cats.sel !== cats.i) abrirCat(); if (canais.itens.length) focar("canais"); } }
+      if (k === 38) { if (!cats.mover(-1)) focar("nav"); }
+      else if (k === 40) cats.mover(1);
+      else if (k === 33) cats.mover(-8);
+      else if (k === 34) cats.mover(8);
+      else if (k === 13) { if (!cats.itens.length) carregarCats(); else if (cats.sel === cats.i && canais.itens.length) focar("canais"); else abrirCat(true); }
+      else if (k === 39) { if (canais.itens.length) focar("canais"); }
       else usado = false;
     } else if (zona === "canais") {
-      if (k === 38) { if (!canais.mover(-1)) focar("nav"); else agendarCanal(); }
-      else if (k === 40) { if (canais.mover(1)) agendarCanal(); }
-      else if (k === 33) { canais.mover(-7); agendarCanal(); }
-      else if (k === 34) { canais.mover(7); agendarCanal(); }
+      if (k === 38) { if (!canais.mover(-1)) focar("nav"); }
+      else if (k === 40) canais.mover(1);
+      else if (k === 33) canais.mover(-7);
+      else if (k === 34) canais.mover(7);
       else if (k === 37) focar("cats");
-      else if (k === 13) { clearTimeout(tDwellCanal); var c = canais.atual(); if (c && c.id === tocandoId) telaCheia(true); else { tocar(c); telaCheia(true); } }
+      else if (k === 13) { var c = canais.atual(); if (c && c.id === tocandoId) telaCheia(true); else tocar(c); } // 1º OK: toca na prévia; 2º OK: tela cheia
       else usado = false;
     } else usado = false;
     if (usado) e.preventDefault();
   });
-  // ao parar numa categoria, abre os canais dela; ao parar num canal, toca a prévia
-  function agendarCat() { clearTimeout(tDwellCat); tDwellCat = setTimeout(abrirCat, 450); }
-  function agendarCanal() { clearTimeout(tDwellCanal); tDwellCanal = setTimeout(function () { tocar(canais.atual()); }, 900); }
 
   // ---------- início ----------
   if (!T) { $("tmsg").innerHTML = "Abra pela opção Configurações do app"; }
