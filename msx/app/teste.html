@@ -64,6 +64,8 @@
   body.cheia #tela { position: absolute; left: -1164px; top: -160px; width: 1920px; height: 1080px; border: 0; z-index: 5; }
   #faixa { position: absolute; left: 0; right: 0; bottom: 0; padding: 60px 72px 56px; background: linear-gradient(transparent, rgba(0,0,0,.85)); z-index: 6; display: none; }
   body.cheia #faixa { display: block; }
+  body.cheia #ao { -webkit-transition: opacity .4s; transition: opacity .4s; }
+  body.cheia.semfaixa #ao { opacity: 0; }
   #faixa h3 { margin: 0; font-size: 46px; } #faixa p { margin: 6px 0 0; font-size: 26px; color: #DDD; }
   #aviso { position: absolute; left: 50%; bottom: 60px; -webkit-transform: translateX(-50%) translateY(30px); transform: translateX(-50%) translateY(30px); padding: 18px 34px; border-radius: 18px; background: #1B2130; font-size: 24px; opacity: 0; -webkit-transition: opacity .25s, -webkit-transform .25s; transition: opacity .25s, transform .25s; z-index: 9; }
   #aviso.on { opacity: 1; -webkit-transform: translateX(-50%); transform: translateX(-50%); }
@@ -251,8 +253,13 @@
     $("epg").innerHTML = h; $("fp").innerHTML = esc(a.t);
   }
   var cheia = false, zapAberto = false, tFaixa;
-  function classes() { document.body.className = (cheia ? "cheia" : "") + (zapAberto ? " zap" : ""); }
-  function telaCheia(sim) { cheia = sim; if (!sim) zapAberto = false; classes(); if (sim) { clearTimeout(tFaixa); $("faixa").style.opacity = 1; tFaixa = setTimeout(function () { $("faixa").style.opacity = 0; }, 4500); } }
+  var faixaOculta = false;
+  function classes() { document.body.className = (cheia ? "cheia" : "") + (zapAberto ? " zap" : "") + (faixaOculta ? " semfaixa" : ""); }
+  // na tela cheia, a faixa com o canal e o selo AO VIVO aparecem por alguns segundos e somem juntos
+  function telaCheia(sim) {
+    cheia = sim; if (!sim) zapAberto = false; faixaOculta = false; classes(); clearTimeout(tFaixa);
+    if (sim) { $("faixa").style.opacity = 1; tFaixa = setTimeout(function () { $("faixa").style.opacity = 0; faixaOculta = true; classes(); }, 4500); }
+  }
   // lista por cima do vídeo (tela cheia): canais da categoria, com "Categorias" no topo para trocar sem sair do vídeo
   var CAB = { cab: 1, nome: "Categorias" }, zModo = "canais";
   var zap = new Lista($("lz"), 92, function (c, k, f) {
@@ -267,7 +274,7 @@
     zap.usar([CAB].concat(canais.itens), i);
   }
   function zapCats() { zModo = "cats"; $("zt").innerHTML = "Categorias"; zap.usar(cats.itens, Math.max(0, cats.sel)); }
-  function abrirZap() { zapAberto = true; zap.ativa = true; classes(); zapCanais(); $("faixa").style.opacity = 0; }
+  function abrirZap() { zapAberto = true; zap.ativa = true; clearTimeout(tFaixa); faixaOculta = true; classes(); zapCanais(); $("faixa").style.opacity = 0; }
   function zapOk() {
     var it = zap.atual(); if (!it) return;
     if (it.cab) { zapCats(); return; }
@@ -295,7 +302,7 @@
       else if (k === 34) zap.mover(8);
       else if (k === 13) zapOk();
       else if (k === 37 && zModo === "canais") zapCats();   // ◀ mostra as categorias
-      else if (k === 39 && zModo === "cats") zapCanais();   // ▶ volta aos canais
+      else if (k === 39 && zModo === "cats") zapOk();       // ▶ abre os canais da categoria
       e.preventDefault(); return;
     }
     if (cheia) {
