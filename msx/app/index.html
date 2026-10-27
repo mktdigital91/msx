@@ -271,10 +271,39 @@ body.vod #pl { display: block; }
 
 #dlg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 95; background: rgba(3,4,8,.78); display: none; }
 #dlg.on { display: block; }
-#dlg .cx { position: absolute; left: 50%; top: 50%; width: 960px; margin: -230px 0 0 -480px; white-space: nowrap; box-sizing: border-box; padding: 54px 56px 50px; border-radius: 30px; background: #121724; border: 1px solid rgba(245,180,0,.35); box-shadow: 0 40px 120px rgba(0,0,0,.6); text-align: center; }
+#dlg .cx { position: absolute; left: 50%; top: 50%; width: 1100px; margin: -230px 0 0 -550px; white-space: nowrap; box-sizing: border-box; padding: 54px 56px 50px; border-radius: 30px; background: #121724; border: 1px solid rgba(245,180,0,.35); box-shadow: 0 40px 120px rgba(0,0,0,.6); text-align: center; }
 #dlg h2 { margin: 0; font-size: 44px; font-weight: 800; } #dlg p { white-space: normal; margin: 16px 0 40px; font-size: 26px; color: #C7CCD6; line-height: 1.45; }
-#dlg .bt { display: inline-block; margin: 0 12px; padding: 24px 46px; border-radius: 18px; font-size: 28px; font-weight: 800; background: rgba(255,255,255,.1); }
+#dlg .bt { display: inline-block; margin: 0 8px; padding: 22px 30px; border-radius: 18px; font-size: 28px; font-weight: 800; background: rgba(255,255,255,.1); }
 #dlg .bt.f { background: #F5B400; color: #14100A; -webkit-transform: scale(1.06); transform: scale(1.06); }
+/* senha (teclado numérico) e texto */
+#pin { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 96; background: rgba(3,4,8,.82); display: none; }
+#pin.on { display: block; }
+#pin .cx { position: absolute; left: 50%; top: 50%; width: 560px; margin: -360px 0 0 -280px; box-sizing: border-box; padding: 40px; border-radius: 30px; background: #121724; border: 1px solid rgba(245,180,0,.35); text-align: center; }
+#pin h2 { margin: 0 0 6px; font-size: 34px; } #pin p { margin: 0 0 18px; font-size: 21px; color: #9AA3B5; min-height: 26px; } #pin p.erro { color: #FF6B6B; }
+#pinPts { font-size: 54px; letter-spacing: 18px; height: 70px; color: #F5B400; }
+#pinTec { position: relative; width: 420px; height: 400px; margin: 10px auto 0; }
+#pinTec span { position: absolute; width: 124px; height: 88px; border-radius: 16px; background: rgba(255,255,255,.07); font-size: 32px; font-weight: 800; line-height: 88px; }
+#pinTec span.f { background: #F5B400; color: #14100A; }
+#txt { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 96; background: rgba(3,4,8,.82); display: none; }
+#txt.on { display: block; }
+#txt .cx { position: absolute; left: 50%; top: 50%; width: 820px; margin: -170px 0 0 -410px; box-sizing: border-box; padding: 44px; border-radius: 30px; background: #121724; border: 1px solid rgba(245,180,0,.35); text-align: center; }
+#txt h2 { margin: 0 0 24px; font-size: 36px; }
+#txtCampo { height: 90px; border-radius: 18px; background: rgba(255,255,255,.06); border: 3px solid rgba(255,255,255,0); text-align: left; }
+#txtCampo.f { border-color: #F5B400; }
+#txtIn { width: 100%; height: 84px; box-sizing: border-box; padding: 0 24px; border: 0; outline: 0; background: transparent; color: #F4F1EA; font: 700 32px "Manrope", Roboto, Arial, sans-serif; }
+#txtBts { margin-top: 26px; } #txtBts span { display: inline-block; margin: 0 10px; padding: 20px 46px; border-radius: 16px; font-size: 26px; font-weight: 800; background: rgba(255,255,255,.1); }
+#txtBts span.f { background: #F5B400; color: #14100A; }
+/* guia de programação */
+#s-guia .gTopo { position: absolute; left: 96px; top: 150px; right: 96px; }
+#s-guia h2 { margin: 0; font-size: 40px; } #gDias { margin-top: 18px; white-space: nowrap; }
+#gProgs { position: absolute; left: 96px; top: 330px; width: 1100px; height: 720px; }
+#gProgs .lin { height: 80px; padding: 0 24px; background: rgba(255,255,255,.035); font-size: 24px; font-weight: 700; }
+#gProgs .lin .hr { width: 170px; color: #F5B400; font-size: 22px; }
+#gProgs .lin.agora { background: rgba(245,180,0,.12); } #gProgs .lin.f .hr { color: rgba(20,16,10,.75); }
+#gProgs .lin .ag { margin-left: 12px; font-size: 16px; padding: 3px 10px; border-radius: 8px; background: #EF4444; color: #fff; }
+#gDesc { position: absolute; left: 1250px; top: 330px; right: 96px; font-size: 23px; line-height: 1.5; color: #C7CCD6; }
+#gDesc b { display: block; font-size: 30px; color: #F4F1EA; margin-bottom: 10px; }
+.lin .cad { margin-left: 8px; font-size: 18px; }
 #aviso { position: absolute; left: 50%; bottom: 90px; -webkit-transform: translateX(-50%) translateY(30px); transform: translateX(-50%) translateY(30px); padding: 26px 48px; border-radius: 22px; background: #1B2130; border: 2px solid rgba(245,180,0,.5); box-shadow: 0 20px 60px rgba(0,0,0,.5); font-size: 30px; font-weight: 700; opacity: 0; -webkit-transition: opacity .25s, -webkit-transform .25s; transition: opacity .25s, transform .25s; z-index: 90; }
 body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
 #aviso.on { opacity: 1; -webkit-transform: translateX(-50%); transform: translateX(-50%); }
@@ -300,7 +329,7 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
     <div id="lvLado" class="col">
       <div id="tela"><div class="msg" id="lvMsg">Escolha um canal e aperte OK</div></div>
       <div id="lvInfo"><h2 class="ell" id="lvNome">&nbsp;</h2><div id="lvEpg"></div></div>
-      <div class="dica"><b>OK</b> assistir · <b>OK</b> de novo: tela cheia &nbsp; <b>◀ ▶</b> coluna &nbsp; <b style="background:#22A447">&nbsp;</b> favoritar</div>
+      <div class="dica"><b>OK</b> assistir · <b>OK</b> de novo: tela cheia &nbsp; <b>◀ ▶</b> coluna &nbsp; <b style="background:#22A447">&nbsp;</b> favoritar &nbsp; <b style="background:#2563EB">&nbsp;</b> guia</div>
     </div>
   </div>
 
@@ -361,6 +390,9 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
 
   <div id="topo"><img id="logo" src="https://mktdigital91.github.io/msx/msx/img/logo-goldplay.png" alt=""><div id="nav"></div><div id="hora"><b id="hh">--:--</b><span id="dd"></span></div></div>
   <div id="aviso"></div>
+  <div id="pin"><div class="cx"><h2 id="pinT">Senha</h2><p id="pinX"></p><div id="pinPts"></div><div id="pinTec"></div></div></div>
+  <div id="txt"><div class="cx"><h2 id="txtT"></h2><div id="txtCampo"><input id="txtIn" type="text" maxlength="20" autocomplete="off"></div><div id="txtBts"></div></div></div>
+  <div class="tela" id="s-guia"><div class="gTopo"><h2 class="ell" id="gNome"></h2><div id="gDias"></div></div><div class="lista" id="gProgs"></div><div id="gDesc"></div></div>
   <div id="dlg"><div class="cx"><h2 id="dlgT"></h2><p id="dlgX"></p><div id="dlgB"></div></div></div>
 </div>
 <script>
@@ -407,6 +439,41 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   function dlgTecla(k) {
     if (k === 37) { if (DLG.i > 0) DLG.i--; dlgRender(); } else if (k === 39) { if (DLG.i < DLG.b.length - 1) DLG.i++; dlgRender(); }
     else if (k === 13) { var a = DLG.b[DLG.i].a; dlgFechar(); if (a) a(); }
+  }
+  // categoria protegida: pede a senha uma vez e guarda a chave enquanto o app estiver aberto
+  function liberarCat(c, depois) {
+    if (!c || !c.bloq || c.pk) { depois(); return; }
+    pedirPin("Categoria protegida", "Digite a senha do controle parental", function (v) {
+      chamar({ op: "pinok", c: c.id, v: v }, function (r) { if (r.ok && r.pk) { c.pk = r.pk; pinFechar(); depois(); } else pinErro(r.erro || "Senha incorreta"); }, function () { pinErro("Sem conexão. Tente de novo."); });
+    });
+  }
+  // ---- senha de 4 números (teclado na tela; os números do controle também funcionam) ----
+  var PIN = null, PTEC = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "⌫", "0", "OK"];
+  function pedirPin(titulo, texto, cb) { PIN = { v: "", i: 0, cb: cb }; $("pinT").innerHTML = esc(titulo); $("pinX").innerHTML = esc(texto || "Digite a senha de 4 números"); $("pinX").className = ""; pinRender(); $("pin").className = "on"; }
+  function pinErro(t) { if (!PIN) return; PIN.v = ""; $("pinX").innerHTML = esc(t); $("pinX").className = "erro"; pinRender(); }
+  function pinRender() {
+    var pts = ""; for (var i = 0; i < 4; i++) pts += i < PIN.v.length ? "●" : "○"; $("pinPts").innerHTML = pts;
+    var h = ""; for (var j = 0; j < PTEC.length; j++) h += '<span class="' + (j === PIN.i ? "f" : "") + '" style="left:' + ((j % 3) * 148) + "px;top:" + (Math.floor(j / 3) * 102) + 'px">' + PTEC[j] + "</span>";
+    $("pinTec").innerHTML = h;
+  }
+  function pinFechar() { PIN = null; $("pin").className = ""; }
+  function pinTecla(k) {
+    var add = function (d) { if (PIN.v.length < 4) PIN.v += d; pinRender(); if (PIN.v.length === 4) { var cb = PIN.cb, v = PIN.v; cb(v); } };
+    if (k >= 48 && k <= 57) { add(String(k - 48)); return; }
+    if (k === 37) { if (PIN.i % 3 > 0) PIN.i--; } else if (k === 39) { if (PIN.i % 3 < 2) PIN.i++; } else if (k === 38) { if (PIN.i >= 3) PIN.i -= 3; } else if (k === 40) { if (PIN.i < 9) PIN.i += 3; }
+    else if (k === 13) { var t = PTEC[PIN.i]; if (t === "⌫") PIN.v = PIN.v.slice(0, -1); else if (t === "OK") { if (PIN.v.length === 4) PIN.cb(PIN.v); } else { add(t); return; } }
+    pinRender();
+  }
+  // ---- caixa de texto (abre o teclado da TV) ----
+  var TXT = null;
+  function pedirTexto(titulo, valor, cb) { TXT = { cb: cb, foco: "in", b: 0 }; $("txtT").innerHTML = esc(titulo); $("txtIn").value = valor || ""; txtRender(); $("txt").className = "on"; }
+  function txtRender() { $("txtCampo").className = TXT.foco === "in" ? "f" : ""; $("txtBts").innerHTML = '<span class="' + (TXT.foco === "b" && TXT.b === 0 ? "f" : "") + '">Cancelar</span><span class="' + (TXT.foco === "b" && TXT.b === 1 ? "f" : "") + '">Salvar</span>'; }
+  function txtFechar() { TXT = null; $("txt").className = ""; try { $("txtIn").blur(); } catch (e) {} }
+  function txtTecla(k) {
+    if (TXT.foco === "in") { if (k === 13) $("txtIn").focus(); else if (k === 40) { TXT.foco = "b"; TXT.b = 1; } txtRender(); return; }
+    if (k === 38) TXT.foco = "in"; else if (k === 37) TXT.b = 0; else if (k === 39) TXT.b = 1;
+    else if (k === 13) { var cb = TXT.cb, salvar = TXT.b === 1, v = $("txtIn").value.replace(/^\s+|\s+$/g, ""); txtFechar(); if (salvar && cb) cb(v); return; }
+    txtRender();
   }
   var tAviso;
   function aviso(txt) { var a = $("aviso"); a.innerHTML = esc(txt); a.className = "on"; clearTimeout(tAviso); tAviso = setTimeout(function () { a.className = ""; }, 2800); }
@@ -468,6 +535,8 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
       else if (o.op === "itens") { if (o.k === "live") { var l = []; for (var j = 1; j <= 40; j++) l.push({ id: "l" + j, n: j, nome: "Canal " + j, img: "" }); ok({ ok: true, itens: l }); } else ok({ ok: true, itens: filmes(60, o.k === "series" ? "s" : "f") }); }
       else if (o.op === "info") ok({ ok: true, id: o.s, nome: "Título de exemplo", fundo: "", img: "", ano: "2026", dur: 6300, r: "7.8", gen: "Ação, Suspense", sin: "Sinopse de exemplo bem longa para ver como o texto se comporta na tela de detalhes do filme ou da série, com várias linhas e quebra automática.", dir: "Fulano de Tal", elenco: "Atriz Um, Ator Dois, Atriz Três", x: "mp4", pos: 900, fav: false, temps: o.k === "series" ? [{ n: "1", eps: filmes(8, "e").map(function (e, i) { return { id: "e" + i, ep: i + 1, nome: "Episódio " + (i + 1), x: "mp4", img: "", dur: 2700, pos: i === 1 ? 600 : 0 }; }) }, { n: "2", eps: filmes(6, "g").map(function (e, i) { return { id: "g" + i, ep: i + 1, nome: "Episódio " + (i + 1), x: "mp4", img: "", dur: 2700, pos: 0 }; }) }] : undefined, ultimo: null });
       else if (o.op === "epg") { var a = agora() - 1800000; ok({ ok: true, epg: [{ t: "Jornal da Tarde", i: a, f: a + 3600000 }, { t: "Futebol", i: a + 3600000, f: a + 9000000 }] }); }
+      else if (o.op === "conta_cfg") ok({ ok: true, parental: true, perfis: [{ id: "p0", nome: "Principal" }, { id: "p1", nome: "Kids", inf: true }] });
+      else if (o.op === "guia") { var b0 = agora() - 3600000, e0 = []; for (var g = 0; g < 30; g++) e0.push({ t: "Programa " + (g + 1), d: "Descrição do programa " + (g + 1), i: b0 + g * 3600000, f: b0 + (g + 1) * 3600000 }); ok({ ok: true, epg: e0 }); }
       else if (o.op === "jogos") ok({ ok: true, jogos: [{ liga: "Brasileirão", quando: agora() + 3600000, estado: "pre", status: "", canal: "Premiere", casa: { n: "Flamengo", g: "" }, fora: { n: "Palmeiras", g: "" } }, { liga: "Champions League", quando: agora() - 1800000, estado: "in", status: "35'", canal: "TNT", casa: { n: "Real Madrid", g: "1" }, fora: { n: "Bayern", g: "0" } }, { liga: "Copa do Brasil", quando: agora() - 9000000, estado: "post", status: "", canal: "", casa: { n: "Corinthians", g: "2" }, fora: { n: "Grêmio", g: "2" } }, { liga: "Premier League", quando: agora() + 7200000, estado: "pre", status: "", canal: "ESPN", casa: { n: "Arsenal", g: "" }, fora: { n: "Chelsea", g: "" } }] });
       else if (o.op === "jogo") ok({ ok: true, canais: [{ id: "l1", nome: "PREMIERE 1 FHD", cat: "Eventos" }, { id: "l2", nome: "PREMIERE 1 HD", cat: "Esportes" }] });
       else if (o.op === "busca") ok({ ok: true, itens: filmes(10, "f").map(function (x) { x.k = "vod"; return x; }) });
@@ -533,8 +602,9 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   }
   function irTopo() { noTopo = true; for (var i = 0; i < NAV.length; i++) if (atual && NAV[i].id === atual.secao) navI = i; if (atual && atual.desfocar) atual.desfocar(); navRender(); }
   function sairTopo() { noTopo = false; navRender(); if (atual && atual.focar) atual.focar(); }
+  var PROX = "";
   function abrir(nome, p, empilhar) {
-    if (atual && atual.sair) atual.sair();
+    PROX = nome; if (atual && atual.sair) atual.sair();
     if (atual && empilhar) pilha.push({ nome: atual.nome, p: atual.p });
     if (!empilhar) pilha = [];
     var t = TELAS[nome]; atual = t; t.nome = nome; t.p = p || {};
@@ -543,7 +613,7 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
     noTopo = false; t.entrar(t.p); navRender();
   }
   function voltar() {
-    if (pilha.length) { var p = pilha.pop(); if (atual && atual.sair) atual.sair(); var t = TELAS[p.nome]; atual = t; t.nome = p.nome;
+    if (pilha.length) { var p = pilha.pop(); PROX = p.nome; if (atual && atual.sair) atual.sair(); var t = TELAS[p.nome]; atual = t; t.nome = p.nome;
       var els = document.querySelectorAll(".tela"); for (var i = 0; i < els.length; i++) els[i].className = "tela"; if (t.el) t.el.className = "tela on";
       noTopo = false; if (t.retomar) t.retomar(); else t.entrar(p.p); navRender(); return; }
     if (atual && atual.nome !== "home") { abrir("home"); return; }
@@ -676,7 +746,7 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   //  TELA: TV ao vivo (prévia, tela cheia e lista por cima do vídeo)
   // =====================================================================
   var L = { zona: "cats", cache: {}, tocando: "", canal: null, pedido: 0, cheia: false, zapAberto: false, zModo: "canais", faixaOculta: false, tFaixa: null };
-  var lvCats = new Lista($("lvLc"), 70, function (c, k, f, s) { return '<div class="lin fx' + (f ? " f" : "") + (s ? " sel" : "") + '"><span class="cresce ell">' + esc(c.nome) + "</span>" + (c.q != null && c.id === "" ? '<span class="q">' + c.q + "</span>" : "") + "</div>"; }, 12);
+  var lvCats = new Lista($("lvLc"), 70, function (c, k, f, s) { return '<div class="lin fx' + (f ? " f" : "") + (s ? " sel" : "") + '"><span class="cresce ell">' + esc(c.nome) + (c.bloq && !c.pk ? '<span class="cad">🔒</span>' : "") + "</span>" + (c.q != null && c.id === "" ? '<span class="q">' + c.q + "</span>" : "") + "</div>"; }, 12);
   function linhaCanal(c, k, f) { return '<div class="lin fx' + (f ? " f" : "") + (c.id === L.tocando ? " tocando" : "") + '"><span class="ic img" style="' + bgUrl(c.img) + '"></span><span class="nm cresce ell">' + esc(c.nome) + "</span>" + (LV.favs[c.id] ? '<span class="fav">♥</span>' : "") + "</div>"; }
   var lvCanais = new Lista($("lvLv"), 100, linhaCanal, 8);
   // tela cheia + OK: categorias e canais por cima do vídeo, que continua tocando até escolher outro canal
@@ -705,6 +775,7 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   function obterCanais(c, ok, erro) {
     if (L.cache[c.id]) { ok(L.cache[c.id]); return; }
     if (c.id === "fav") { chamar({ op: "itens", k: "live", c: "fav" }, function (r) { var l = r.itens || []; L.cache.fav = l; c.q = l.length; lvCats.render(); ok(l); }, erro); return; }
+    if (c.bloq) { liberarCat(c, function () { chamar({ op: "itens", k: "live", c: c.id, pk: c.pk }, function (r) { var l = r.itens || []; L.cache[c.id] = l; c.q = l.length; lvCats.render(); ok(l); }, erro); }); return; }
     todosCanais(function (todos) {
       var l = c.id ? [] : todos;
       if (c.id) for (var i = 0; i < todos.length; i++) if (todos[i].c === c.id) l.push(todos[i]);
@@ -796,9 +867,10 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
       lvCats.i = 0; lvAbrirCat(false, function (l) { for (var i = 0; i < l.length; i++) if (l[i].id === c.id) { lvCanais.i = i; lvCanais.ajustar(); break; } lvFocar("canais"); lvTocar(lvCanais.atual() || c); });
     },
     retomar: function () { this.entrar({}); },
-    sair: function () { lvCheia(false); modoVideo(""); pararVideo(); L.tocando = ""; $("aoVivo").style.display = "none"; $("lvMsg").innerHTML = "Escolha um canal e aperte OK"; $("lvMsg").style.display = "block"; },
+    sair: function () { if (PROX === "guia") { modoVideo(""); return; } lvCheia(false); modoVideo(""); pararVideo(); L.tocando = ""; $("aoVivo").style.display = "none"; $("lvMsg").innerHTML = "Escolha um canal e aperte OK"; $("lvMsg").style.display = "block"; },
     focar: function () { lvFocar(L.zona); }, desfocar: function () { lvCats.ativa = false; lvCanais.ativa = false; lvCats.render(); lvCanais.render(); },
     tecla: function (k) {
+      if (k === 406 && !L.cheia) { var cg = L.zona === "canais" ? lvCanais.atual() : L.canal; if (cg) abrir("guia", { canal: cg }, true); return true; }
       if (k === 404 || k === 405) { favCanal(L.cheia && L.zapAberto && L.zFoco === "canais" ? zap.atual() : (L.zona === "canais" && !L.cheia ? lvCanais.atual() : L.canal)); return true; }
       if (L.cheia && L.zapAberto) {
         var lz = L.zFoco === "cats" ? zapC : zap;
@@ -823,6 +895,7 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
       }
       if (L.zona === "tela") {
         if (k === 13) { if (L.tocando) lvCheia(true); return true; }
+        if (k === 40) { if (L.canal) abrir("guia", { canal: L.canal }, true); return true; }
         if (k === 37) { lvFocar("canais"); return true; }
         if (k === 38) { irTopo(); return true; }
         return true;
@@ -849,20 +922,21 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   var G = { k: "vod", zona: "lado", catsPor: {}, ordI: 1, pedido: 0, catSel: null };
   var gLado = new Lista($("gLc"), 70, function (c, k, f, s) {
     if (c.ord) return '<div class="lin fx' + (f ? " f" : "") + '" style="background:rgba(245,180,0,.1);color:#F5B400"><span class="cresce ell">⇅  Ordenar: ' + ORD[G.ordI].t + "</span></div>";
-    return '<div class="lin fx' + (f ? " f" : "") + (s ? " sel" : "") + '"><span class="cresce ell">' + esc(c.nome) + "</span>" + (c.q != null && c.id === "" ? '<span class="q">' + c.q + "</span>" : "") + "</div>";
+    return '<div class="lin fx' + (f ? " f" : "") + (s ? " sel" : "") + '"><span class="cresce ell">' + esc(c.nome) + (c.bloq && !c.pk ? '<span class="cad">🔒</span>' : "") + "</span>" + (c.q != null && c.id === "" ? '<span class="q">' + c.q + "</span>" : "") + "</div>";
   }, 12);
   var gGrade = new Grade($("gGrade"), 6, 236, 400, function (x) { return capaHtml(x, 206, 306) + '<div class="nm ell" style="width:206px">' + esc(x.nome) + "</div>"; });
   gGrade.visL = 2;
   function gFocar(z) { G.zona = z; gLado.ativa = z === "lado"; gGrade.ativa = z === "grade"; gLado.render(); gGrade.render(); }
   function gCarregar(c, irPara) {
+    if (c.bloq && !c.pk) { liberarCat(c, function () { gCarregar(c, irPara); }); return; }
     G.catSel = c; gLado.sel = gLado.i; gLado.render();
     $("gTit").innerHTML = esc(c.nome) + (ORD[G.ordI].o ? '  <span style="color:#5E6677">·  ' + ORD[G.ordI].t + "</span>" : "");
-    var meu = ++G.pedido, chaveG = chaveLS("g_" + G.k + "_" + c.id + "_" + ORD[G.ordI].o), gd = c.id !== "fav" ? ls(chaveG) : null, mostrou = false;
+    var meu = ++G.pedido, chaveG = chaveLS("g_" + G.k + "_" + c.id + "_" + ORD[G.ordI].o), gd = c.id !== "fav" && !c.bloq ? ls(chaveG) : null, mostrou = false;
     gGrade.itens = []; gGrade.vazio = '<div class="carreg">Carregando…</div>'; G.total = 0; G.mais = false;
     if (gd && gd.v && agora() - gd.em < 24 * 3600000) { mostrou = true; c.q = gd.total; G.total = gd.total; gLado.render(); gGrade.usar(gd.v.slice()); if (irPara && gd.v.length) gFocar("grade"); } else gGrade.render();
-    chamar({ op: "itens", k: G.k, c: c.id, o: ORD[G.ordI].o, ini: 0, lim: 120 }, function (r) {
+    chamar({ op: "itens", k: G.k, c: c.id, o: ORD[G.ordI].o, ini: 0, lim: 120, pk: c.pk }, function (r) {
       if (meu !== G.pedido) return; var l = r.itens || []; c.q = r.total != null ? r.total : l.length; G.total = c.q; gLado.render();
-      if (c.id !== "fav") ls(chaveG, { em: agora(), total: c.q, v: l });
+      if (c.id !== "fav" && !c.bloq) ls(chaveG, { em: agora(), total: c.q, v: l });
       if (mostrou && (gGrade.i > 5 || G.zona === "grade" && gGrade.itens.length > 120)) return; // já está navegando: não mexe
       if (mostrou) { var i0 = gGrade.i; gGrade.itens = l; gGrade.i = Math.min(i0, Math.max(0, l.length - 1)); gGrade.render(); return; }
       gGrade.vazio = '<div class="vazio">' + (c.id === "fav" ? "Nenhum favorito ainda. Favorite pela tela de detalhes." : "Nada nesta categoria.") + "</div>";
@@ -873,7 +947,7 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   function gMais() {
     if (G.mais || !G.catSel || gGrade.itens.length >= G.total || gGrade.i < gGrade.itens.length - 24) return;
     G.mais = true; var meu = G.pedido;
-    chamar({ op: "itens", k: G.k, c: G.catSel.id, o: ORD[G.ordI].o, ini: gGrade.itens.length, lim: 120 }, function (r) {
+    chamar({ op: "itens", k: G.k, c: G.catSel.id, o: ORD[G.ordI].o, ini: gGrade.itens.length, lim: 120, pk: G.catSel.pk }, function (r) {
       G.mais = false; if (meu !== G.pedido) return; var l = r.itens || []; for (var i = 0; i < l.length; i++) gGrade.itens.push(l[i]); gGrade.render();
     }, function () { G.mais = false; });
   }
@@ -1215,6 +1289,53 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   };
 
   // =====================================================================
+  //  TELA: Guia de programação do canal (vários dias)
+  // =====================================================================
+  var GU = { epg: [], dias: [], di: 0, canal: null, zona: "progs" };
+  function diaChave(ms) { var d = br(ms); return d.getUTCFullYear() + "-" + d.getUTCMonth() + "-" + d.getUTCDate(); }
+  function diaNome(ms) { var hoje = diaChave(agora()), am = diaChave(agora() + 86400000), d = br(ms); return diaChave(ms) === hoje ? "Hoje" : diaChave(ms) === am ? "Amanhã" : DIAS[d.getUTCDay()].slice(0, 3) + " " + d.getUTCDate(); }
+  var guProgs = new Lista($("gProgs"), 88, function (x, k, f) {
+    var ag = x.i <= agora() && x.f > agora();
+    return '<div class="lin fx' + (f ? " f" : "") + (ag ? " agora" : "") + '"><span class="hr">' + hhmm(x.i) + " – " + hhmm(x.f) + '</span><span class="cresce ell">' + esc(x.t) + "</span>" + (ag ? '<span class="ag">AGORA</span>' : "") + "</div>";
+  }, 8);
+  function guDias() {
+    var h = ""; for (var i = 0; i < GU.dias.length; i++) h += '<span class="tp' + (i === GU.di ? " sel" : "") + (GU.zona === "dias" && i === GU.di ? " f" : "") + '">' + diaNome(GU.dias[i].ms) + "</span>";
+    $("gDias").innerHTML = h;
+  }
+  function guUsarDia(foco) {
+    var d = GU.dias[GU.di]; if (!d) { guProgs.usar([]); return; }
+    var i0 = 0; for (var i = 0; i < d.l.length; i++) if (d.l[i].f > agora()) { i0 = i; break; }
+    guProgs.usar(d.l, foco ? i0 : 0); guDesc();
+  }
+  function guDesc() { var x = guProgs.atual(); $("gDesc").innerHTML = x ? "<b>" + esc(x.t) + "</b>" + hhmm(x.i) + " – " + hhmm(x.f) + "<br><br>" + esc(x.d || "Sem descrição.") : ""; }
+  TELAS.guia = {
+    el: $("s-guia"), secao: "live",
+    entrar: function (p) {
+      GU.canal = p.canal; GU.zona = "progs"; $("gNome").innerHTML = "Guia · " + esc(p.canal.nome); $("gDias").innerHTML = ""; $("gDesc").innerHTML = "";
+      guProgs.ativa = true; guProgs.vazio = '<div class="carreg">Carregando a programação…</div>'; guProgs.usar([]);
+      chamar({ op: "guia", s: p.canal.id }, function (r) {
+        var l = r.epg || [], m = {}; GU.dias = [];
+        for (var i = 0; i < l.length; i++) { var ch = diaChave(l[i].i); if (!m[ch]) { m[ch] = { ms: l[i].i, l: [] }; GU.dias.push(m[ch]); } m[ch].l.push(l[i]); }
+        GU.di = 0; for (var j = 0; j < GU.dias.length; j++) if (diaChave(GU.dias[j].ms) === diaChave(agora())) GU.di = j;
+        guProgs.vazio = '<div class="vazio">Este canal não informa a programação.</div>'; guDias(); guUsarDia(true);
+      }, function () { guProgs.vazio = '<div class="vazio">Não foi possível carregar a programação.</div>'; guProgs.render(); });
+    },
+    focar: function () { guProgs.render(); guDias(); }, desfocar: function () { guDias(); },
+    tecla: function (k) {
+      if (GU.zona === "dias") {
+        if (k === 37 && GU.di > 0) { GU.di--; guDias(); guUsarDia(false); } else if (k === 39 && GU.di < GU.dias.length - 1) { GU.di++; guDias(); guUsarDia(false); }
+        else if (k === 40 || k === 13) { GU.zona = "progs"; guProgs.ativa = true; guDias(); guProgs.render(); } else if (k === 38) irTopo();
+        return true;
+      }
+      if (k === 38) { if (!guProgs.mover(-1)) { GU.zona = "dias"; guProgs.ativa = false; guProgs.render(); guDias(); } else guDesc(); return true; }
+      if (k === 40) { guProgs.mover(1); guDesc(); return true; }
+      if (k === 37 && GU.di > 0) { GU.di--; guDias(); guUsarDia(false); return true; }
+      if (k === 39 && GU.di < GU.dias.length - 1) { GU.di++; guDias(); guUsarDia(false); return true; }
+      if (k === 13) { var x = guProgs.atual(); if (x && x.i <= agora() && x.f > agora()) { voltar(); setTimeout(function () { lvTocar(GU.canal); }, 50); } else aviso(x && x.i > agora() ? "Começa às " + hhmm(x.i) : "Este programa já passou"); return true; }
+      return false;
+    }
+  };
+  // =====================================================================
   //  TELA: Jogos de hoje
   // =====================================================================
   var J = { jogos: [], i: 0, em: 0, painel: false };
@@ -1275,7 +1396,11 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   function cMontar() {
     var cf = CFG || {}, it = [];
     var pfs = cf.perfis || []; for (var i = 0; i < pfs.length; i++) it.push({ tipo: "pf", v: pfs[i] });
+    if (pfs.length < 5) it.push({ tipo: "pf", novo: 1, v: { id: "+", nome: "Novo perfil" } });
     var cs = cf.contas || []; for (var j = 0; j < cs.length; j++) it.push({ tipo: "ct", v: cs[j] });
+    it.push({ tipo: "op", a: "editar", t: "Editar perfis", s: "Nome, cor, infantil, excluir" });
+    it.push({ tipo: "op", a: "parental", t: "Controle parental", s: C.parental === false ? "Desligado · toque para ligar" : "Ligado · categorias adultas pedem senha" });
+    it.push({ tipo: "op", a: "senha", t: "Trocar a senha", s: "Senha do controle parental (padrão 0000)" });
     it.push({ tipo: "op", a: "trocar", t: "Sair da conta", s: "Entrar com outro usuário" });
     it.push({ tipo: "op", a: "sair", t: "Sair do app", s: "Fecha o Gold Play" });
     C.itens = it; if (C.i >= it.length) C.i = 0;
@@ -1290,15 +1415,42 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
     h += '<div class="csec" style="top:' + ((cf.contas || []).length ? 800 : 610) + 'px">Opções</div>';
     for (var i = 0; i < C.itens.length; i++) {
       var x = C.itens[i], f = foco && i === C.i;
-      if (x.tipo === "pf") { h += '<div class="pf' + (f ? " f" : "") + (x.v.id === cf.pf ? " atual" : "") + '" style="left:' + (96 + xp * 200) + 'px;top:350px"><div class="av" style="' + bgUrl(x.v.av) + '"></div><div class="nm ell">' + esc(x.v.nome) + "</div></div>"; xp++; }
+      if (x.tipo === "pf") { h += '<div class="pf' + (f ? " f" : "") + (x.v.id === cf.pf ? " atual" : "") + '" style="left:' + (96 + xp * 200) + 'px;top:350px"><div class="av" style="' + (x.novo ? "background:rgba(255,255,255,.06);font-size:80px;line-height:142px;color:#9AA3B5" : bgUrl(x.v.av)) + '">' + (x.novo ? "+" : "") + '</div><div class="nm ell">' + esc(x.v.nome) + (x.v.inf ? " 🧸" : "") + "</div></div>"; xp++; }
       else if (x.tipo === "ct") { h += '<div class="ct' + (f ? " f" : "") + '" style="left:' + (96 + xc * 446) + 'px;top:654px"><b class="ell">' + esc(x.v) + "</b><span>" + (x.v === cf.usuario ? "Em uso agora" : "Entrar com este usuário") + "</span></div>"; xc++; }
-      else { h += '<div class="ct' + (f ? " f" : "") + '" style="left:' + (96 + xo * 420) + "px;top:" + ((cf.contas || []).length ? 844 : 654) + 'px"><b>' + esc(x.t) + "</b><span>" + esc(x.s) + "</span></div>"; xo++; }
+      else { h += '<div class="ct' + (f ? " f" : "") + '" style="left:' + (96 + (xo % 4) * 420) + "px;top:" + (((cf.contas || []).length ? 844 : 654) + Math.floor(xo / 4) * 108) + 'px"><b class="ell">' + esc(x.t) + '</b><span class="ell" style="display:block">' + esc(x.s) + "</span></div>"; xo++; }
     }
     $("cItens").innerHTML = h;
   }
+  function contaAcao(o, ok) { chamar(o, function (r) { if (r.ok) { aviso(ok); carregarCfg(function () { if (atual && atual.entrar) atual.entrar(atual.p || {}); }); } else aviso(r.erro || "Não foi possível"); }, function () { aviso("Sem conexão"); }); }
+  // ---- editar perfis ----
+  var PF = { i: 0 };
+  function pfRender() {
+    var l = (CFG && CFG.perfis) || [], h = '<div class="csec" style="top:180px">Editar perfis</div>';
+    for (var i = 0; i < l.length; i++) h += '<div class="ct' + (!noTopo && i === PF.i ? " f" : "") + '" style="left:96px;width:760px;top:' + (230 + i * 108) + 'px"><b>' + esc(l[i].nome) + (l[i].inf ? " 🧸" : "") + "</b><span>" + (l[i].id === "p0" ? "Perfil principal" : l[i].inf ? "Perfil infantil" : "Perfil") + " · OK para editar</span></div>";
+    $("cItens").innerHTML = h; $("cUsu").innerHTML = ""; $("cPlano").innerHTML = "";
+  }
+  TELAS.perfis = {
+    el: $("s-conta"), secao: "conta",
+    entrar: function () { PF.i = 0; pfRender(); },
+    focar: pfRender, desfocar: pfRender,
+    tecla: function (k) {
+      var l = (CFG && CFG.perfis) || [];
+      if (k === 38) { if (PF.i > 0) PF.i--; else irTopo(); pfRender(); return true; }
+      if (k === 40) { if (PF.i < l.length - 1) PF.i++; pfRender(); return true; }
+      if (k === 13 && l[PF.i]) {
+        var p = l[PF.i], bts = [{ t: "Renomear", a: function () { pedirTexto("Novo nome", p.nome, function (n) { if (n) contaAcao({ op: "perfiledit", id: p.id, nome: n }, "Nome alterado"); }); } }, { t: "Trocar cor", a: function () { contaAcao({ op: "perfiledit", id: p.id, cor: 1 }, "Cor alterada"); } }];
+        if (p.inf) bts.push({ t: "Tirar do infantil", a: function () { pedirPin("Perfil infantil", "Digite a senha para tirar " + p.nome + " do modo infantil", function (v) { chamar({ op: "perfilinf", id: p.id, v: v }, function (r) { if (!r.ok) { pinErro(r.erro || "Senha incorreta"); return; } pinFechar(); contaAcao({ op: "conta_cfg" }, "Perfil fora do modo infantil"); }, function () { pinErro("Sem conexão"); }); }); } });
+        else bts.push({ t: "Tornar infantil", a: function () { contaAcao({ op: "perfiledit", id: p.id, inf: 1 }, "Agora é um perfil infantil"); } });
+        if (p.id !== "p0") bts.push({ t: "Excluir", a: function () { confirmar("Excluir " + p.nome + "?", "Os favoritos e o histórico deste perfil também somem.", [{ t: "Cancelar", a: null }, { t: "Excluir", a: function () { PF.i = 0; contaAcao({ op: "perfildel", id: p.id }, "Perfil excluído"); } }]); } });
+        confirmar(p.nome, "O que você quer mudar neste perfil?", bts);
+        return true;
+      }
+      return false;
+    }
+  };
   TELAS.conta = {
     el: $("s-conta"), secao: "conta",
-    entrar: function () { modoVideo(""); pararVideo(); cMontar(); cRender(); var self = this; carregarCfg(function () { cMontar(); cRender(); }); },
+    entrar: function () { modoVideo(""); pararVideo(); cMontar(); cRender(); carregarCfg(function () { cMontar(); cRender(); }); chamar({ op: "conta_cfg" }, function (r) { if (r.ok) { C.parental = r.parental; if (CFG) CFG.perfis = r.perfis; cMontar(); cRender(); } }, function () {}); },
     retomar: function () { this.entrar(); },
     focar: function () { cRender(); }, desfocar: function () { cRender(); },
     tecla: function (k) {
@@ -1309,6 +1461,10 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
       if (k === 38) { var a = C.i; while (a >= 0 && grupo(a) === x.tipo) a--; if (a < 0) irTopo(); else { var t = grupo(a); while (a > 0 && grupo(a - 1) === t) a--; C.i = a; cRender(); } return true; }
       if (k === 40) { var b = C.i; while (b < C.itens.length && grupo(b) === x.tipo) b++; if (b < C.itens.length) { C.i = b; cRender(); } return true; }
       if (k === 13) {
+        if (x.tipo === "pf" && x.novo) { pedirTexto("Nome do novo perfil", "", function (nome) { if (!nome) return; confirmar("Perfil infantil?", "Perfis infantis não mostram conteúdo adulto.", [{ t: "Não", a: function () { contaAcao({ op: "perfilnovo", nome: nome }, "Perfil criado"); } }, { t: "Sim, infantil", a: function () { contaAcao({ op: "perfilnovo", nome: nome, inf: 1 }, "Perfil infantil criado"); } }]); }); return true; }
+        if (x.a === "editar") { abrir("perfis", {}, true); return true; }
+        if (x.a === "parental") { pedirPin("Controle parental", "Digite a senha atual para " + (C.parental === false ? "ligar" : "desligar"), function (v) { chamar({ op: "parental", v: v }, function (r) { if (!r.ok) { pinErro(r.erro || "Senha incorreta"); return; } pinFechar(); C.parental = r.parental; cMontar(); cRender(); aviso("Controle parental " + (r.parental ? "ligado" : "desligado")); }, function () { pinErro("Sem conexão"); }); }); return true; }
+        if (x.a === "senha") { pedirPin("Trocar a senha", "Digite a senha atual", function (atualPin) { pedirPin("Trocar a senha", "Agora digite a nova senha", function (nova) { chamar({ op: "senha", v: atualPin, nova: nova }, function (r) { if (!r.ok) { pinErro(r.erro || "Senha atual incorreta"); return; } pinFechar(); aviso("Senha alterada"); }, function () { pinErro("Sem conexão"); }); }); }); return true; }
         if (x.tipo === "pf") { if (x.v.id === (CFG || {}).pf) { abrir("home"); return true; } chamar({ op: "perfil", pf: x.v.id, d: AP }, function (r) { if (r.t) { aviso("Perfil: " + x.v.nome); trocarSessao(r.t); } else aviso("Não foi possível trocar o perfil"); }); return true; }
         if (x.tipo === "ct" && x.v === (CFG || {}).usuario) { abrir("home"); return true; }
         if (x.a === "classico") { confirmar("Voltar ao visual clássico?", "Esta TV passa a abrir as telas antigas do app.", [{ t: "Cancelar", a: null }, { t: "Usar o clássico", a: function () { chamar({ op: "tema", v: "", d: AP }, function () { aviso("Visual clássico ativado"); setTimeout(sairApp, 900); }); } }]); return true; }
@@ -1389,6 +1545,7 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   };
   // terminou de digitar no teclado da TV: segue para o próximo campo
   function aoTerminar(campo) { if (campo === "u") { LG.foco = "p"; } else { LG.foco = "e"; } lgRender(); }
+  $("txtIn").addEventListener("keydown", function (e) { if (e.keyCode === 13 || e.keyCode === 40) { e.preventDefault(); e.stopPropagation(); this.blur(); if (TXT) { TXT.foco = "b"; TXT.b = 1; txtRender(); } } });
   $("lgU").addEventListener("keydown", function (e) { if (e.keyCode === 13 || e.keyCode === 40) { e.preventDefault(); e.stopPropagation(); this.blur(); aoTerminar("u"); } });
   $("lgP").addEventListener("keydown", function (e) { if (e.keyCode === 13 || e.keyCode === 40) { e.preventDefault(); e.stopPropagation(); this.blur(); aoTerminar("p"); } });
 
@@ -1434,6 +1591,7 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   var VOLTAR = { 461: 1, 10009: 1, 27: 1 }, ultVoltar = 0, saindo = false;
   function teclaVoltar() {
     if (agora() - ultVoltar < 400) return; ultVoltar = agora();
+    if (PIN) { pinFechar(); return; } if (TXT) { txtFechar(); return; }
     if (DLG) { dlgFechar(); return; }
     var ae = document.activeElement; if (ae && ae.tagName === "INPUT") { ae.blur(); return; }
     if (noTopo) { sairTopo(); return; }
@@ -1446,6 +1604,8 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   document.addEventListener("keydown", function (e) {
     var k = e.keyCode, ae = document.activeElement;
     if (ae && ae.tagName === "INPUT" && !VOLTAR[k]) return; // digitando no teclado da TV
+    if (PIN) { e.preventDefault(); if (VOLTAR[k]) pinFechar(); else if (k === 8) { PIN.v = PIN.v.slice(0, -1); pinRender(); } else pinTecla(k); return; }
+    if (TXT) { e.preventDefault(); if (VOLTAR[k]) txtFechar(); else txtTecla(k); return; }
     if (DLG) { e.preventDefault(); if (VOLTAR[k] || k === 8) dlgFechar(); else dlgTecla(k); return; }
     var ehVoltar = VOLTAR[k] || (k === 8 && !(atual === TELAS.busca && B.zona === "tec" && B.q));
     if (ehVoltar) { e.preventDefault(); teclaVoltar(); return; }

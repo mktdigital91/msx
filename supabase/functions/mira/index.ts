@@ -1150,9 +1150,7 @@ async function tratar(url: URL) {
       { title: "{ico:search}  Pesquisar", titleFooter: "Procurar canais, filmes e séries", color: VID.n, action: abrirBusca(t, "") },
       { title: "{ico:people}  Perfis", titleFooter: "Trocar ou criar perfis", color: VID.n, action: go(base({ a: "perfis", t })) },
       { title: "{ico:lock}  Controle parental e perfis", titleFooter: "Senha, modo infantil, nomes", color: VID.n, action: go(base({ a: "perfisger", t })) },
-      { title: "{ico:auto-awesome}  Nova interface (prévia)", titleFooter: "Tela inicial, filmes, séries, TV ao vivo e player novos", color: VID.ouro, action: `link:${APP_NOVO}?${q({ t, api: SELF(), ...(d ? { d } : {}) })}` },
-      { title: "{ico:science}  Teste: interface nova", titleFooter: "Prova do app próprio: lista fina, relógio e prévia do canal", color: VID.ouro, action: `link:${APP_TESTE}?${q({ t, api: SELF() })}` },
-      ...(TEMA === "moderno" ? [{ title: "{ico:science}  Teste de layout (Moderno)", titleFooter: "Tela de teste: tire uma foto e envie", color: VID.n, action: go(base({ a: "modteste", t })) }] : []),
+      { title: "{ico:auto-awesome}  Abrir o Gold Play", titleFooter: "Voltar para a interface do app", color: VID.ouro, action: `link:${APP_NOVO}?${q({ t, api: SELF(), ...(d ? { d } : {}) })}` },
     ], "0,0,6,1");
   }
   if (a === "modteste") { // tela de teste: confere se a TV aceita medidas fracionadas e qual texto de relógio funciona
@@ -2192,6 +2190,54 @@ async function apiApp(cred: Cred, url: URL) {
     await salvarSessao(dev, tk); await lembrarConta(dev, u, p);
     return { ok: true, t: tk };
   }
+  // ---- controle parental e perfis (interface nova) ----
+  if (op === "pinok") { // confere a senha e devolve a chave que libera a categoria
+    const cfg = await contaCfg(cred.u), rg = await regraAdulto(cred);
+    if (rg.infantil) return { ok: false, erro: "Perfil infantil não abre esta categoria." };
+    if ((P.get("v") ?? "") !== cfg.pin) return { ok: false, erro: "Senha incorreta" };
+    return { ok: true, pk: await chaveAdulto(url.searchParams.get("t") ?? "", c, cfg.pin) };
+  }
+  if (op === "conta_cfg") {
+    const [cfg, pfs] = await Promise.all([contaCfg(cred.u), listaPerfis(cred.u)]);
+    return { ok: true, parental: cfg.parental, perfis: pfs.map((x) => ({ id: x.id, nome: x.nome, cor: x.cor, inf: x.infantil, av: avatar(x) })), pf: cred.pf || "p0" };
+  }
+  if (op === "parental" || op === "senha" || op === "perfilinf") { // ações que pedem a senha atual
+    const cfg = await contaCfg(cred.u);
+    if ((P.get("v") ?? "") !== cfg.pin) return { ok: false, erro: "Senha incorreta" };
+    if (op === "parental") { await salvarConta(cred.u, { parental: !cfg.parental }); return { ok: true, parental: !cfg.parental }; }
+    if (op === "senha") { const nv = P.get("nova") ?? ""; if (!/^\d{4}$/.test(nv)) return { ok: false, erro: "A senha precisa ter 4 números" }; await salvarConta(cred.u, { pin: nv }); return { ok: true }; }
+    const pp = (await listaPerfis(cred.u)).find((x) => x.id === (P.get("id") ?? ""));
+    if (pp) await gravarPerfil(cred.u, { ...pp, infantil: false });
+    return { ok: true };
+  }
+  if (op === "perfilnovo") {
+    const nome = limparNome(P.get("nome") ?? "").slice(0, 20);
+    if (!nome) return { ok: false, erro: "Digite um nome" };
+    const atuais = await perfisDe(cred.u);
+    if (atuais.length >= 5) return { ok: false, erro: "Limite de 5 perfis" };
+    if (!atuais.length) await gravarPerfil(cred.u, { id: "p0", nome: "Principal", cor: 0, infantil: false });
+    const id = "p" + Array.from(crypto.getRandomValues(new Uint8Array(4)), (x) => x.toString(16).padStart(2, "0")).join("");
+    await gravarPerfil(cred.u, { id, nome, cor: (atuais.length || 1) % CORES_PERFIL.length, infantil: P.get("inf") === "1" });
+    return { ok: true, id };
+  }
+  if (op === "perfiledit") {
+    const pp = (await listaPerfis(cred.u)).find((x) => x.id === (P.get("id") ?? ""));
+    if (!pp) return { ok: false, erro: "Perfil não encontrado" };
+    const nome = P.get("nome") !== null ? limparNome(P.get("nome") ?? "").slice(0, 20) : pp.nome;
+    if (!nome) return { ok: false, erro: "Digite um nome" };
+    await gravarPerfil(cred.u, { ...pp, nome, cor: P.get("cor") === "1" ? (pp.cor + 1) % CORES_PERFIL.length : pp.cor, infantil: P.get("inf") === "1" ? true : pp.infantil });
+    return { ok: true };
+  }
+  if (op === "perfildel") { const id = P.get("id") ?? ""; if (!id || id === "p0") return { ok: false, erro: "O perfil principal não pode ser excluído" }; await apagarPerfil(cred.u, id); return { ok: true }; }
+  if (op === "guia") { // programação completa do canal (vários dias)
+    let progs: any[] = [];
+    const j = await api(cred, `&action=get_simple_data_table&stream_id=${encodeURIComponent(s)}`).catch((e) => { if (e instanceof RelayNeed) throw e; return null; });
+    let lst = (Array.isArray(j?.epg_listings) ? j.epg_listings : []) as any[];
+    if (!lst.length) { const j2 = await api(cred, `&action=get_short_epg&stream_id=${encodeURIComponent(s)}&limit=80`).catch((e) => { if (e instanceof RelayNeed) throw e; return null; }); lst = (Array.isArray(j2?.epg_listings) ? j2.epg_listings : []) as any[]; }
+    progs = lst.map((x) => ({ t: txtApp(b64txt(x.title), 90), d: txtApp(b64txt(x.description), 220), i: Number(x.start_timestamp) * 1000, f: Number(x.stop_timestamp) * 1000 }))
+      .filter((x) => x.t && x.f > Date.now() - 6 * 3600_000 && x.i < Date.now() + 7 * 86400_000).sort((a, b) => a.i - b.i);
+    return { ok: true, epg: progs };
+  }
   if (op === "tema") { const dev = idOk(P.get("d")); if (dev) await salvarTemaAparelho(dev, (P.get("v") ?? "").slice(0, 20)); return { ok: true }; }
   if (op === "sair") { await apagarSessao(idOk(P.get("d"))); return { ok: true }; }
   if (op === "esquecer") { await esquecerConta(idOk(P.get("d")), (P.get("u") ?? "").trim()); return { ok: true }; }
@@ -2248,8 +2294,12 @@ async function apiApp(cred: Cred, url: URL) {
   }
   if (op === "cats") {
     const [r, regra] = await Promise.all([listaApp(cred, A[0], 30), regraAdulto(cred)]);
-    const lst = ((Array.isArray(r) ? r : []) as any[]).filter((x) => !(regra.protege && ehAdulto(String(x.category_name))));
-    return { ok: true, cats: lst.map((x) => ({ id: String(x.category_id), nome: limparNome(String(x.category_name)) })) };
+    const lst = ((Array.isArray(r) ? r : []) as any[]).filter((x) => !(regra.infantil && ehAdulto(String(x.category_name))));
+    return { ok: true, cats: lst.map((x) => ({ id: String(x.category_id), nome: limparNome(String(x.category_name)), ...(regra.protege && ehAdulto(String(x.category_name)) ? { bloq: 1 } : {}) })) };
+  }
+  if (op === "itens" && c && c !== "fav") {
+    const rg = await regraAdulto(cred);
+    if (rg.protege && (await catsAdultas(cred, k)).has(c) && (rg.infantil || P.get("pk") !== (await chaveAdulto(url.searchParams.get("t") ?? "", c, rg.pin)))) return { ok: false, erro: "pin" };
   }
   if (op === "itens" && c !== "fav") {
     const ini0 = Math.max(0, parseInt(P.get("ini") ?? "0", 10) || 0), lim0 = Math.min(8000, parseInt(P.get("lim") ?? "0", 10) || (k === "live" ? 8000 : 6000));
@@ -2361,7 +2411,6 @@ async function apiApp(cred: Cred, url: URL) {
   }
   return { ok: false, erro: "op" };
 }
-const APP_TESTE = "https://mktdigital91.github.io/msx/msx/app/teste.html";
 const APP_NOVO = "https://mktdigital91.github.io/msx/msx/app/index.html";
 const ORDENS: Record<string, string> = { "": "Padrão", rec: "Recentes", nota: "Nota", az: "A–Z" };
 const PROX_ORDEM: Record<string, string> = { "": "rec", rec: "nota", nota: "az", az: "" };

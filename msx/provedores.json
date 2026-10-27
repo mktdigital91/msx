@@ -1,5 +1,0 @@
-{
-    "provedores": [
-        { "codigo": "horizon", "nome": "Horizon", "protocolo": "http", "host": "horizonmult.site", "porta": "" }
-    ]
-}
