@@ -25,6 +25,7 @@ body { font-family: "Manrope", "LG Smart UI", Roboto, "Segoe UI", Arial, sans-se
 #logo { position: absolute; left: 0; top: 6px; height: 70px; }
 #nav { position: absolute; left: 50%; top: 8px; -webkit-transform: translateX(-50%); transform: translateX(-50%); padding: 8px; border-radius: 40px; background: rgba(15,19,29,.72); border: 1px solid rgba(255,255,255,.07); white-space: nowrap; }
 .nv { display: inline-block; margin: 0 2px; padding: 14px 22px; border-radius: 30px; font-size: 26px; font-weight: 700; color: #9AA3B5; -webkit-transition: background .18s, color .18s, -webkit-transform .18s; transition: background .18s, color .18s, transform .18s; }
+.nv.ico { padding: 14px 16px; } .nv.ico svg { width: 28px; height: 28px; fill: #9AA3B5; vertical-align: -6px; } .nv.ico.f svg { fill: #14100A; }
 .nv.ativo { color: #F4F1EA; background: rgba(255,255,255,.09); }
 .nv.f { color: #14100A; background: #F5B400; background: -webkit-linear-gradient(-45deg, #F5B400, #FF8A00); background: linear-gradient(135deg, #F5B400, #FF8A00); -webkit-transform: scale(1.05); transform: scale(1.05); }
 #hora { position: absolute; right: 0; top: 2px; text-align: right; }
@@ -520,11 +521,14 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   // =====================================================================
   //  Navegação geral: topo + telas
   // =====================================================================
-  var NAV = [{ id: "home", t: "Início" }, { id: "live", t: "TV ao vivo" }, { id: "vod", t: "Filmes" }, { id: "series", t: "Séries" }, { id: "jogos", t: "Jogos" }, { id: "busca", t: "Pesquisar" }, { id: "conta", t: "Conta" }];
+  var NAV = [{ id: "home", t: "Início" }, { id: "live", t: "TV ao vivo" }, { id: "vod", t: "Filmes" }, { id: "series", t: "Séries" }, { id: "jogos", t: "Jogos" }, { id: "busca", t: "Pesquisar" }, { id: "conta", t: "Conta" },
+    { id: "atualizar", ic: "M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" },
+    { id: "sairapp", ic: "M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42C17.99 7.86 19 9.81 19 12c0 3.87-3.13 7-7 7s-7-3.13-7-7c0-2.19 1.01-4.14 2.58-5.42L6.17 5.17C4.23 6.82 3 9.26 3 12c0 4.97 4.03 9 9 9s9-4.03 9-9c0-2.74-1.23-5.18-3.17-6.83z" }];
   var navI = 0, noTopo = false, atual = null, pilha = [];
   var TELAS = {};
   function navRender() {
-    var h = "", sec = atual ? atual.secao : ""; for (var i = 0; i < NAV.length; i++) h += '<div class="nv' + (NAV[i].id === sec ? " ativo" : "") + (noTopo && i === navI ? " f" : "") + '">' + NAV[i].t + "</div>";
+    var h = "", sec = atual ? atual.secao : "";
+    for (var i = 0; i < NAV.length; i++) h += '<div class="nv' + (NAV[i].ic ? " ico" : "") + (NAV[i].id === sec ? " ativo" : "") + (noTopo && i === navI ? " f" : "") + '">' + (NAV[i].ic ? '<svg viewBox="0 0 24 24"><path d="' + NAV[i].ic + '"/></svg>' : NAV[i].t) + "</div>";
     $("nav").innerHTML = h;
   }
   function irTopo() { noTopo = true; for (var i = 0; i < NAV.length; i++) if (atual && NAV[i].id === atual.secao) navI = i; if (atual && atual.desfocar) atual.desfocar(); navRender(); }
@@ -1273,7 +1277,6 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
     var pfs = cf.perfis || []; for (var i = 0; i < pfs.length; i++) it.push({ tipo: "pf", v: pfs[i] });
     var cs = cf.contas || []; for (var j = 0; j < cs.length; j++) it.push({ tipo: "ct", v: cs[j] });
     it.push({ tipo: "op", a: "trocar", t: "Sair da conta", s: "Entrar com outro usuário" });
-    it.push({ tipo: "op", a: "classico", t: "Visual clássico", s: "Volta para as telas antigas nesta TV" });
     it.push({ tipo: "op", a: "sair", t: "Sair do app", s: "Fecha o Gold Play" });
     C.itens = it; if (C.i >= it.length) C.i = 0;
   }
@@ -1412,6 +1415,12 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   //  Sair do app
   // =====================================================================
   var tSair = 0;
+  function atualizarTudo() {
+    aviso("Atualizando…");
+    try { for (var i = localStorage.length - 1; i >= 0; i--) { var k = localStorage.key(i); if (k && k.indexOf("gp_") === 0 && k !== "gp_ap") localStorage.removeItem(k); } } catch (e) {}
+    H.dados = null; LV.todos = null; LV.cats = null; L.cache = {}; G.catsPor = {}; lvCats.itens = []; CAT.vod = CAT.series = CAT.live = null; CAT.pedido = false;
+    chamar({ op: "home", novo: 1 }, function (r) { H.dados = r; abrir("home"); aviso("Tudo atualizado"); }, function () { abrir("home"); });
+  }
   function sairApp() {
     saindo = true;
     try { if (window.webOS && webOS.platformBack) { webOS.platformBack(); return; } } catch (e) {}
@@ -1443,7 +1452,12 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
     if (noTopo) {
       if (k === 37) navI = Math.max(0, navI - 1); else if (k === 39) navI = Math.min(NAV.length - 1, navI + 1);
       else if (k === 40) { sairTopo(); e.preventDefault(); return; }
-      else if (k === 13) { var n = NAV[navI].id; if (atual && atual.secao === n) sairTopo(); else abrir(n); e.preventDefault(); return; }
+      else if (k === 13) {
+        var n = NAV[navI].id; e.preventDefault();
+        if (n === "atualizar") { atualizarTudo(); return; }
+        if (n === "sairapp") { confirmar("Sair do Gold Play?", "Você pode voltar quando quiser. Seu progresso fica salvo.", [{ t: "Ficar no app", a: null }, { t: "Sair do app", a: sairApp }]); return; }
+        if (atual && atual.secao === n) sairTopo(); else abrir(n); return;
+      }
       navRender(); e.preventDefault(); return;
     }
     if (atual && atual.tecla && atual.tecla(k, e)) e.preventDefault();

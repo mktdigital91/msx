@@ -921,6 +921,7 @@ async function tratar(url: URL) {
     return { ok: true };
   }
 
+  if (a === "inicio" && url.searchParams.get("classico") !== "1") return ponteApp(d); // o app abre sempre na interface nova
   if (a === "inicio") {
     if (url.searchParams.get("x")) { _cfgT = 0; _usr.clear(); _base.clear(); await carregarConfig(); } // botão Atualizar
     // TV cadastrada no painel (MAC + usuário + senha + DNS): entra sozinha; o painel manda no cadastro
@@ -1601,6 +1602,14 @@ function resumoSvg(total: number, vivos: number, falhou: boolean) {
 }
 const resumoImg = (total: number, vivos: number, falhou: boolean) => `${SELF()}?${q({ a: "jr", n: total, vv: vivos, x: falhou ? 1 : 0, ...(TEMA !== "classico" ? { th: TEMA } : {}) })}`;
 
+// tela de passagem do MSX para a interface nova (ela mesma cuida do login, perfis e conteúdo)
+function ponteApp(d: string | null) {
+  const link = `link:${APP_NOVO}?${q({ api: SELF(), ...(d ? { d } : {}) })}`;
+  return { type: "pages", transparent: 2, ready: { action: link }, background: IMG + "bg-tv.jpg", pages: [{ items: [
+    { type: "space", layout: "4,1,4,2", image: LOGO, imageFiller: "fit" },
+    { type: "default", layout: "4,4,4,1", color: "rgba(245,180,0,0.9)", title: "{col:msx-black}Abrir o Gold Play", alignment: "center", centration: "title", action: link, focus: true },
+  ] }] };
+}
 async function home(t: string, quemTxt: string, d: string | null = null, escolher = false) {
   // TV que escolheu a interface nova: abre direto (com botões de reserva caso a abertura automática não aconteça)
   if (d && (await temaDoAparelho(d)) === "app") {
