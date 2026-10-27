@@ -1044,6 +1044,7 @@ async function tratar(url: URL) {
   }
 
   let cred = await lerToken(url.searchParams.get("t"));
+  if (!cred && a === "japi") return { ok: false, erro: "sessao" };
   if (!cred) return telaEntrar("Sessão expirada, entre de novo", d);
   if (cred.bloq) return telaEntrar("Acesso bloqueado. Fale com o suporte.", d);
   let t = url.searchParams.get("t")!;
@@ -1055,6 +1056,7 @@ async function tratar(url: URL) {
   const c = url.searchParams.get("c") ?? "";
 
   if (a === "home") return await home(t, cred.u, d ?? (await aparelhoDoToken(t)));
+  if (a === "japi") return await apiApp(cred, url);
 
   // ---- perfis ----
   if (a === "perfis") return await telaPerfis(cred, t, d);
@@ -1146,6 +1148,7 @@ async function tratar(url: URL) {
       { title: "{ico:search}  Pesquisar", titleFooter: "Procurar canais, filmes e séries", color: VID.n, action: abrirBusca(t, "") },
       { title: "{ico:people}  Perfis", titleFooter: "Trocar ou criar perfis", color: VID.n, action: go(base({ a: "perfis", t })) },
       { title: "{ico:lock}  Controle parental e perfis", titleFooter: "Senha, modo infantil, nomes", color: VID.n, action: go(base({ a: "perfisger", t })) },
+      { title: "{ico:science}  Teste: interface nova", titleFooter: "Prova do app próprio: lista fina, relógio e prévia do canal", color: VID.ouro, action: `link:${APP_TESTE}?${q({ t, api: SELF() })}` },
       ...(TEMA === "moderno" ? [{ title: "{ico:science}  Teste de layout (Moderno)", titleFooter: "Tela de teste: tire uma foto e envie", color: VID.n, action: go(base({ a: "modteste", t })) }] : []),
     ], "0,0,6,1");
   }
@@ -1960,6 +1963,34 @@ function arrumarBotoes(bs: any[], y: number) {
   return bs;
 }
 // ordem das listas de filmes/séries: padrão do provedor → recentes → nota → A–Z
+// ---------- API em JSON para a interface própria (msx/app): mesma sessão e o mesmo relay das telas do MSX ----------
+async function apiApp(cred: Cred, url: URL) {
+  const op = url.searchParams.get("op") ?? "", k = url.searchParams.get("k") ?? "live", c = url.searchParams.get("c") ?? "", s = url.searchParams.get("s") ?? "";
+  const ACT: Record<string, [string, string]> = { live: ["get_live_categories", "get_live_streams"], vod: ["get_vod_categories", "get_vod_streams"], series: ["get_series_categories", "get_series"] };
+  const A = ACT[k] ?? ACT.live;
+  if (op === "cats") {
+    const [r, regra] = await Promise.all([api(cred, `&action=${A[0]}`), regraAdulto(cred)]);
+    const lst = ((Array.isArray(r) ? r : []) as any[]).filter((x) => !(regra.protege && ehAdulto(String(x.category_name))));
+    return { ok: true, cats: lst.map((x) => ({ id: String(x.category_id), nome: limparNome(String(x.category_name)) })) };
+  }
+  if (op === "itens") {
+    const regra = await regraAdulto(cred);
+    const dados = c === "fav" && k === "live" ? await favoritosDe(quem(cred)) : await api(cred, `&action=${A[1]}${c && c !== "fav" ? "&category_id=" + encodeURIComponent(c) : ""}`);
+    let lst = (Array.isArray(dados) ? dados : []) as any[];
+    if (!c && regra.protege) { const f = await filtroAdulto(cred, k); if (f) lst = lst.filter((x) => !f(String(x.category_id), k)); }
+    return { ok: true, total: lst.length, itens: lst.slice(0, 3000).map((x, i) => ({ id: String(x.stream_id ?? x.series_id ?? ""), n: x.num ?? i + 1, nome: limparNome(String(x.name ?? "")), img: String(x.stream_icon || x.cover || "") })) };
+  }
+  if (op === "url") {
+    if (!s) return { ok: false };
+    return { ok: true, fontes: k === "live" ? [urlFluxo("live", cred, s, "m3u8"), urlFluxo("live", cred, s, "ts")] : [urlFluxo(k === "vod" ? "movie" : "series", cred, s, url.searchParams.get("x") || "mp4")] };
+  }
+  if (op === "epg") {
+    const v = s ? await epgDe(cred, s) : [];
+    return { ok: true, epg: v.slice(0, 3).map((p) => ({ t: p.titulo, i: p.ini, f: p.fim })) };
+  }
+  return { ok: false, erro: "op" };
+}
+const APP_TESTE = "https://mktdigital91.github.io/msx/msx/app/teste.html";
 const ORDENS: Record<string, string> = { "": "Padrão", rec: "Recentes", nota: "Nota", az: "A–Z" };
 const PROX_ORDEM: Record<string, string> = { "": "rec", rec: "nota", nota: "az", az: "" };
 function ordenar(lst: any[], o: string) {
