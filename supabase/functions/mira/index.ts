@@ -1979,11 +1979,33 @@ function arrumarBotoes(bs: any[], y: number) {
 // ---------- API em JSON para a interface própria (msx/app): mesma sessão e o mesmo relay das telas do MSX ----------
 const _appCache = new Map<string, { em: number; v: unknown }>();
 const _homeCache = new Map<string, { em: number; v: any }>();
+// catálogo guardado também no banco (tabela catalogo_cache): o servidor "frio" não precisa baixar tudo do provedor de novo
+const CAMPOS_CAT = ["stream_id", "series_id", "name", "stream_icon", "cover", "category_id", "rating", "added", "last_modified", "container_extension", "num"];
+const enxuto = (l: any[]) => l.map((x) => { const o: any = {}; for (const f of CAMPOS_CAT) if (x?.[f] !== undefined && x[f] !== null && x[f] !== "") o[f] = x[f]; return o; });
+async function lerCatalogoBanco(chave: string, horas: number): Promise<any[] | null> {
+  try {
+    const r = await fetch(`${SB()}/rest/v1/catalogo_cache?chave=eq.${encodeURIComponent(chave)}&select=dados,em&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(6000) });
+    if (!r.ok) return null;
+    const j = await r.json();
+    if (!Array.isArray(j) || !j[0] || Date.now() - Date.parse(j[0].em) > horas * 3600_000) return null;
+    return Array.isArray(j[0].dados) ? j[0].dados : null;
+  } catch { return null; }
+}
+function gravarCatalogoBanco(chave: string, v: any[]) {
+  const t = fetch(`${SB()}/rest/v1/catalogo_cache?on_conflict=chave`, { method: "POST", headers: { ...sbh(), prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ chave, dados: enxuto(v), em: new Date().toISOString() }), signal: AbortSignal.timeout(20000) }).catch(() => {});
+  const er = (globalThis as any).EdgeRuntime; if (er?.waitUntil) er.waitUntil(t);
+}
 async function listaApp(cred: Cred, acao: string, minutos = 10): Promise<any[]> {
   const k = `${cred.u}|${acao}`, c = _appCache.get(k);
   if (c && Date.now() - c.em < minutos * 60_000) return c.v as any[];
-  const d = await api(cred, `&action=${acao}`);
-  const v = Array.isArray(d) ? d : [];
+  const grande = acao === "get_vod_streams" || acao === "get_series" || acao === "get_live_streams";
+  const chaveB = `${(cred.b ?? BASE_PROV).replace(/^https?:\/\//, "")}|${cred.u}|${acao}`;
+  let v: any[] | null = grande && !(c) ? await lerCatalogoBanco(chaveB, 6) : null;
+  if (!v) {
+    const d = await api(cred, `&action=${acao}`);
+    v = Array.isArray(d) ? d : [];
+    if (grande && v.length) gravarCatalogoBanco(chaveB, v);
+  }
   if (_appCache.size > 80) _appCache.clear();
   _appCache.set(k, { em: Date.now(), v });
   return v;

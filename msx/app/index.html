@@ -305,7 +305,7 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
 
   <!-- filmes / séries -->
   <div class="tela" id="s-grade">
-    <div id="gLado" class="col"><div class="tit" id="gLadoTit">Categorias</div><div class="lista lc" id="gLc"></div></div>
+    <div id="gLado" class="col"><div class="tit" id="gLadoTit" style="display:none"></div><div class="lista lc" id="gLc"></div></div>
     <div id="gArea"><div id="gTit">&nbsp;</div><div id="gGrade"></div></div>
   </div>
 
@@ -581,6 +581,12 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
         var tinha = !!H.dados; H.dados = r; ls(chave, { em: agora(), v: r });
         if (atual === TELAS.home) { if (!tinha) self.desenhar(); else self.desenhar(true); }
         setTimeout(function () { catsLive(function () {}, function () {}); todosCanais(function () {}, function () {}); }, 1200);
+        setTimeout(function () { // deixa "Todos os filmes" e "Todas as séries" prontos (servidor aquecido e 1ª página guardada na TV)
+          var ks = ["vod", "series"]; for (var i = 0; i < ks.length; i++) (function (k) {
+            chamar({ op: "itens", k: k, c: "", o: "rec", ini: 0, lim: 120 }, function (r) { if (r.itens) ls(chaveLS("g_" + k + "__rec"), { em: agora(), total: r.total, v: r.itens }); }, function () {});
+            chamar({ op: "cats", k: k }, function () {}, function () {});
+          })(ks[i]);
+        }, 4000);
       }, function () { $("heroNome").innerHTML = "Não foi possível carregar"; $("heroSin").innerHTML = "Aperte OK para tentar de novo."; H.falhou = true; });
     },
     retomar: function () { modoVideo(""); pararVideo(); if (H.dados) this.desenhar(); },
@@ -666,11 +672,11 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   //  TELA: TV ao vivo (prévia, tela cheia e lista por cima do vídeo)
   // =====================================================================
   var L = { zona: "cats", cache: {}, tocando: "", canal: null, pedido: 0, cheia: false, zapAberto: false, zModo: "canais", faixaOculta: false, tFaixa: null };
-  var lvCats = new Lista($("lvLc"), 70, function (c, k, f, s) { return '<div class="lin fx' + (f ? " f" : "") + (s ? " sel" : "") + '"><span class="cresce ell">' + esc(c.nome) + "</span>" + (c.q != null ? '<span class="q">' + c.q + "</span>" : "") + "</div>"; }, 12);
-  function linhaCanal(c, k, f) { return '<div class="lin fx' + (f ? " f" : "") + (c.id === L.tocando ? " tocando" : "") + '"><span class="n">' + esc(c.n) + '</span><span class="ic img" style="' + bgUrl(c.img) + '"></span><span class="nm cresce ell">' + esc(c.nome) + "</span>" + (LV.favs[c.id] ? '<span class="fav">♥</span>' : "") + "</div>"; }
+  var lvCats = new Lista($("lvLc"), 70, function (c, k, f, s) { return '<div class="lin fx' + (f ? " f" : "") + (s ? " sel" : "") + '"><span class="cresce ell">' + esc(c.nome) + "</span>" + (c.q != null && c.id === "" ? '<span class="q">' + c.q + "</span>" : "") + "</div>"; }, 12);
+  function linhaCanal(c, k, f) { return '<div class="lin fx' + (f ? " f" : "") + (c.id === L.tocando ? " tocando" : "") + '"><span class="ic img" style="' + bgUrl(c.img) + '"></span><span class="nm cresce ell">' + esc(c.nome) + "</span>" + (LV.favs[c.id] ? '<span class="fav">♥</span>' : "") + "</div>"; }
   var lvCanais = new Lista($("lvLv"), 100, linhaCanal, 8);
   // tela cheia + OK: categorias e canais por cima do vídeo, que continua tocando até escolher outro canal
-  var zapC = new Lista($("lzc"), 92, function (c, k, f, s2) { return '<div class="lin fx' + (f ? " f" : "") + (s2 ? " sel" : "") + '"><span class="cresce ell">' + esc(c.nome) + "</span>" + (c.q != null ? '<span class="q">' + c.q + "</span>" : "") + "</div>"; }, 9);
+  var zapC = new Lista($("lzc"), 92, function (c, k, f, s2) { return '<div class="lin fx' + (f ? " f" : "") + (s2 ? " sel" : "") + '"><span class="cresce ell">' + esc(c.nome) + "</span>" + (c.q != null && c.id === "" ? '<span class="q">' + c.q + "</span>" : "") + "</div>"; }, 9);
   var zap = new Lista($("lz"), 92, function (c, k, f) { return linhaCanal(c, k, f); }, 9);
   function lvFocar(z) { L.zona = z; lvCats.ativa = z === "cats"; lvCanais.ativa = z === "canais"; lvCats.render(); lvCanais.render(); $("tela").className = z === "tela" ? "f" : ""; }
   var LV = { todos: null, cats: null, esperam: [], carregando: false, favs: {} };
@@ -839,7 +845,7 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   var G = { k: "vod", zona: "lado", catsPor: {}, ordI: 1, pedido: 0, catSel: null };
   var gLado = new Lista($("gLc"), 70, function (c, k, f, s) {
     if (c.ord) return '<div class="lin fx' + (f ? " f" : "") + '" style="background:rgba(245,180,0,.1);color:#F5B400"><span class="cresce ell">⇅  Ordenar: ' + ORD[G.ordI].t + "</span></div>";
-    return '<div class="lin fx' + (f ? " f" : "") + (s ? " sel" : "") + '"><span class="cresce ell">' + esc(c.nome) + "</span>" + (c.q != null ? '<span class="q">' + c.q + "</span>" : "") + "</div>";
+    return '<div class="lin fx' + (f ? " f" : "") + (s ? " sel" : "") + '"><span class="cresce ell">' + esc(c.nome) + "</span>" + (c.q != null && c.id === "" ? '<span class="q">' + c.q + "</span>" : "") + "</div>";
   }, 12);
   var gGrade = new Grade($("gGrade"), 6, 236, 400, function (x) { return capaHtml(x, 206, 306) + '<div class="nm ell" style="width:206px">' + esc(x.nome) + "</div>"; });
   gGrade.visL = 2;
@@ -847,9 +853,14 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   function gCarregar(c, irPara) {
     G.catSel = c; gLado.sel = gLado.i; gLado.render();
     $("gTit").innerHTML = esc(c.nome) + (ORD[G.ordI].o ? '  <span style="color:#5E6677">·  ' + ORD[G.ordI].t + "</span>" : "");
-    var meu = ++G.pedido; gGrade.itens = []; gGrade.vazio = '<div class="carreg">Carregando…</div>'; gGrade.render(); G.total = 0; G.mais = false;
+    var meu = ++G.pedido, chaveG = chaveLS("g_" + G.k + "_" + c.id + "_" + ORD[G.ordI].o), gd = c.id !== "fav" ? ls(chaveG) : null, mostrou = false;
+    gGrade.itens = []; gGrade.vazio = '<div class="carreg">Carregando…</div>'; G.total = 0; G.mais = false;
+    if (gd && gd.v && agora() - gd.em < 24 * 3600000) { mostrou = true; c.q = gd.total; G.total = gd.total; gLado.render(); gGrade.usar(gd.v.slice()); if (irPara && gd.v.length) gFocar("grade"); } else gGrade.render();
     chamar({ op: "itens", k: G.k, c: c.id, o: ORD[G.ordI].o, ini: 0, lim: 120 }, function (r) {
       if (meu !== G.pedido) return; var l = r.itens || []; c.q = r.total != null ? r.total : l.length; G.total = c.q; gLado.render();
+      if (c.id !== "fav") ls(chaveG, { em: agora(), total: c.q, v: l });
+      if (mostrou && (gGrade.i > 5 || G.zona === "grade" && gGrade.itens.length > 120)) return; // já está navegando: não mexe
+      if (mostrou) { var i0 = gGrade.i; gGrade.itens = l; gGrade.i = Math.min(i0, Math.max(0, l.length - 1)); gGrade.render(); return; }
       gGrade.vazio = '<div class="vazio">' + (c.id === "fav" ? "Nenhum favorito ainda. Favorite pela tela de detalhes." : "Nada nesta categoria.") + "</div>";
       gGrade.usar(l); if (irPara && l.length) gFocar("grade");
     }, function () { if (meu === G.pedido) { gGrade.vazio = '<div class="vazio">Falha ao carregar. Aperte OK de novo.</div>'; gGrade.render(); } });
