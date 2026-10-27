@@ -249,6 +249,12 @@ body.vod #pl { display: block; }
 .chip { display: inline-block; margin-right: 16px; padding: 18px 30px; border-radius: 18px; background: rgba(255,255,255,.06); font-size: 24px; font-weight: 700; }
 .chip small { display: block; font-size: 16px; color: #9AA3B5; font-weight: 600; }
 .chip.f { background: #F5B400; color: #14100A; } .chip.f small { color: rgba(20,16,10,.7); }
+#lgErro { margin-top: 22px; min-height: 34px; font-size: 23px; font-weight: 700; color: #FF6B6B; }
+#lgCarreg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 80; background: rgba(5,7,12,.86); display: none; text-align: center; }
+#lgCarreg.on { display: block; }
+#lgCarreg .roda { position: absolute; left: 50%; top: 380px; width: 120px; height: 120px; margin-left: -60px; border-radius: 50%; border: 10px solid rgba(255,255,255,.12); border-top-color: #F5B400; border-right-color: #FF8A00; -webkit-animation: gira 0.9s linear infinite; animation: gira 0.9s linear infinite; }
+#lgCarreg b { position: absolute; left: 0; right: 0; top: 548px; font-size: 40px; font-weight: 800; }
+#lgCarreg span { position: absolute; left: 0; right: 0; top: 606px; font-size: 24px; color: #9AA3B5; }
 #lgMac { position: absolute; left: 150px; bottom: 30px; font-size: 20px; color: #9AA3B5; }
 
 #aviso { position: absolute; left: 50%; bottom: 60px; -webkit-transform: translateX(-50%) translateY(30px); transform: translateX(-50%) translateY(30px); padding: 18px 34px; border-radius: 18px; background: #1B2130; font-size: 24px; opacity: 0; -webkit-transition: opacity .25s, -webkit-transform .25s; transition: opacity .25s, transform .25s; z-index: 90; }
@@ -307,7 +313,8 @@ body.vod #pl { display: block; }
     <div class="lgCaixa" id="lgForm"><h3>Usuário e senha na TV</h3>
       <div class="campo" id="lgCu"><label>USUÁRIO</label><input id="lgU" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
       <div class="campo" id="lgCp"><label>SENHA</label><input id="lgP" type="password" autocomplete="off"></div>
-      <span class="lgBtn" id="lgEntrar">Entrar</span></div>
+      <span class="lgBtn" id="lgEntrar">Entrar</span><div id="lgErro"></div></div>
+    <div id="lgCarreg"><div class="roda"></div><b id="lgCt">Entrando…</b><span id="lgCs">Conferindo seu usuário e senha</span></div>
     <div id="lgContas"></div>
     <div id="lgMac"></div>
   </div>
@@ -1235,7 +1242,19 @@ body.vod #pl { display: block; }
     for (var i = 0; i < LG.contas.length; i++) h += '<span class="chip' + (LG.foco === "c" && LG.ct === i ? " f" : "") + '">' + esc(LG.contas[i]) + "<small>Entrar com um toque</small></span>";
     $("lgContas").innerHTML = h;
   }
-  function lgMsg(t, erro) { $("lgMsg").innerHTML = esc(t); $("lgMsg").className = erro ? "erro" : ""; }
+  function lgMsg(t, erro) {
+    if (erro) { $("lgErro").innerHTML = esc(t); $("lgMsg").innerHTML = "Entre pelo celular ou digite seu usuário e senha"; $("lgMsg").className = ""; }
+    else { $("lgMsg").innerHTML = esc(t); $("lgMsg").className = ""; $("lgErro").innerHTML = ""; }
+  }
+  // tela de "entrando": roda girando e etapas que mudam enquanto espera o servidor
+  var tEtapa;
+  function lgCarregando(sim, titulo) {
+    clearInterval(tEtapa); $("lgCarreg").className = sim ? "on" : "";
+    if (!sim) return;
+    var etapas = ["Conferindo seu usuário e senha", "Conectando ao servidor de conteúdo", "Preparando sua lista de canais", "Quase pronto…"], i = 0;
+    $("lgCt").innerHTML = esc(titulo || "Entrando…"); $("lgCs").innerHTML = etapas[0];
+    tEtapa = setInterval(function () { i = Math.min(i + 1, etapas.length - 1); $("lgCs").innerHTML = etapas[i]; }, 2600);
+  }
   function lgCodigo(novo) {
     chamar({ op: "codigo", d: AP, r: novo ? 1 : undefined }, function (r) {
       $("lgCod").innerHTML = r.codigo ? esc(r.codigo) : "——";
@@ -1244,10 +1263,11 @@ body.vod #pl { display: block; }
       LG.contas = r.contas || []; lgRender();
     }, function () { lgMsg("Sem conexão com o servidor. Tente de novo.", true); });
   }
-  function entrarCom(t) { clearInterval(LG.tVer); T = t; H.dados = null; LV.todos = null; LV.cats = null; L.cache = {}; G.catsPor = {}; lvCats.itens = []; classe("semtopo", false); carregarCfg(function () { abrir("home"); }); }
+  function entrarCom(t) { clearInterval(LG.tVer); setTimeout(function () { lgCarregando(false); }, 600); T = t; H.dados = null; LV.todos = null; LV.cats = null; L.cache = {}; G.catsPor = {}; lvCats.itens = []; classe("semtopo", false); carregarCfg(function () { abrir("home"); }); }
   function lgEntrar(o, msg) {
-    if (LG.ocupado) return; LG.ocupado = true; lgMsg(msg || "Entrando…");
-    chamar(o, function (r) { LG.ocupado = false; if (r.ok && r.t) entrarCom(r.t); else lgMsg(r.erro || "Não foi possível entrar.", true); }, function () { LG.ocupado = false; lgMsg("Sem conexão com o servidor. Tente de novo.", true); });
+    if (LG.ocupado) return; LG.ocupado = true; $("lgErro").innerHTML = ""; lgCarregando(true, msg || "Entrando…");
+    chamar(o, function (r) { LG.ocupado = false; if (r.ok && r.t) { $("lgCs").innerHTML = "Tudo certo! Abrindo o Gold Play"; clearInterval(tEtapa); entrarCom(r.t); } else { lgCarregando(false); lgMsg(r.erro || "Não foi possível entrar.", true); } },
+      function () { LG.ocupado = false; lgCarregando(false); lgMsg("Sem conexão com o servidor. Tente de novo.", true); });
   }
   TELAS.login = {
     el: $("s-login"), secao: "",
