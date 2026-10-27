@@ -175,6 +175,10 @@ body.vod #pl { display: block; }
 #plBarra .bol { position: absolute; top: -9px; width: 28px; height: 28px; margin-left: -14px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 6px rgba(245,180,0,.4); }
 #plTempos { margin-top: 18px; font-size: 24px; color: #C7CCD6; }
 #plTempos .dir { float: right; }
+#plBts { margin-top: 22px; text-align: center; white-space: nowrap; }
+#plBts span { display: inline-block; margin: 0 10px; padding: 16px 34px; border-radius: 16px; font-size: 24px; font-weight: 800; background: rgba(255,255,255,.12); }
+#plBts span.f { background: #F5B400; color: #14100A; }
+#plBts span.off { opacity: .35; }
 #plDica { margin-top: 18px; font-size: 20px; color: #9AA3B5; }
 #plDica b { color: #F4F1EA; padding: 2px 10px; border-radius: 8px; background: rgba(255,255,255,.12); margin: 0 4px; }
 #plMeio { position: absolute; left: 50%; top: 50%; margin: -60px 0 0 -60px; width: 120px; height: 120px; border-radius: 50%; background: rgba(0,0,0,.55); font-size: 54px; line-height: 120px; text-align: center; display: none; }
@@ -270,6 +274,7 @@ body.vod #pl { display: block; }
 #dlg .bt { display: inline-block; margin: 0 12px; padding: 24px 46px; border-radius: 18px; font-size: 28px; font-weight: 800; background: rgba(255,255,255,.1); }
 #dlg .bt.f { background: #F5B400; color: #14100A; -webkit-transform: scale(1.06); transform: scale(1.06); }
 #aviso { position: absolute; left: 50%; bottom: 90px; -webkit-transform: translateX(-50%) translateY(30px); transform: translateX(-50%) translateY(30px); padding: 26px 48px; border-radius: 22px; background: #1B2130; border: 2px solid rgba(245,180,0,.5); box-shadow: 0 20px 60px rgba(0,0,0,.5); font-size: 30px; font-weight: 700; opacity: 0; -webkit-transition: opacity .25s, -webkit-transform .25s; transition: opacity .25s, transform .25s; z-index: 90; }
+body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
 #aviso.on { opacity: 1; -webkit-transform: translateX(-50%); transform: translateX(-50%); }
 </style>
 </head>
@@ -344,7 +349,8 @@ body.vod #pl { display: block; }
     <div id="plProx"><b>Próximo episódio em <span id="plSeg" style="display:inline;font-size:20px;margin:0">8</span>s</b><span class="ell" id="plProxNome"></span></div>
     <div id="plBase"><div id="plBarra"><div class="ok" id="plOk"></div><div class="bol" id="plBol"></div></div>
       <div id="plTempos"><span id="plAtual">0:00</span><span class="dir" id="plTotal">0:00</span></div>
-      <div id="plDica"><b>OK</b> pausar &nbsp; <b>◀ ▶</b> voltar/avançar 10 s &nbsp; <b>Voltar</b> sair</div></div>
+      <div id="plBts"></div>
+      <div id="plDica"><b>OK</b> pausar &nbsp; <b>◀ ▶</b> voltar/avançar 10 s &nbsp; <b>▼</b> botões &nbsp; <b>Voltar</b> sair</div></div>
   </div>
 
   <!-- TV ao vivo em tela cheia: faixa e lista -->
@@ -1002,6 +1008,26 @@ body.vod #pl { display: block; }
   // =====================================================================
   var P = { p: null, tOculta: null, tSalva: null, seek: 0, tSeek: null, inicio: 0, prox: null, tProx: null, contagem: 0, posIni: 0, parado: 0, ult: -1 };
   function plMostrar() { $("pl").className = ""; clearTimeout(P.tOculta); P.tOculta = setTimeout(function () { if (!v.paused) $("pl").className = "oculto"; }, 4000); }
+  // botões do rodapé: episódio anterior, voltar 10 s, pausar, avançar 10 s, próximo episódio
+  function plEpAlvo(d) {
+    var s2 = P.p && P.p.serie; if (!s2) return null;
+    var ts = s2.info.temps, ti = s2.ti, ei = s2.ei + d;
+    if (ei < 0) { ti--; if (ti < 0) return null; ei = ts[ti].eps.length - 1; }
+    if (ei >= ts[ti].eps.length) { ti++; ei = 0; if (ti >= ts.length) return null; }
+    return { ti: ti, ei: ei };
+  }
+  function plBotoes() {
+    var serie = !!(P.p && P.p.serie);
+    P.bts = serie ? [{ a: "ant", t: "⏮  Episódio anterior", ok: !!plEpAlvo(-1) }, { a: "rw", t: "« 10 s" }, { a: "pp", t: v.paused ? "▶  Continuar" : "❚❚  Pausar" }, { a: "ff", t: "10 s »" }, { a: "prox", t: "Próximo episódio  ⏭", ok: !!plEpAlvo(1) }]
+      : [{ a: "rw", t: "« 10 s" }, { a: "pp", t: v.paused ? "▶  Continuar" : "❚❚  Pausar" }, { a: "ff", t: "10 s »" }];
+    if (P.bi == null || P.bi >= P.bts.length) P.bi = serie ? 2 : 1;
+    var h = ""; for (var i = 0; i < P.bts.length; i++) h += '<span class="' + (P.foco === "bt" && i === P.bi ? "f" : "") + (P.bts[i].ok === false ? " off" : "") + '">' + P.bts[i].t + "</span>";
+    $("plBts").innerHTML = h;
+  }
+  function plIrEp(d) {
+    var alvo = plEpAlvo(d); if (!alvo) { aviso(d > 0 ? "Este é o último episódio" : "Este é o primeiro episódio"); return; }
+    clearInterval(P.tProx); P.prox = alvo; TELAS.player.irProx();
+  }
   function plAtualizar() {
     var d = v.duration && isFinite(v.duration) ? v.duration : (P.p && P.p.dur) || 0, t = P.seek ? P.seek : (v.currentTime || 0);
     var pct = d ? Math.min(100, t / d * 100) : 0;
@@ -1019,9 +1045,9 @@ body.vod #pl { display: block; }
   TELAS.player = {
     el: null, secao: "",
     entrar: function (p) {
-      P.p = p; P.posIni = p.pos || 0; P.seek = 0; P.prox = null; clearInterval(P.tProx); $("plProx").style.display = "none";
+      P.p = p; P.posIni = p.pos || 0; P.seek = 0; P.prox = null; P.foco = "barra"; P.bi = null; clearInterval(P.tProx); $("plProx").style.display = "none";
       classe("semtopo", true); classe("vod", true); modoVideo("full");
-      $("plNome").innerHTML = esc(p.nome); $("plSub").innerHTML = esc(p.sub || ""); $("plMeio").style.display = "none"; $("plCarreg").style.display = "block"; plMostrar(); plAtualizar();
+      $("plNome").innerHTML = esc(p.nome); $("plSub").innerHTML = esc(p.sub || ""); plBotoes(); $("plMeio").style.display = "none"; $("plCarreg").style.display = "block"; plMostrar(); plAtualizar();
       abrirUrls(p.k, p.id, p.x, function (f) {
         if (P.p !== p) return;
         tocarFontes(f, function (ok) { if (P.p !== p) return; $("plCarreg").style.display = "none"; if (!ok) { aviso("Não foi possível reproduzir"); } });
@@ -1046,11 +1072,27 @@ body.vod #pl { display: block; }
     },
     tecla: function (k) {
       if (P.prox && k === 13) { clearInterval(P.tProx); this.irProx(); return true; }
-      plMostrar();
+      var oculto = $("pl").className === "oculto"; plMostrar();
+      if (k === 427 || k === 418) { plIrEp(1); return true; } // canal +/próximo
+      if (k === 428 || k === 419) { plIrEp(-1); return true; }
+      if (k === 40) { if (!oculto) { P.foco = "bt"; plBotoes(); } return true; }
+      if (P.foco === "bt") {
+        if (k === 38) { P.foco = "barra"; plBotoes(); return true; }
+        if (k === 37) { if (P.bi > 0) P.bi--; plBotoes(); return true; }
+        if (k === 39) { if (P.bi < P.bts.length - 1) P.bi++; plBotoes(); return true; }
+        if (k === 13) {
+          var b = P.bts[P.bi].a;
+          if (b === "ant") plIrEp(-1); else if (b === "prox") plIrEp(1);
+          else if (b === "pp") { if (v.paused) { var pr2 = v.play(); if (pr2 && pr2["catch"]) pr2["catch"](function () {}); } else v.pause(); setTimeout(plBotoes, 200); }
+          else { var d2 = v.duration && isFinite(v.duration) ? v.duration : 0; try { v.currentTime = Math.max(0, Math.min(d2 ? d2 - 2 : 1e9, (v.currentTime || 0) + (b === "ff" ? 10 : -10))); } catch (e) {} }
+          return true;
+        }
+      }
       var d = v.duration && isFinite(v.duration) ? v.duration : 0;
       if (k === 13 || k === 415 || k === 19 || k === 10252 || k === 179) {
         if (k === 415 || (k !== 19 && v.paused)) { var pr = v.play(); if (pr && pr["catch"]) pr["catch"](function () {}); $("plMeio").innerHTML = "▶"; }
         else { v.pause(); $("plMeio").innerHTML = "❚❚"; }
+        setTimeout(plBotoes, 200);
         $("plMeio").style.display = "block"; setTimeout(function () { $("plMeio").style.display = "none"; }, 700); return true;
       }
       if (k === 37 || k === 39 || k === 412 || k === 417) {
