@@ -45,8 +45,9 @@
   .lin.f .q, .lin.f .n { color: rgba(20,16,10,.7) !important; }
   .barra { position: absolute; right: -14px; width: 4px; border-radius: 4px; background: rgba(255,255,255,.18); -webkit-transition: top .15s; transition: top .15s; }
   /* prévia */
-  #tela { position: relative; width: 700px; height: 394px; border-radius: 22px; overflow: hidden; background: #000; box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.07); }
-  #tela video { width: 100%; height: 100%; object-fit: cover; background: #000; }
+  /* sem cantos arredondados nem recorte: a TV LG desenha o vídeo numa camada própria e some com a imagem se o quadro for recortado */
+  #tela { position: relative; width: 700px; height: 394px; background: #000; border: 2px solid rgba(255,255,255,.08); }
+  #tela video { position: absolute; left: 0; top: 0; width: 100%; height: 100%; background: #000; }
   #tela .msg { position: absolute; left: 0; right: 0; top: 50%; margin-top: -16px; text-align: center; font-size: 24px; color: #9AA3B5; }
   #tela .ao { position: absolute; left: 18px; top: 18px; padding: 6px 14px; border-radius: 10px; background: #EF4444; font-size: 18px; font-weight: 800; letter-spacing: 1px; display: none; }
   #info { margin-top: 28px; }
@@ -60,8 +61,7 @@
   #dica { position: absolute; bottom: 0; font-size: 20px; color: #9AA3B5; }
   #dica b { color: #F4F1EA; padding: 2px 10px; border-radius: 8px; background: rgba(255,255,255,.08); margin: 0 4px; }
   /* tela cheia */
-  body.cheia #tela { position: absolute; left: -1164px; top: -160px; width: 1920px; height: 1080px; border-radius: 0; z-index: 5; }
-  body.cheia #tela video { object-fit: contain; }
+  body.cheia #tela { position: absolute; left: -1164px; top: -160px; width: 1920px; height: 1080px; border: 0; z-index: 5; }
   #faixa { position: absolute; left: 0; right: 0; bottom: 0; padding: 60px 72px 56px; background: linear-gradient(transparent, rgba(0,0,0,.85)); z-index: 6; display: none; }
   body.cheia #faixa { display: block; }
   #faixa h3 { margin: 0; font-size: 46px; } #faixa p { margin: 6px 0 0; font-size: 26px; color: #DDD; }
@@ -294,6 +294,8 @@
       else if (k === 33) zap.mover(-8);
       else if (k === 34) zap.mover(8);
       else if (k === 13) zapOk();
+      else if (k === 37 && zModo === "canais") zapCats();   // ◀ mostra as categorias
+      else if (k === 39 && zModo === "cats") zapCanais();   // ▶ volta aos canais
       e.preventDefault(); return;
     }
     if (cheia) {
