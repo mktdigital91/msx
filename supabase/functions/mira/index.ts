@@ -802,7 +802,7 @@ async function epgDe(cred: { u: string; p: string }, id: string): Promise<Prog[]
   if (c && Date.now() - c.em < 5 * 60 * 1000) return c.v;
   let v: Prog[] = [];
   try {
-    const j = await api(cred, `&action=get_short_epg&stream_id=${encodeURIComponent(id)}&limit=3`);
+    const j = await api(cred, `&action=get_short_epg&stream_id=${encodeURIComponent(id)}&limit=4`);
     v = ((Array.isArray(j?.epg_listings) ? j.epg_listings : []) as any[])
       .map((p) => ({ titulo: b64txt(p.title).trim(), ini: Number(p.start_timestamp) * 1000, fim: Number(p.stop_timestamp) * 1000 }))
       .filter((p) => p.titulo && !/no\s*programm/i.test(p.titulo) && p.fim > Date.now())
@@ -2240,7 +2240,7 @@ async function apiApp(cred: Cred, url: URL) {
   }
   if (op === "epg") {
     const v = s ? await epgDe(cred, s) : [];
-    return { ok: true, epg: v.slice(0, 3).map((p) => ({ t: p.titulo, i: p.ini, f: p.fim })) };
+    return { ok: true, epg: v.slice(0, 4).map((p) => ({ t: p.titulo, i: p.ini, f: p.fim })) };
   }
   if (op === "fav") {
     const id = k === "live" ? s : `${k === "vod" ? "v" : "s"}:${s}`;
