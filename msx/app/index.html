@@ -249,6 +249,10 @@ body.vod #pl { display: block; }
 .chip { display: inline-block; margin-right: 16px; padding: 18px 30px; border-radius: 18px; background: rgba(255,255,255,.06); font-size: 24px; font-weight: 700; }
 .chip small { display: block; font-size: 16px; color: #9AA3B5; font-weight: 600; }
 .chip.f { background: #F5B400; color: #14100A; } .chip.f small { color: rgba(20,16,10,.7); }
+#lgOlho { position: absolute; right: 14px; top: 16px; width: 64px; height: 64px; border-radius: 14px; background: rgba(255,255,255,.08); }
+#lgOlho svg { position: absolute; left: 14px; top: 14px; width: 36px; height: 36px; fill: #C7CCD6; }
+#lgOlho.f { background: #F5B400; } #lgOlho.f svg { fill: #14100A; }
+#lgCp input { right: 100px; }
 #lgErro { margin-top: 22px; min-height: 34px; font-size: 23px; font-weight: 700; color: #FF6B6B; }
 #lgCarreg { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 80; background: rgba(5,7,12,.86); display: none; text-align: center; }
 #lgCarreg.on { display: block; }
@@ -312,7 +316,7 @@ body.vod #pl { display: block; }
     <div class="lgCaixa" id="lgQr"><img id="lgQrImg" alt=""><div class="tx"><b>Pelo celular</b><span>Aponte a câmera para o QR code ou acesse a página de entrada e digite o código:</span><div id="lgCod">······</div></div><span class="lgBtn" id="lgNovo">Novo código</span></div>
     <div class="lgCaixa" id="lgForm"><h3>Usuário e senha na TV</h3>
       <div class="campo" id="lgCu"><label>USUÁRIO</label><input id="lgU" type="text" autocomplete="off" autocapitalize="none" spellcheck="false"></div>
-      <div class="campo" id="lgCp"><label>SENHA</label><input id="lgP" type="password" autocomplete="off"></div>
+      <div class="campo" id="lgCp"><label>SENHA</label><input id="lgP" type="password" autocomplete="off"><span id="lgOlho"><svg viewBox="0 0 24 24"><path id="lgOlhoP" d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg></span></div>
       <span class="lgBtn" id="lgEntrar">Entrar</span><div id="lgErro"></div></div>
     <div id="lgCarreg"><div class="roda"></div><b id="lgCt">Entrando…</b><span id="lgCs">Conferindo seu usuário e senha</span></div>
     <div id="lgContas"></div>
@@ -1237,7 +1241,7 @@ body.vod #pl { display: block; }
   var LG = { foco: "u", ct: 0, contas: [], tVer: null, ocupado: false };
   function lgRender() {
     $("lgCu").className = "campo" + (LG.foco === "u" ? " f" : ""); $("lgCp").className = "campo" + (LG.foco === "p" ? " f" : "");
-    $("lgEntrar").className = "lgBtn" + (LG.foco === "e" ? " f" : ""); $("lgNovo").className = "lgBtn" + (LG.foco === "n" ? " f" : "");
+    $("lgEntrar").className = "lgBtn" + (LG.foco === "e" ? " f" : ""); $("lgOlho").className = LG.foco === "o" ? "f" : ""; $("lgNovo").className = "lgBtn" + (LG.foco === "n" ? " f" : "");
     var h = LG.contas.length ? '<div class="tt">Usuários salvos nesta TV</div>' : "";
     for (var i = 0; i < LG.contas.length; i++) h += '<span class="chip' + (LG.foco === "c" && LG.ct === i ? " f" : "") + '">' + esc(LG.contas[i]) + "<small>Entrar com um toque</small></span>";
     $("lgContas").innerHTML = h;
@@ -1284,12 +1288,14 @@ body.vod #pl { display: block; }
         if (f === "u") { $("lgU").focus(); return true; } if (f === "p") { $("lgP").focus(); return true; }
         if (f === "e") { lgEntrar({ op: "entrar", u: $("lgU").value.replace(/^\s+|\s+$/g, ""), p: $("lgP").value, d: AP }); return true; }
         if (f === "n") { lgCodigo(true); lgMsg("Novo código gerado"); return true; }
+        if (f === "o") { var ps = $("lgP"), ver = ps.type === "password"; ps.type = ver ? "text" : "password";
+          $("lgOlhoP").setAttribute("d", ver ? "M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2z" : "M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"); return true; }
         if (f === "c") { lgEntrar({ op: "conta0", u: LG.contas[LG.ct], d: AP }, "Entrando como " + LG.contas[LG.ct] + "…"); return true; }
       }
-      if (k === 37) { if (f === "u" || f === "p" || f === "e") LG.foco = "n"; else if (f === "c" && LG.ct > 0) LG.ct--; lgRender(); return true; }
-      if (k === 39) { if (f === "n") LG.foco = "u"; else if (f === "c" && LG.ct < LG.contas.length - 1) LG.ct++; lgRender(); return true; }
-      if (k === 38) { if (f === "p") LG.foco = "u"; else if (f === "e") LG.foco = "p"; else if (f === "c") LG.foco = "e"; lgRender(); return true; }
-      if (k === 40) { if (f === "u") LG.foco = "p"; else if (f === "p") LG.foco = "e"; else if ((f === "e" || f === "n") && LG.contas.length) { LG.foco = "c"; LG.ct = 0; } lgRender(); return true; }
+      if (k === 37) { if (f === "o") LG.foco = "p"; else if (f === "u" || f === "p" || f === "e") LG.foco = "n"; else if (f === "c" && LG.ct > 0) LG.ct--; lgRender(); return true; }
+      if (k === 39) { if (f === "p") LG.foco = "o"; else if (f === "n") LG.foco = "u"; else if (f === "c" && LG.ct < LG.contas.length - 1) LG.ct++; lgRender(); return true; }
+      if (k === 38) { if (f === "p" || f === "o") LG.foco = "u"; else if (f === "e") LG.foco = "p"; else if (f === "c") LG.foco = "e"; lgRender(); return true; }
+      if (k === 40) { if (f === "u") LG.foco = "p"; else if (f === "p" || f === "o") LG.foco = "e"; else if ((f === "e" || f === "n") && LG.contas.length) { LG.foco = "c"; LG.ct = 0; } lgRender(); return true; }
       return false;
     },
     voltar: function () { sairApp(); return true; }
