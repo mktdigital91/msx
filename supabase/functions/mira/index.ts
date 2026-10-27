@@ -1148,7 +1148,7 @@ async function tratar(url: URL) {
       { title: "{ico:search}  Pesquisar", titleFooter: "Procurar canais, filmes e séries", color: VID.n, action: abrirBusca(t, "") },
       { title: "{ico:people}  Perfis", titleFooter: "Trocar ou criar perfis", color: VID.n, action: go(base({ a: "perfis", t })) },
       { title: "{ico:lock}  Controle parental e perfis", titleFooter: "Senha, modo infantil, nomes", color: VID.n, action: go(base({ a: "perfisger", t })) },
-      { title: "{ico:auto-awesome}  Nova interface (prévia)", titleFooter: "Tela inicial, filmes, séries, TV ao vivo e player novos", color: VID.ouro, action: `link:${APP_NOVO}?${q({ t, api: SELF() })}` },
+      { title: "{ico:auto-awesome}  Nova interface (prévia)", titleFooter: "Tela inicial, filmes, séries, TV ao vivo e player novos", color: VID.ouro, action: `link:${APP_NOVO}?${q({ t, api: SELF(), ...(d ? { d } : {}) })}` },
       { title: "{ico:science}  Teste: interface nova", titleFooter: "Prova do app próprio: lista fina, relógio e prévia do canal", color: VID.ouro, action: `link:${APP_TESTE}?${q({ t, api: SELF() })}` },
       ...(TEMA === "moderno" ? [{ title: "{ico:science}  Teste de layout (Moderno)", titleFooter: "Tela de teste: tire uma foto e envie", color: VID.n, action: go(base({ a: "modteste", t })) }] : []),
     ], "0,0,6,1");
@@ -1175,6 +1175,7 @@ async function tratar(url: URL) {
       { id: "", nome: "Padrão do app", desc: `O tema escolhido no painel (${TEMA_PAINEL === "onix" ? "Ônix" : TEMA_PAINEL === "moderno" ? "Moderno" : "Clássico"})`, img: IMG + (TEMA_PAINEL === "onix" ? "temas/onix/" : "") + "card-tv.png" },
       { id: "classico", nome: "Clássico", desc: "Colorido, com gradientes", img: IMG + "card-tv.png" },
       { id: "onix", nome: "Ônix", desc: "Preto com dourado, elegante", img: IMG + "temas/onix/card-tv.png" },
+      { id: "app", nome: "Interface nova (premium)", desc: "Abre direto a interface nova ao iniciar o app", img: mt({ k: "tile", i: "star", t: "Premium", s: "Interface nova" }) },
       { id: "moderno", nome: "Moderno", desc: "Azul escuro, telas limpas e capas grandes", img: mt({ k: "tile", i: "live", t: "Moderno", s: "Azul escuro" }) },
     ];
     return lista("Temas", opc.map((o) => ({
@@ -1600,6 +1601,16 @@ function resumoSvg(total: number, vivos: number, falhou: boolean) {
 const resumoImg = (total: number, vivos: number, falhou: boolean) => `${SELF()}?${q({ a: "jr", n: total, vv: vivos, x: falhou ? 1 : 0, ...(TEMA !== "classico" ? { th: TEMA } : {}) })}`;
 
 async function home(t: string, quemTxt: string, d: string | null = null, escolher = false) {
+  // TV que escolheu a interface nova: abre direto (com botões de reserva caso a abertura automática não aconteça)
+  if (d && (await temaDoAparelho(d)) === "app") {
+    const link = `link:${APP_NOVO}?${q({ t, api: SELF(), d })}`;
+    return { type: "pages", transparent: 2, ready: { action: link }, background: FUNDO_CFG || IMG + "bg-tv.jpg", pages: [{ items: [
+      camadaFundo("bg-tv.jpg"),
+      { type: "space", layout: "4,0,4,2", image: LOGO, imageFiller: "fit" },
+      { type: "default", layout: "3,3,6,1", color: VID.ouro, title: "Abrir o Gold Play", titleFooter: "Interface nova", alignment: "center", action: link, focus: true },
+      { type: "default", layout: "3,4,6,1", color: VID.n, title: "Usar o visual clássico", titleFooter: "Volta para as telas antigas nesta TV", alignment: "center", action: go({ a: "tema", t, v: "", d }) },
+    ] }] };
+  }
   const [usuario] = quemTxt.split(" · ");
   const cred = await lerToken(t);
   const linhas = cred ? await perfisDe(cred.u) : [];
@@ -1985,11 +1996,114 @@ const txtApp = (v: unknown, max = 600) => { const t = String(v ?? "").replace(/\
 const duracaoApp = (inf: any) => inf?.duration_secs ? Number(inf.duration_secs) : /^\d+$/.test(String(inf?.duration ?? "").trim()) ? Number(inf.duration) * 60 : /^\d+:\d+/.test(String(inf?.duration ?? "")) ? String(inf.duration).split(":").map(Number).reduce((a: number, b: number) => a * 60 + b, 0) : 0;
 const itemVod = (x: any) => ({ id: String(x.stream_id), nome: limparNome(String(x.name ?? "")), img: String(x.stream_icon || ""), r: nota(x.rating) ?? "", x: String(x.container_extension || "mp4") });
 const itemSerie = (x: any) => ({ id: String(x.series_id), nome: limparNome(String(x.name ?? "")), img: String(x.cover || ""), r: nota(x.rating) ?? "" });
+// ---------- TMDB (imagens, sinopse e elenco em português quando o provedor não tem) ----------
+const _tmdb = new Map<string, { em: number; v: any }>();
+const TMDB_IMG = "https://image.tmdb.org/t/p/";
+async function tmdbGet(caminho: string): Promise<any> {
+  const key = (Deno.env.get("TMDB_KEY") ?? Deno.env.get("TMDB_API_KEY") ?? "").trim();
+  if (!key) return null;
+  const c = _tmdb.get(caminho);
+  if (c && Date.now() - c.em < 24 * 3600_000) return c.v;
+  const v4 = key.length > 40;
+  const url = `https://api.themoviedb.org/3${caminho}${caminho.includes("?") ? "&" : "?"}${v4 ? "" : "api_key=" + encodeURIComponent(key)}`;
+  try {
+    const r = await fetch(url, { headers: v4 ? { authorization: `Bearer ${key}`, accept: "application/json" } : { accept: "application/json" }, signal: AbortSignal.timeout(4500) });
+    const v = r.ok ? await r.json() : null;
+    if (_tmdb.size > 2000) _tmdb.clear();
+    _tmdb.set(caminho, { em: Date.now(), v });
+    return v;
+  } catch { return null; }
+}
+// "Duna: Parte 2 (2024) [L] 4K" -> "Duna: Parte 2"
+const nomeLimpo = (n: string) => String(n ?? "").replace(/\[[^\]]*\]|\([^)]*\)/g, " ").replace(/\b(4k|uhd|fhd|hd|sd|leg|legendado|dub|dublado|nacional|h265|hevc|cam|ts)\b/gi, " ").replace(/\s*[-|:]\s*$/, "").replace(/\s+/g, " ").trim();
+type Extra = { fundo?: string; poster?: string; sin?: string; gen?: string; elenco?: string; nota?: string; ano?: string; trailer?: string };
+async function tmdbExtra(tipo: "movie" | "tv", nome: string, ano: string, tmdbId?: unknown): Promise<Extra | null> {
+  let id = String(tmdbId ?? "").replace(/\D/g, "");
+  if (!id) {
+    const q = nomeLimpo(nome); if (!q) return null;
+    const busca = await tmdbGet(`/search/${tipo}?language=pt-BR&query=${encodeURIComponent(q)}${/^\d{4}$/.test(ano) ? (tipo === "movie" ? "&year=" : "&first_air_date_year=") + ano : ""}`);
+    id = String(busca?.results?.[0]?.id ?? "");
+    if (!id && /^\d{4}$/.test(ano)) { const b2 = await tmdbGet(`/search/${tipo}?language=pt-BR&query=${encodeURIComponent(q)}`); id = String(b2?.results?.[0]?.id ?? ""); }
+    if (!id) return null;
+  }
+  const d = await tmdbGet(`/${tipo}/${id}?language=pt-BR&append_to_response=credits,videos`);
+  if (!d) return null;
+  const trailer = ((d.videos?.results ?? []) as any[]).find((v) => v.site === "YouTube" && v.type === "Trailer")?.key ?? "";
+  return {
+    fundo: d.backdrop_path ? TMDB_IMG + "w1280" + d.backdrop_path : "", poster: d.poster_path ? TMDB_IMG + "w500" + d.poster_path : "",
+    sin: txtApp(d.overview, 900), gen: ((d.genres ?? []) as any[]).map((g) => g.name).slice(0, 3).join(", "),
+    elenco: ((d.credits?.cast ?? []) as any[]).slice(0, 6).map((c) => c.name).join(", "), nota: d.vote_average ? Number(d.vote_average).toFixed(1) : "",
+    ano: String(d.release_date || d.first_air_date || "").slice(0, 4), trailer,
+  };
+}
+// canais da lista do provedor que passam um jogo (mesma regra da tela de jogo do MSX)
+async function canaisDoJogo(cred: Cred, j: Jogo) {
+  let cat: Catalogo | null = null;
+  try { cat = await catalogoAoVivo(cred); } catch (e) { if (e instanceof RelayNeed) throw e; }
+  const chaves = j.canaisLista.map(chaveDoCanal).filter((k) => k.length);
+  const cands: { c: CanalProv; nota: number; evento: boolean }[] = [];
+  for (const c of cat?.canais ?? []) {
+    const evento = !!cat?.evento && c.cat === cat.evento.id;
+    const p1 = pontosTime(c, j.casa.nome), p2 = pontosTime(c, j.fora.nome);
+    const porCanal = chaves.some((k) => contem(c.tokens, k));
+    const nomeaTimes = evento ? p1 + p2 > 0 : p1 > 0 && p2 > 0;
+    if (!nomeaTimes && !porCanal) continue;
+    cands.push({ c, evento, nota: (nomeaTimes ? (p1 + p2) * 10 : 0) + (porCanal ? 6 : 0) + (evento ? 4 : 0) + c.qual });
+  }
+  cands.sort((a, b) => b.nota - a.nota);
+  const vistos = new Set<string>(), out: { id: string; nome: string; cat: string }[] = [];
+  for (const x of cands) { if (vistos.has(x.c.base)) continue; vistos.add(x.c.base); out.push({ id: x.c.id, nome: x.c.nome, cat: cat?.cats.get(x.c.cat) ?? "" }); if (out.length >= 5) break; }
+  return { canais: out, evento: cat?.evento ?? null };
+}
 async function apiApp(cred: Cred, url: URL) {
   const P = url.searchParams, op = P.get("op") ?? "", k = P.get("k") ?? "live", c = P.get("c") ?? "", s = P.get("s") ?? "";
   const ACT: Record<string, [string, string]> = { live: ["get_live_categories", "get_live_streams"], vod: ["get_vod_categories", "get_vod_streams"], series: ["get_series_categories", "get_series"] };
   const A = ACT[k] ?? ACT.live;
   const eu = quem(cred);
+  if (op === "cfg") { // modelo dos endereços: a TV monta o link do vídeo sem perguntar ao servidor a cada canal
+    const b = cred.b ?? BASE_PROV, uu = encodeURIComponent(cred.u), pp = encodeURIComponent(cred.p);
+    const [perfis, vence] = await Promise.all([listaPerfis(cred.u).catch(() => [] as Perfil[]), venceDe(cred.u)]);
+    const d0 = P.get("d") ?? "";
+    return { ok: true, usuario: cred.u, pf: cred.pf || "p0", perfis: perfis.map((x) => ({ id: x.id, nome: x.nome, cor: x.cor, inf: x.infantil, av: avatar(x) })), vence, contato: CONTATO,
+      tpl: { live: `${b}/live/${uu}/${pp}/`, vod: `${b}/movie/${uu}/${pp}/`, series: `${b}/series/${uu}/${pp}/` }, contas: d0 ? await contasDe(d0) : [] };
+  }
+  if (op === "perfil") { // troca de perfil: novo token (histórico e favoritos são por perfil)
+    const pf = P.get("pf") ?? "p0";
+    if (!(await listaPerfis(cred.u)).some((x) => x.id === pf)) return { ok: false, erro: "perfil" };
+    const novo = await criarToken(cred.u, cred.p, cred.v, false, pf, !!cred.r);
+    const dev = idOk(P.get("d"));
+    if (dev) await salvarSessao(dev, novo);
+    return { ok: true, t: novo };
+  }
+  if (op === "conta") { // entrar com um usuário salvo nesta TV
+    const dev = idOk(P.get("d")), u = (P.get("u") ?? "").trim();
+    const p = await senhaSalva(dev, u);
+    if (!dev || !u || !p) return { ok: false, erro: "Senha salva não encontrada. Entre de novo pela tela de login." };
+    const x = await infoUsuario(u);
+    if (x.bloq) return { ok: false, erro: "Acesso bloqueado. Fale com o suporte." };
+    const au = await autenticar(u, p, x.b);
+    const cx = RC()!;
+    if (!au.ok && cx.need.size && cx.cap) throw new RelayNeed();
+    if (!au.ok) return { ok: false, erro: au.erroProv ? "Provedor indisponível. Tente de novo." : "Usuário ou senha incorretos." };
+    await registrarAcesso(u, dev, "login", "tv", (await tvDoAparelho(dev))?.mac ?? null);
+    await salvarVence(u, au.info);
+    if (au.dnsId) await fixarDnsDoUsuario(u, au.dnsId);
+    const tk = await criarToken(u, p);
+    await salvarSessao(dev, tk); await lembrarConta(dev, u, p);
+    return { ok: true, t: tk };
+  }
+  if (op === "tema") { const dev = idOk(P.get("d")); if (dev) await salvarTemaAparelho(dev, (P.get("v") ?? "").slice(0, 20)); return { ok: true }; }
+  if (op === "esquecer") { await esquecerConta(idOk(P.get("d")), (P.get("u") ?? "").trim()); return { ok: true }; }
+  if (op === "jogos") {
+    const js = (await jogosDoDia(5000)) ?? [];
+    return { ok: true, jogos: js.map((j) => ({ liga: j.liga, quando: j.quando, estado: j.estado, status: j.status, canal: j.transmissao, casa: { n: j.casa.nome, s: j.casa.sigla, g: j.casa.gols, l: j.casa.logo, c: j.casa.cor }, fora: { n: j.fora.nome, s: j.fora.sigla, g: j.fora.gols, l: j.fora.logo, c: j.fora.cor } })) };
+  }
+  if (op === "jogo") {
+    const js = (await jogosDoDia(5000)) ?? [];
+    const j = js.find((x) => x.casa.nome === (P.get("n1") ?? "") && x.fora.nome === (P.get("n2") ?? ""));
+    if (!j) return { ok: false, erro: "Jogo não encontrado" };
+    return { ok: true, ...(await canaisDoJogo(cred, j)) };
+  }
   if (op === "home") {
     const [l, hist, perfis, vence] = await Promise.all([juntos([listaApp(cred, "get_vod_streams"), listaApp(cred, "get_series")]), historicoDe(eu, ["filme", "ep", "live"], 60), perfisDe(cred.u).catch(() => [] as Perfil[]), venceDe(cred.u)]);
     const vods = (l[0] ?? []) as any[], series = (l[1] ?? []) as any[];
@@ -1999,10 +2113,11 @@ async function apiApp(cred: Cred, url: URL) {
     const recS = series.filter((x) => !fs || !fs(String(x.category_id), "series")).sort((a, b) => Number(b.last_modified || 0) - Number(a.last_modified || 0)).slice(0, 30);
     const candidatos = recV.filter((x) => x.stream_icon).slice(0, 6);
     const infos = await juntos(candidatos.map((x) => api(cred, `&action=get_vod_info&vod_id=${encodeURIComponent(String(x.stream_id))}`)));
+    const extras = await Promise.all(candidatos.map((x, i) => { const inf = (infos[i] as any)?.info ?? {}; return tmdbExtra("movie", String(x.name ?? ""), String(inf.releasedate || inf.release_date || "").slice(0, 4), inf.tmdb_id || inf.tmdb).catch(() => null); }));
     const destaques = candidatos.map((x, i) => {
-      const inf = (infos[i] as any)?.info ?? {};
-      const fundo = imgOk(inf.backdrop_path) || imgOk(inf.cover_big) || imgOk(inf.movie_image) || String(x.stream_icon);
-      return { ...itemVod(x), fundo, ano: String(inf.releasedate || inf.release_date || "").slice(0, 4), gen: txtApp(inf.genre, 60), sin: txtApp(inf.plot || inf.description, 320), dur: duracaoApp(inf) };
+      const inf = (infos[i] as any)?.info ?? {}, ex = extras[i] ?? {};
+      const fundo = ex.fundo || imgOk(inf.backdrop_path) || imgOk(inf.cover_big) || imgOk(inf.movie_image) || String(x.stream_icon);
+      return { ...itemVod(x), fundo, ano: String(inf.releasedate || inf.release_date || "").slice(0, 4) || ex.ano || "", gen: txtApp(inf.genre, 60) || ex.gen || "", sin: txtApp(inf.plot || inf.description, 320) || txtApp(ex.sin, 320), dur: duracaoApp(inf), r: nota(inf.rating) ?? ex.nota ?? "" };
     }).filter((d) => d.fundo);
     const perfil = perfis.find((x) => x.id === (cred.pf || "p0")) ?? null;
     return {
@@ -2032,18 +2147,20 @@ async function apiApp(cred: Cred, url: URL) {
       else if (o === "az") lst = [...lst].sort((a, b) => String(a.name).localeCompare(String(b.name)));
     }
     if (!c) anotarContagem(cred.u, k as any, lst.length);
-    const mapa: (x: any, i: number) => unknown = k === "live" ? (x: any, i: number) => ({ id: String(x.stream_id ?? ""), n: x.num ?? i + 1, nome: limparNome(String(x.name ?? "")), img: String(x.stream_icon || "") })
+    const mapa: (x: any, i: number) => unknown = k === "live" ? (x: any, i: number) => ({ id: String(x.stream_id ?? ""), n: x.num ?? i + 1, nome: limparNome(String(x.name ?? "")), img: String(x.stream_icon || ""), c: String(x.category_id ?? "") })
       : k === "vod" ? (x: any) => itemVod(x) : (x: any) => itemSerie(x);
-    return { ok: true, total: lst.length, itens: lst.slice(0, 6000).map(mapa) };
+    return { ok: true, total: lst.length, itens: lst.slice(0, k === "live" ? 8000 : 6000).map(mapa) };
   }
   if (op === "info" && k === "vod") {
     const [info, hist, favs] = await Promise.all([api(cred, `&action=get_vod_info&vod_id=${encodeURIComponent(s)}`), historicoDe(eu, ["filme"], 80), favoritosVod(eu, "v")]);
     const inf = info?.info ?? {}, md = info?.movie_data ?? {};
     const h = hist.find((x) => x.item_id === s);
+    const nomeF = limparNome(String(inf.name || md.name || "Filme")), anoF = String(inf.releasedate || inf.release_date || "").slice(0, 4);
+    const ex: Extra = (await tmdbExtra("movie", String(inf.name || md.name || ""), anoF, inf.tmdb_id || inf.tmdb).catch(() => null)) ?? {};
     return {
-      ok: true, id: s, nome: limparNome(String(inf.name || md.name || "Filme")), img: imgOk(inf.cover_big) || imgOk(inf.movie_image), fundo: imgOk(inf.backdrop_path) || imgOk(inf.cover_big) || imgOk(inf.movie_image),
-      ano: String(inf.releasedate || inf.release_date || "").slice(0, 4), dur: duracaoApp(inf), r: nota(inf.rating) ?? "", gen: txtApp(inf.genre, 80), sin: txtApp(inf.plot || inf.description, 900),
-      dir: txtApp(inf.director, 100), elenco: txtApp(inf.cast || inf.actors, 200), x: String(md.container_extension || "mp4"), trailer: youtubeId(inf.youtube_trailer) || "",
+      ok: true, id: s, nome: nomeF, img: imgOk(inf.cover_big) || imgOk(inf.movie_image) || ex.poster || "", fundo: ex.fundo || imgOk(inf.backdrop_path) || imgOk(inf.cover_big) || imgOk(inf.movie_image),
+      ano: anoF || ex.ano || "", dur: duracaoApp(inf), r: nota(inf.rating) ?? ex.nota ?? "", gen: txtApp(inf.genre, 80) || ex.gen || "", sin: txtApp(inf.plot || inf.description, 900) || ex.sin || "",
+      dir: txtApp(inf.director, 100), elenco: txtApp(inf.cast || inf.actors, 200) || ex.elenco || "", x: String(md.container_extension || "mp4"), trailer: youtubeId(inf.youtube_trailer) || ex.trailer || "",
       pos: h && emAndamento(h) ? h.pos : 0, fav: favs.some((f) => f.stream_id === s),
     };
   }
@@ -2057,10 +2174,12 @@ async function apiApp(cred: Cred, url: URL) {
       }),
     }));
     const ult = hist.find((x) => String(x.extra?.serie) === s);
+    const anoS = String(inf.releaseDate || inf.release_date || "").slice(0, 4);
+    const ex: Extra = (await tmdbExtra("tv", String(inf.name || ""), anoS, inf.tmdb_id || inf.tmdb).catch(() => null)) ?? {};
     return {
-      ok: true, id: s, nome: limparNome(String(inf.name || "Série")), img: imgOk(inf.cover), fundo: imgOk(inf.backdrop_path) || imgOk(inf.cover),
-      ano: String(inf.releaseDate || inf.release_date || "").slice(0, 4), r: nota(inf.rating) ?? "", gen: txtApp(inf.genre, 80), sin: txtApp(inf.plot, 900), elenco: txtApp(inf.cast, 200),
-      trailer: youtubeId(inf.youtube_trailer) || "", fav: favs.some((f) => f.stream_id === s), temps,
+      ok: true, id: s, nome: limparNome(String(inf.name || "Série")), img: imgOk(inf.cover) || ex.poster || "", fundo: ex.fundo || imgOk(inf.backdrop_path) || imgOk(inf.cover),
+      ano: anoS || ex.ano || "", r: nota(inf.rating) ?? ex.nota ?? "", gen: txtApp(inf.genre, 80) || ex.gen || "", sin: txtApp(inf.plot, 900) || ex.sin || "", elenco: txtApp(inf.cast, 200) || ex.elenco || "",
+      trailer: youtubeId(inf.youtube_trailer) || ex.trailer || "", fav: favs.some((f) => f.stream_id === s), temps,
       ultimo: ult ? { temp: String(ult.extra?.temp ?? ""), ep: String(ult.extra?.ep ?? ""), id: ult.item_id, pos: ult.pos, dur: ult.dur, andamento: emAndamento(ult) } : null,
     };
   }

@@ -24,7 +24,7 @@ body { font-family: "Manrope", "LG Smart UI", Roboto, "Segoe UI", Arial, sans-se
 #topo { position: absolute; left: 56px; right: 56px; top: 30px; height: 84px; z-index: 30; }
 #logo { position: absolute; left: 0; top: 6px; height: 70px; }
 #nav { position: absolute; left: 50%; top: 8px; -webkit-transform: translateX(-50%); transform: translateX(-50%); padding: 8px; border-radius: 40px; background: rgba(15,19,29,.72); border: 1px solid rgba(255,255,255,.07); white-space: nowrap; }
-.nv { display: inline-block; margin: 0 3px; padding: 14px 30px; border-radius: 30px; font-size: 26px; font-weight: 700; color: #9AA3B5; -webkit-transition: background .18s, color .18s, -webkit-transform .18s; transition: background .18s, color .18s, transform .18s; }
+.nv { display: inline-block; margin: 0 2px; padding: 14px 22px; border-radius: 30px; font-size: 26px; font-weight: 700; color: #9AA3B5; -webkit-transition: background .18s, color .18s, -webkit-transform .18s; transition: background .18s, color .18s, transform .18s; }
 .nv.ativo { color: #F4F1EA; background: rgba(255,255,255,.09); }
 .nv.f { color: #14100A; background: #F5B400; background: -webkit-linear-gradient(-45deg, #F5B400, #FF8A00); background: linear-gradient(135deg, #F5B400, #FF8A00); -webkit-transform: scale(1.05); transform: scale(1.05); }
 #hora { position: absolute; right: 0; top: 2px; text-align: right; }
@@ -192,6 +192,36 @@ body.vod #pl { display: block; }
 #bResTit { font-size: 22px; font-weight: 700; color: #9AA3B5; height: 50px; }
 #bGrade { position: absolute; left: 0; top: 50px; right: 0; bottom: 0; }
 
+/* ---------- jogos ---------- */
+#jGrade { position: absolute; left: 96px; top: 170px; right: 96px; bottom: 0; }
+.jg { position: absolute; width: 556px; height: 196px; box-sizing: border-box; padding: 22px 26px; border-radius: 20px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.06); -webkit-transition: -webkit-transform .15s; transition: transform .15s; }
+.jg.f { background: rgba(245,180,0,.12); border-color: #F5B400; -webkit-transform: scale(1.04); transform: scale(1.04); }
+.jg .lg { font-size: 18px; color: #9AA3B5; font-weight: 700; }
+.jg .st { position: absolute; right: 22px; top: 20px; font-size: 18px; font-weight: 800; padding: 4px 12px; border-radius: 8px; background: rgba(255,255,255,.08); }
+.jg .st.vivo { background: #EF4444; }
+.jg .tm { margin-top: 16px; height: 46px; font-size: 26px; font-weight: 800; }
+.jg .tm i { display: inline-block; width: 40px; height: 40px; margin-right: 14px; vertical-align: middle; background-size: contain; background-position: center; background-repeat: no-repeat; }
+.jg .tm b { float: right; font-size: 30px; color: #F5B400; }
+.jg .cn { position: absolute; left: 26px; bottom: 16px; right: 26px; font-size: 17px; color: #9AA3B5; }
+#jCanais { position: absolute; left: 0; top: 0; bottom: 0; width: 700px; padding: 90px 50px; box-sizing: border-box; background: rgba(7,9,15,.96); z-index: 35; display: none; }
+#jCanais.on { display: block; }
+#jCanais h2 { margin: 0 0 6px; font-size: 34px; } #jCanais p { margin: 0 0 26px; font-size: 20px; color: #9AA3B5; }
+#jCanais .lin { height: 84px; padding: 0 24px; background: rgba(255,255,255,.04); font-size: 24px; font-weight: 700; }
+#jCanais .lin .sub { font-size: 18px; color: #9AA3B5; font-weight: 600; margin-left: 14px; }
+#cTxt { position: absolute; left: 96px; top: 170px; }
+#cTxt h2 { margin: 0; font-size: 46px; font-weight: 800; } #cTxt p { margin: 8px 0 0; font-size: 24px; color: #9AA3B5; }
+.csec { position: absolute; left: 96px; font-size: 22px; font-weight: 700; color: #9AA3B5; }
+.pf { position: absolute; width: 170px; text-align: center; -webkit-transition: -webkit-transform .15s; transition: transform .15s; }
+.pf .av { width: 150px; height: 150px; margin: 0 auto; border-radius: 50%; background-size: cover; background-color: #1B2130; border: 4px solid rgba(255,255,255,0); }
+.pf.atual .av { border-color: rgba(245,180,0,.5); }
+.pf.f { -webkit-transform: scale(1.08); transform: scale(1.08); } .pf.f .av { border-color: #F5B400; }
+.pf .nm { margin-top: 12px; font-size: 22px; font-weight: 700; } .pf.f .nm { color: #F5B400; }
+.ct { position: absolute; height: 92px; width: 420px; box-sizing: border-box; padding: 16px 24px; border-radius: 18px; background: rgba(255,255,255,.05); -webkit-transition: -webkit-transform .15s; transition: transform .15s; }
+.ct b { display: block; font-size: 25px; } .ct span { font-size: 18px; color: #9AA3B5; }
+.ct.f { background: #F5B400; color: #14100A; -webkit-transform: scale(1.04); transform: scale(1.04); } .ct.f span { color: rgba(20,16,10,.7); }
+.lin .fav { color: #EF4444; margin-left: 10px; font-size: 20px; }
+.lin.f .fav { color: #7F1D1D; }
+
 #aviso { position: absolute; left: 50%; bottom: 60px; -webkit-transform: translateX(-50%) translateY(30px); transform: translateX(-50%) translateY(30px); padding: 18px 34px; border-radius: 18px; background: #1B2130; font-size: 24px; opacity: 0; -webkit-transition: opacity .25s, -webkit-transform .25s; transition: opacity .25s, transform .25s; z-index: 90; }
 #aviso.on { opacity: 1; -webkit-transform: translateX(-50%); transform: translateX(-50%); }
 </style>
@@ -216,7 +246,7 @@ body.vod #pl { display: block; }
     <div id="lvLado" class="col">
       <div id="tela"><div class="msg" id="lvMsg">Escolha um canal e aperte OK</div></div>
       <div id="lvInfo"><h2 class="ell" id="lvNome">&nbsp;</h2><div id="lvEpg"></div></div>
-      <div class="dica"><b>OK</b> assistir · 2× tela cheia &nbsp; <b>◀ ▶</b> trocar coluna</div>
+      <div class="dica"><b>OK</b> assistir · 2× tela cheia &nbsp; <b>◀ ▶</b> coluna &nbsp; <b style="background:#22A447">&nbsp;</b> favoritar</div>
     </div>
   </div>
 
@@ -240,6 +270,13 @@ body.vod #pl { display: block; }
     <div id="bRes"><div id="bResTit">Filmes, séries e canais</div><div id="bGrade"></div></div>
   </div>
 
+  <!-- jogos de hoje -->
+  <div class="tela" id="s-jogos"><div class="tit" style="position:absolute;left:96px;top:124px" id="jTit">Jogos de hoje</div><div id="jGrade"></div>
+    <div id="jCanais"><h2 class="ell" id="jcNome"></h2><p id="jcSub">Escolha onde assistir</p><div class="lista" id="jcLista" style="height:760px"></div></div></div>
+
+  <!-- conta: perfis, usuários salvos, plano -->
+  <div class="tela" id="s-conta"><div id="cTxt"><h2 id="cUsu"></h2><p id="cPlano"></p></div><div id="cItens"></div></div>
+
   <!-- player de filmes e séries (por cima do vídeo) -->
   <div id="pl"><div id="plTopo"><h2 class="ell" id="plNome"></h2><p id="plSub"></p></div>
     <div id="plMeio"></div><div id="plCarreg"></div>
@@ -250,7 +287,7 @@ body.vod #pl { display: block; }
   </div>
 
   <!-- TV ao vivo em tela cheia: faixa e lista -->
-  <div id="faixa"><h3 id="fn"></h3><p id="fp"></p><p style="font-size:20px;color:#9AA3B5;margin-top:14px">OK: lista de canais · ▲▼: trocar de canal · Voltar: sair da tela cheia</p></div>
+  <div id="faixa"><h3 id="fn"></h3><p id="fp"></p><p style="font-size:20px;color:#9AA3B5;margin-top:14px">OK: lista de canais · ▲▼: trocar de canal · verde: favoritar · Voltar: sair da tela cheia</p></div>
   <div id="zap"><div class="tit" id="zt">Canais</div><div class="lista" id="lz"></div></div>
 
   <div id="topo"><img id="logo" src="https://mktdigital91.github.io/msx/msx/img/logo-goldplay.png" alt=""><div id="nav"></div><div id="hora"><b id="hh">--:--</b><span id="dd"></span></div></div>
@@ -321,6 +358,17 @@ body.vod #pl { display: block; }
     if (rel) { x.setRequestHeader("Content-Type", "text/plain"); x.send(JSON.stringify({ rel: rel })); } else x.send();
   }
   function avisarVisto(o) { if (!DEMO) chamar(o, function () {}, function () {}); }
+  var AP = param("d"), CFG = null;
+  function ls(k, v) { try { if (v === undefined) { var t = localStorage.getItem(k); return t ? JSON.parse(t) : null; } localStorage.setItem(k, JSON.stringify(v)); } catch (e) { return null; } }
+  function carregarCfg(cb) {
+    if (DEMO) { CFG = { usuario: "demo", perfis: [{ id: "p0", nome: "Principal" }, { id: "p1", nome: "Kids" }], contas: ["demo", "outro"], tpl: null, pf: "p0", vence: agora() + 30 * 86400000 }; if (cb) cb(); return; }
+    chamar({ op: "cfg", d: AP }, function (r) { if (r && r.ok) CFG = r; if (cb) cb(); }, function () { if (cb) cb(); });
+  }
+  // endereço do vídeo montado aqui mesmo (sem ida ao servidor por canal): abre mais rápido
+  function abrirUrls(k, id, x, ok, erro) {
+    if (CFG && CFG.tpl && CFG.tpl[k]) { var b = CFG.tpl[k] + id; ok(k === "live" ? [b + ".m3u8", b + ".ts"] : [b + "." + (x || "mp4")]); return; }
+    chamar({ op: "url", k: k, s: id, x: x }, function (r) { ok(r.fontes || []); }, erro);
+  }
 
   // ---------- dados de exemplo (?demo=1) para conferir o visual fora da TV ----------
   function demo(o, ok) {
@@ -333,6 +381,8 @@ body.vod #pl { display: block; }
       else if (o.op === "itens") { if (o.k === "live") { var l = []; for (var j = 1; j <= 40; j++) l.push({ id: "l" + j, n: j, nome: "Canal " + j, img: "" }); ok({ ok: true, itens: l }); } else ok({ ok: true, itens: filmes(60, o.k === "series" ? "s" : "f") }); }
       else if (o.op === "info") ok({ ok: true, id: o.s, nome: "Título de exemplo", fundo: "", img: "", ano: "2026", dur: 6300, r: "7.8", gen: "Ação, Suspense", sin: "Sinopse de exemplo bem longa para ver como o texto se comporta na tela de detalhes do filme ou da série, com várias linhas e quebra automática.", dir: "Fulano de Tal", elenco: "Atriz Um, Ator Dois, Atriz Três", x: "mp4", pos: 900, fav: false, temps: o.k === "series" ? [{ n: "1", eps: filmes(8, "e").map(function (e, i) { return { id: "e" + i, ep: i + 1, nome: "Episódio " + (i + 1), x: "mp4", img: "", dur: 2700, pos: i === 1 ? 600 : 0 }; }) }, { n: "2", eps: filmes(6, "g").map(function (e, i) { return { id: "g" + i, ep: i + 1, nome: "Episódio " + (i + 1), x: "mp4", img: "", dur: 2700, pos: 0 }; }) }] : undefined, ultimo: null });
       else if (o.op === "epg") { var a = agora() - 1800000; ok({ ok: true, epg: [{ t: "Jornal da Tarde", i: a, f: a + 3600000 }, { t: "Futebol", i: a + 3600000, f: a + 9000000 }] }); }
+      else if (o.op === "jogos") ok({ ok: true, jogos: [{ liga: "Brasileirão", quando: agora() + 3600000, estado: "pre", status: "", canal: "Premiere", casa: { n: "Flamengo", g: "" }, fora: { n: "Palmeiras", g: "" } }, { liga: "Champions League", quando: agora() - 1800000, estado: "in", status: "35'", canal: "TNT", casa: { n: "Real Madrid", g: "1" }, fora: { n: "Bayern", g: "0" } }, { liga: "Copa do Brasil", quando: agora() - 9000000, estado: "post", status: "", canal: "", casa: { n: "Corinthians", g: "2" }, fora: { n: "Grêmio", g: "2" } }, { liga: "Premier League", quando: agora() + 7200000, estado: "pre", status: "", canal: "ESPN", casa: { n: "Arsenal", g: "" }, fora: { n: "Chelsea", g: "" } }] });
+      else if (o.op === "jogo") ok({ ok: true, canais: [{ id: "l1", nome: "PREMIERE 1 FHD", cat: "Eventos" }, { id: "l2", nome: "PREMIERE 1 HD", cat: "Esportes" }] });
       else if (o.op === "busca") ok({ ok: true, itens: filmes(10, "f").map(function (x) { x.k = "vod"; return x; }) });
       else ok({ ok: false });
     }, 150);
@@ -384,7 +434,7 @@ body.vod #pl { display: block; }
   // =====================================================================
   //  Navegação geral: topo + telas
   // =====================================================================
-  var NAV = [{ id: "home", t: "Início" }, { id: "live", t: "TV ao vivo" }, { id: "vod", t: "Filmes" }, { id: "series", t: "Séries" }, { id: "busca", t: "Pesquisar" }];
+  var NAV = [{ id: "home", t: "Início" }, { id: "live", t: "TV ao vivo" }, { id: "vod", t: "Filmes" }, { id: "series", t: "Séries" }, { id: "jogos", t: "Jogos" }, { id: "busca", t: "Pesquisar" }, { id: "conta", t: "Conta" }];
   var navI = 0, noTopo = false, atual = null, pilha = [];
   var TELAS = {};
   function navRender() {
@@ -407,7 +457,8 @@ body.vod #pl { display: block; }
       var els = document.querySelectorAll(".tela"); for (var i = 0; i < els.length; i++) els[i].className = "tela"; if (t.el) t.el.className = "tela on";
       noTopo = false; if (t.retomar) t.retomar(); else t.entrar(p.p); navRender(); return; }
     if (atual && atual.nome !== "home") { abrir("home"); return; }
-    sair();
+    if (agora() - tSair < 2500) { sairApp(); return; }
+    tSair = agora(); aviso("Aperte Voltar de novo para sair");
   }
   function sair() { if (history.length > 1) history.back(); else aviso("Use o botão Home do controle para sair"); }
 
@@ -440,7 +491,7 @@ body.vod #pl { display: block; }
       if (H.dados) { this.desenhar(); return; }
       $("heroNome").innerHTML = "Carregando…"; $("hFileiras").innerHTML = "";
       var self = this;
-      chamar({ op: "home" }, function (r) { H.dados = r; self.desenhar(); }, function () { $("heroNome").innerHTML = "Não foi possível carregar"; $("heroSin").innerHTML = "Aperte OK para tentar de novo."; H.falhou = true; });
+      chamar({ op: "home" }, function (r) { H.dados = r; self.desenhar(); setTimeout(function () { catsLive(function () {}, function () {}); todosCanais(function () {}, function () {}); }, 1500); }, function () { $("heroNome").innerHTML = "Não foi possível carregar"; $("heroSin").innerHTML = "Aperte OK para tentar de novo."; H.falhou = true; });
     },
     retomar: function () { modoVideo(""); pararVideo(); if (H.dados) this.desenhar(); },
     sair: function () { clearInterval(H.tDest); },
@@ -525,7 +576,7 @@ body.vod #pl { display: block; }
   // =====================================================================
   var L = { zona: "cats", cache: {}, tocando: "", canal: null, pedido: 0, cheia: false, zapAberto: false, zModo: "canais", faixaOculta: false, tFaixa: null };
   var lvCats = new Lista($("lvLc"), 70, function (c, k, f, s) { return '<div class="lin fx' + (f ? " f" : "") + (s ? " sel" : "") + '"><span class="cresce ell">' + esc(c.nome) + "</span>" + (c.q != null ? '<span class="q">' + c.q + "</span>" : "") + "</div>"; }, 12);
-  function linhaCanal(c, k, f) { return '<div class="lin fx' + (f ? " f" : "") + (c.id === L.tocando ? " tocando" : "") + '"><span class="n">' + esc(c.n) + '</span><span class="ic img" style="' + bgUrl(c.img) + '"></span><span class="nm cresce ell">' + esc(c.nome) + "</span></div>"; }
+  function linhaCanal(c, k, f) { return '<div class="lin fx' + (f ? " f" : "") + (c.id === L.tocando ? " tocando" : "") + '"><span class="n">' + esc(c.n) + '</span><span class="ic img" style="' + bgUrl(c.img) + '"></span><span class="nm cresce ell">' + esc(c.nome) + "</span>" + (LV.favs[c.id] ? '<span class="fav">♥</span>' : "") + "</div>"; }
   var lvCanais = new Lista($("lvLv"), 100, linhaCanal, 8);
   var CAB = { cab: 1, nome: "Categorias" };
   var zap = new Lista($("lz"), 92, function (c, k, f) {
@@ -534,9 +585,38 @@ body.vod #pl { display: block; }
     return linhaCanal(c, k, f);
   }, 9);
   function lvFocar(z) { L.zona = z; lvCats.ativa = z === "cats"; lvCanais.ativa = z === "canais"; lvCats.render(); lvCanais.render(); }
+  var LV = { todos: null, cats: null, esperam: [], carregando: false, favs: {} };
+  function chaveLS(n) { return "gp_" + n + "_" + ((CFG && CFG.usuario) || T.slice(-12)); }
+  // todos os canais vêm uma vez só (e ficam guardados na TV por 6 h); as categorias são filtradas aqui, na hora
+  function todosCanais(ok, erro) {
+    if (LV.todos) { ok(LV.todos); return; }
+    var g = ls(chaveLS("lv"));
+    if (g && g.v && agora() - g.em < 6 * 3600000) { LV.todos = g.v; ok(LV.todos); return; }
+    LV.esperam.push([ok, erro]); if (LV.carregando) return; LV.carregando = true;
+    chamar({ op: "itens", k: "live", c: "" }, function (r) {
+      LV.carregando = false; LV.todos = r.itens || []; ls(chaveLS("lv"), { em: agora(), v: LV.todos });
+      var e = LV.esperam; LV.esperam = []; for (var i = 0; i < e.length; i++) e[i][0](LV.todos);
+    }, function () { LV.carregando = false; var e = LV.esperam; LV.esperam = []; for (var i = 0; i < e.length; i++) if (e[i][1]) e[i][1](); });
+  }
+  function catsLive(ok, erro) {
+    if (LV.cats) { ok(LV.cats); return; }
+    var g = ls(chaveLS("lc")); if (g && g.v && agora() - g.em < 6 * 3600000) { LV.cats = g.v; ok(LV.cats); return; }
+    chamar({ op: "cats", k: "live" }, function (r) { LV.cats = r.cats || []; ls(chaveLS("lc"), { em: agora(), v: LV.cats }); ok(LV.cats); }, erro);
+  }
+  function carregarFavs() { chamar({ op: "itens", k: "live", c: "fav" }, function (r) { LV.favs = {}; var l = r.itens || []; for (var i = 0; i < l.length; i++) LV.favs[l[i].id] = 1; L.cache.fav = l; lvCanais.render(); }, function () {}); }
   function obterCanais(c, ok, erro) {
     if (L.cache[c.id]) { ok(L.cache[c.id]); return; }
-    chamar({ op: "itens", k: "live", c: c.id }, function (r) { var l = r.itens || []; L.cache[c.id] = l; c.q = l.length; lvCats.render(); ok(l); }, erro);
+    if (c.id === "fav") { chamar({ op: "itens", k: "live", c: "fav" }, function (r) { var l = r.itens || []; L.cache.fav = l; c.q = l.length; lvCats.render(); ok(l); }, erro); return; }
+    todosCanais(function (todos) {
+      var l = c.id ? [] : todos;
+      if (c.id) for (var i = 0; i < todos.length; i++) if (todos[i].c === c.id) l.push(todos[i]);
+      L.cache[c.id] = l; c.q = l.length; lvCats.render(); ok(l);
+    }, erro);
+  }
+  // ♥ favoritar canal (botão verde ou amarelo do controle)
+  function favCanal(c) {
+    if (!c || c.cab || !c.id) return;
+    chamar({ op: "fav", k: "live", s: c.id, n: c.nome, i: c.img || "" }, function (r) { if (r.fav) LV.favs[c.id] = 1; else delete LV.favs[c.id]; delete L.cache.fav; lvCanais.render(); zap.render(); aviso(r.fav ? "♥ " + c.nome + " nos favoritos" : c.nome + " saiu dos favoritos"); });
   }
   function lvAbrirCat(irPara, depois) {
     var c = lvCats.atual(); if (!c) return;
@@ -556,9 +636,9 @@ body.vod #pl { display: block; }
     $("lvNome").innerHTML = esc(c.nome); $("fn").innerHTML = esc(c.nome); $("fp").innerHTML = ""; $("lvEpg").innerHTML = "";
     $("lvMsg").innerHTML = "Abrindo…"; $("lvMsg").style.display = "block"; $("aoVivo").style.display = "none";
     if (!L.cheia) modoVideo("prev");
-    chamar({ op: "url", k: "live", s: c.id }, function (r) {
+      abrirUrls("live", c.id, "", function (f) {
       if (c.id !== L.tocando) return;
-      tocarFontes(r.fontes, function (ok) { if (c.id !== L.tocando) return; if (ok) { $("lvMsg").style.display = "none"; $("aoVivo").style.display = "block"; } else { $("lvMsg").innerHTML = "Não foi possível reproduzir"; $("lvMsg").style.display = "block"; } });
+      tocarFontes(f, function (ok) { if (c.id !== L.tocando) return; if (ok) { $("lvMsg").style.display = "none"; $("aoVivo").style.display = "block"; } else { $("lvMsg").innerHTML = "Não foi possível reproduzir"; $("lvMsg").style.display = "block"; } });
       avisarVisto({ op: "visto", tp: "live", s: c.id, n: c.nome, i: c.img || "" });
     }, function () { $("lvMsg").innerHTML = "Canal indisponível"; });
     chamar({ op: "epg", s: c.id }, function (r) { if (c.id === L.tocando) lvEpg(r.epg || []); });
@@ -599,8 +679,9 @@ body.vod #pl { display: block; }
       if (!lvCats.itens.length) {
         lvCats.vazio = '<div class="carreg">Carregando categorias…</div>'; lvCats.render();
         lvCanais.vazio = '<div class="vazio">Escolha uma categoria e aperte OK</div>'; lvCanais.render();
-        chamar({ op: "cats", k: "live" }, function (r) {
-          var l = [{ id: "", nome: "Todos os canais" }, { id: "fav", nome: "★  Favoritos" }], cs = r.cats || [];
+        carregarFavs(); todosCanais(function () {}, function () {});
+        catsLive(function (cs) {
+          var l = [{ id: "", nome: "Todos os canais" }, { id: "fav", nome: "♥  Favoritos" }];
           for (var i = 0; i < cs.length; i++) l.push(cs[i]);
           lvCats.usar(l, 0); lvCats.sel = -1; lvCats.render();
           if (p && p.canal) self.abrirCanal(p.canal);
@@ -615,6 +696,7 @@ body.vod #pl { display: block; }
     sair: function () { lvCheia(false); modoVideo(""); pararVideo(); L.tocando = ""; $("aoVivo").style.display = "none"; $("lvMsg").innerHTML = "Escolha um canal e aperte OK"; $("lvMsg").style.display = "block"; },
     focar: function () { lvFocar(L.zona); }, desfocar: function () { lvCats.ativa = false; lvCanais.ativa = false; lvCats.render(); lvCanais.render(); },
     tecla: function (k) {
+      if (k === 404 || k === 405) { favCanal(L.cheia && L.zapAberto ? zap.atual() : (L.zona === "canais" && !L.cheia ? lvCanais.atual() : L.canal)); return true; }
       if (L.cheia && L.zapAberto) {
         if (k === 38) zap.mover(-1); else if (k === 40) zap.mover(1); else if (k === 33) zap.mover(-8); else if (k === 34) zap.mover(8);
         else if (k === 13) zapOk(); else if (k === 37 && L.zModo === "canais") zapCats(); else if (k === 39 && L.zModo === "cats") zapOk();
@@ -836,9 +918,9 @@ body.vod #pl { display: block; }
       P.p = p; P.posIni = p.pos || 0; P.seek = 0; P.prox = null; clearInterval(P.tProx); $("plProx").style.display = "none";
       classe("semtopo", true); classe("vod", true); modoVideo("full");
       $("plNome").innerHTML = esc(p.nome); $("plSub").innerHTML = esc(p.sub || ""); $("plMeio").style.display = "none"; $("plCarreg").style.display = "block"; plMostrar(); plAtualizar();
-      chamar({ op: "url", k: p.k, s: p.id, x: p.x }, function (r) {
+      abrirUrls(p.k, p.id, p.x, function (f) {
         if (P.p !== p) return;
-        tocarFontes(r.fontes, function (ok) { if (P.p !== p) return; $("plCarreg").style.display = "none"; if (!ok) { aviso("Não foi possível reproduzir"); } });
+        tocarFontes(f, function (ok) { if (P.p !== p) return; $("plCarreg").style.display = "none"; if (!ok) { aviso("Não foi possível reproduzir"); } });
       }, function () { aviso("Não foi possível abrir o vídeo"); });
       clearInterval(P.tSalva); P.tSalva = setInterval(plSalvar, 20000);
     },
@@ -937,6 +1019,140 @@ body.vod #pl { display: block; }
   };
 
   // =====================================================================
+  //  TELA: Jogos de hoje
+  // =====================================================================
+  var J = { jogos: [], i: 0, em: 0, painel: false };
+  var jcLista = new Lista($("jcLista"), 92, function (c, k, f) { return '<div class="lin fx' + (f ? " f" : "") + '"><span class="cresce ell">' + esc(c.nome) + '</span><span class="sub">' + esc(c.cat || "") + "</span></div>"; }, 8);
+  function jTime(t, placar, st) { return '<div class="tm ell" style="' + st + '"><i style="' + bgUrl(t.l) + '"></i>' + esc(t.n) + (placar ? "<b>" + esc(t.g) + "</b>" : "") + "</div>"; }
+  function jRender() {
+    var h = "", foco = !noTopo && !J.painel;
+    if (!J.jogos.length) { $("jGrade").innerHTML = '<div class="vazio">' + (J.em ? "Nenhuma partida hoje." : "Carregando jogos…") + "</div>"; return; }
+    var linTopo = Math.max(0, Math.floor(J.i / 3) - 2);
+    for (var i = linTopo * 3; i < Math.min(J.jogos.length, linTopo * 3 + 12); i++) {
+      var j = J.jogos[i], c = i % 3, l = Math.floor(i / 3) - linTopo, vivo = j.estado === "in", fim = j.estado === "post";
+      var st = vivo ? "AO VIVO · " + esc(j.status) : fim ? "Encerrado" : hhmm(j.quando);
+      h += '<div class="jg' + (foco && i === J.i ? " f" : "") + '" style="left:' + (c * 586) + "px;top:" + (l * 226) + 'px"><div class="lg ell" style="width:330px">' + esc(j.liga) + '</div><span class="st' + (vivo ? " vivo" : "") + '">' + st + "</span>" + jTime(j.casa, vivo || fim, "") + jTime(j.fora, vivo || fim, "margin-top:4px") + "</div>";
+    }
+    $("jGrade").innerHTML = h;
+  }
+  TELAS.jogos = {
+    el: $("s-jogos"), secao: "jogos",
+    entrar: function () {
+      modoVideo(""); pararVideo(); J.painel = false; $("jCanais").className = ""; classe("semtopo", false); jRender();
+      if (J.em && agora() - J.em < 120000) return;
+      chamar({ op: "jogos" }, function (r) { J.jogos = r.jogos || []; J.em = agora(); J.i = Math.min(J.i, Math.max(0, J.jogos.length - 1)); $("jTit").innerHTML = J.jogos.length + " jogos hoje"; jRender(); }, function () { J.em = agora(); $("jGrade").innerHTML = '<div class="vazio">Placar indisponível agora.</div>'; });
+    },
+    retomar: function () { this.entrar(); },
+    focar: function () { jRender(); }, desfocar: function () { jRender(); },
+    tecla: function (k) {
+      if (J.painel) {
+        if (k === 38) jcLista.mover(-1); else if (k === 40) jcLista.mover(1);
+        else if (k === 13) { var c = jcLista.atual(); if (c) { J.painel = false; $("jCanais").className = ""; classe("semtopo", false); abrir("live", { canal: { id: c.id, nome: c.nome, img: "" } }); } }
+        return true;
+      }
+      var n = J.jogos.length; if (!n) { if (k === 38) { irTopo(); return true; } return false; }
+      if (k === 37) { if (J.i % 3 > 0) J.i--; jRender(); return true; }
+      if (k === 39) { if (J.i % 3 < 2 && J.i < n - 1) J.i++; jRender(); return true; }
+      if (k === 38) { if (J.i >= 3) { J.i -= 3; jRender(); } else irTopo(); return true; }
+      if (k === 40) { if (J.i + 3 < n) J.i += 3; else if (Math.floor(J.i / 3) < Math.floor((n - 1) / 3)) J.i = n - 1; jRender(); return true; }
+      if (k === 13) {
+        var j = J.jogos[J.i]; J.painel = true; $("jCanais").className = "on"; classe("semtopo", true); $("jcNome").innerHTML = esc(j.casa.n + " x " + j.fora.n); $("jcSub").innerHTML = "Procurando os canais…"; jcLista.ativa = true; jcLista.usar([]);
+        chamar({ op: "jogo", n1: j.casa.n, n2: j.fora.n }, function (r) {
+          var l = r.canais || []; $("jcSub").innerHTML = l.length ? "Escolha onde assistir" + (j.canal ? " · " + esc(j.canal) : "") : "Não achamos este jogo nos seus canais" + (j.canal ? " (passa em " + esc(j.canal) + ")" : "");
+          jcLista.vazio = '<div class="vazio">Procure em TV ao vivo › Eventos.</div>'; jcLista.usar(l);
+        }, function () { $("jcSub").innerHTML = "Falha ao procurar os canais"; });
+        return true;
+      }
+      return false;
+    },
+    voltar: function () { if (J.painel) { J.painel = false; $("jCanais").className = ""; classe("semtopo", false); jRender(); return true; } return false; }
+  };
+
+  // =====================================================================
+  //  TELA: Conta (perfis, usuários salvos nesta TV, plano, visual)
+  // =====================================================================
+  var C = { itens: [], i: 0 };
+  function trocarSessao(novo) {
+    T = novo; H.dados = null; LV.todos = null; LV.cats = null; L.cache = {}; G.catsPor = {}; lvCats.itens = []; CFG = null;
+    carregarCfg(function () { abrir("home"); });
+  }
+  function cMontar() {
+    var cf = CFG || {}, it = [];
+    var pfs = cf.perfis || []; for (var i = 0; i < pfs.length; i++) it.push({ tipo: "pf", v: pfs[i] });
+    var cs = cf.contas || []; for (var j = 0; j < cs.length; j++) it.push({ tipo: "ct", v: cs[j] });
+    it.push({ tipo: "op", a: "classico", t: "Visual clássico", s: "Volta para as telas antigas nesta TV" });
+    it.push({ tipo: "op", a: "sair", t: "Sair do app", s: "Fecha o Gold Play" });
+    C.itens = it; if (C.i >= it.length) C.i = 0;
+  }
+  function cRender() {
+    var cf = CFG || {}, h = "", foco = !noTopo, xp = 0, xc = 0, xo = 0;
+    $("cUsu").innerHTML = esc(cf.usuario || "");
+    var dias = cf.vence ? Math.ceil((cf.vence - agora()) / 86400000) : null;
+    $("cPlano").innerHTML = dias === null ? "" : dias <= 0 ? '<span style="color:#EF4444">Plano vencido</span>' + (cf.contato ? " · Renove: " + esc(cf.contato) : "") : "Plano ativo · vence em " + dias + " dia" + (dias > 1 ? "s" : "") + " (" + new Date(cf.vence).toLocaleDateString("pt-BR") + ")" + (dias <= 5 && cf.contato ? " · Renove: " + esc(cf.contato) : "");
+    h += '<div class="csec" style="top:300px">Quem está assistindo?</div>';
+    if ((cf.contas || []).length) h += '<div class="csec" style="top:610px">Usuários salvos nesta TV</div>';
+    h += '<div class="csec" style="top:' + ((cf.contas || []).length ? 800 : 610) + 'px">Opções</div>';
+    for (var i = 0; i < C.itens.length; i++) {
+      var x = C.itens[i], f = foco && i === C.i;
+      if (x.tipo === "pf") { h += '<div class="pf' + (f ? " f" : "") + (x.v.id === cf.pf ? " atual" : "") + '" style="left:' + (96 + xp * 200) + 'px;top:350px"><div class="av" style="' + bgUrl(x.v.av) + '"></div><div class="nm ell">' + esc(x.v.nome) + "</div></div>"; xp++; }
+      else if (x.tipo === "ct") { h += '<div class="ct' + (f ? " f" : "") + '" style="left:' + (96 + xc * 446) + 'px;top:654px"><b class="ell">' + esc(x.v) + "</b><span>" + (x.v === cf.usuario ? "Em uso agora" : "Entrar com este usuário") + "</span></div>"; xc++; }
+      else { h += '<div class="ct' + (f ? " f" : "") + '" style="left:' + (96 + xo * 446) + "px;top:" + ((cf.contas || []).length ? 844 : 654) + 'px"><b>' + esc(x.t) + "</b><span>" + esc(x.s) + "</span></div>"; xo++; }
+    }
+    $("cItens").innerHTML = h;
+  }
+  TELAS.conta = {
+    el: $("s-conta"), secao: "conta",
+    entrar: function () { modoVideo(""); pararVideo(); cMontar(); cRender(); var self = this; carregarCfg(function () { cMontar(); cRender(); }); },
+    retomar: function () { this.entrar(); },
+    focar: function () { cRender(); }, desfocar: function () { cRender(); },
+    tecla: function (k) {
+      var x = C.itens[C.i]; if (!x) return false;
+      function grupo(i) { return C.itens[i] ? C.itens[i].tipo : ""; }
+      if (k === 37) { if (C.i > 0 && grupo(C.i - 1) === x.tipo) C.i--; cRender(); return true; }
+      if (k === 39) { if (grupo(C.i + 1) === x.tipo) C.i++; cRender(); return true; }
+      if (k === 38) { var a = C.i; while (a >= 0 && grupo(a) === x.tipo) a--; if (a < 0) irTopo(); else { var t = grupo(a); while (a > 0 && grupo(a - 1) === t) a--; C.i = a; cRender(); } return true; }
+      if (k === 40) { var b = C.i; while (b < C.itens.length && grupo(b) === x.tipo) b++; if (b < C.itens.length) { C.i = b; cRender(); } return true; }
+      if (k === 13) {
+        if (x.tipo === "pf") { if (x.v.id === (CFG || {}).pf) { abrir("home"); return true; } chamar({ op: "perfil", pf: x.v.id, d: AP }, function (r) { if (r.t) { aviso("Perfil: " + x.v.nome); trocarSessao(r.t); } else aviso("Não foi possível trocar o perfil"); }); return true; }
+        if (x.tipo === "ct") { if (x.v === (CFG || {}).usuario) { abrir("home"); return true; } aviso("Entrando como " + x.v + "…"); chamar({ op: "conta", u: x.v, d: AP }, function (r) { if (r.t) trocarSessao(r.t); else aviso(r.erro || "Não foi possível entrar"); }, function () { aviso("Não foi possível entrar"); }); return true; }
+        if (x.a === "classico") { chamar({ op: "tema", v: "", d: AP }, function () { aviso("Visual clássico ativado"); setTimeout(sairApp, 900); }); return true; }
+        if (x.a === "sair") { sairApp(); return true; }
+      }
+      return false;
+    },
+    voltar: function () { return false; }
+  };
+
+  // =====================================================================
+  //  Monitoramento de travadas (igual ao player clássico): avisa o servidor, que alerta no Telegram
+  // =====================================================================
+  var TEL = { t0: 0, ct: null, pv: null, env: 0 };
+  function telEnviar(o) {
+    if (DEMO || !CFG || !CFG.usuario || TEL.env > 300) return; TEL.env++;
+    var f = fontes[fonteI] || "", h = (/^[a-z]+:\/\/([^\/?#]+)/i.exec(f) || [])[1] || "", nome = atual === TELAS.player && P.p ? P.p.nome : (L.canal ? L.canal.nome : "");
+    var qs = "a=tel&usr=" + encodeURIComponent(CFG.usuario) + "&h=" + encodeURIComponent(h) + "&c=" + encodeURIComponent(nome || "");
+    for (var k in o) if (o.hasOwnProperty(k) && o[k] !== null && o[k] !== undefined) qs += "&" + k + "=" + encodeURIComponent(o[k]);
+    try { var x = new XMLHttpRequest(); x.open("GET", API + "?" + qs); x.send(); } catch (e) {}
+  }
+  function medir(url, cb) { var t0 = agora(), feito = false, x = new XMLHttpRequest(); function fim(sem) { if (!feito) { feito = true; cb(sem ? -1 : agora() - t0); } } try { x.open("GET", url + (url.indexOf("?") < 0 ? "?" : "&") + "_=" + t0); x.timeout = 8000; x.onload = function () { fim(false); }; x.onerror = function () { fim(false); }; x.ontimeout = function () { fim(true); }; x.send(); } catch (e) { fim(true); } }
+  function telSondar() { TEL.ct = null; TEL.pv = null; medir(API + "?a=ping", function (ms) { TEL.ct = ms; }); var m = /^([a-z]+:\/\/[^\/?#]+)/i.exec(fontes[fonteI] || ""); if (m) medir(m[1] + "/", function (ms) { TEL.pv = ms; }); else TEL.pv = -2; }
+  v.addEventListener("waiting", function () { if (fontes.length && !TEL.t0 && v.currentTime > 0) { TEL.t0 = agora(); telSondar(); } });
+  v.addEventListener("playing", function () {
+    if (!TEL.t0) return; var dur = agora() - TEL.t0; TEL.t0 = 0; if (dur < 1500) return;
+    var n = 0; (function esp() { if ((TEL.ct !== null && TEL.pv !== null) || n++ > 45) telEnviar({ e: "travada", dur: dur, ct: TEL.ct, pv: TEL.pv === -2 ? null : TEL.pv }); else setTimeout(esp, 200); })();
+  });
+
+  // =====================================================================
+  //  Sair do app
+  // =====================================================================
+  var tSair = 0;
+  function sairApp() {
+    try { if (window.webOS && webOS.platformBack) { webOS.platformBack(); return; } } catch (e) {}
+    try { window.close(); } catch (e) {}
+    setTimeout(function () { if (history.length > 1) history.back(); }, 300);
+  }
+
+  // =====================================================================
   //  Controle remoto
   // =====================================================================
   var VOLTAR = { 461: 1, 10009: 1, 27: 1 };
@@ -962,7 +1178,7 @@ body.vod #pl { display: block; }
   //  Início
   // =====================================================================
   if (!T && !DEMO) aviso("Abra a nova interface pelas Configurações do app");
-  abrir("home");
+  carregarCfg(function () { abrir("home"); });
 })();
 </script>
 </body>
