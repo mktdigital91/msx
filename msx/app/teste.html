@@ -2,77 +2,81 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=1920, initial-scale=1">
 <title>Gold Play</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
   /* Gold Play: prova da interface própria. Palco fixo de 1920x1080, escalado para a tela da TV. */
-  :root {
-    --fundo: #07090F; --sup: #0F131D; --sup2: #161B28; --linha: rgba(255,255,255,.07);
-    --texto: #F4F1EA; --suave: #9AA3B5; --ouro: #F5B400; --ouro2: #FF8A00; --vivo: #EF4444;
-  }
-  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--fundo); }
-  body { font-family: "Manrope", "LG Smart UI", Roboto, "Segoe UI", Arial, sans-serif; color: var(--texto); }
-  #palco { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; overflow: hidden;
-    background: radial-gradient(1200px 700px at 78% 18%, rgba(245,180,0,.10), transparent 60%), radial-gradient(900px 600px at 10% 100%, rgba(255,138,0,.06), transparent 60%), var(--fundo); }
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #07090F; }
+  body { font-family: "Manrope", "LG Smart UI", Roboto, "Segoe UI", Arial, sans-serif; color: #F4F1EA; }
+  #palco { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; -webkit-transform-origin: 0 0; transform-origin: 0 0; overflow: hidden;
+    background: radial-gradient(1200px 700px at 78% 18%, rgba(245,180,0,.10), transparent 60%), radial-gradient(900px 600px at 10% 100%, rgba(255,138,0,.06), transparent 60%), #07090F; }
   /* topo */
   #topo { position: absolute; left: 56px; right: 56px; top: 34px; height: 84px; }
   #logo { position: absolute; left: 0; top: 6px; height: 72px; }
-  #nav { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); display: flex; gap: 6px; padding: 8px; border-radius: 40px; background: rgba(255,255,255,.04); border: 1px solid var(--linha); }
-  .nv { padding: 14px 30px; border-radius: 30px; font-size: 26px; font-weight: 700; color: var(--suave); transition: background .18s, color .18s, transform .18s; }
-  .nv.ativo { color: var(--texto); background: rgba(255,255,255,.08); }
-  .nv.f { color: #14100A; background: linear-gradient(135deg, var(--ouro), var(--ouro2)); transform: scale(1.04); }
+  #nav { position: absolute; left: 50%; top: 8px; -webkit-transform: translateX(-50%); transform: translateX(-50%); display: -webkit-flex; display: flex; padding: 8px; border-radius: 40px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); }
+  .nv { margin: 0 3px; padding: 14px 30px; border-radius: 30px; font-size: 26px; font-weight: 700; color: #9AA3B5; -webkit-transition: background .18s, color .18s, -webkit-transform .18s; transition: background .18s, color .18s, transform .18s; }
+  .nv.ativo { color: #F4F1EA; background: rgba(255,255,255,.08); }
+  .nv.f { color: #14100A; background: #F5B400; background: -webkit-linear-gradient(-45deg, #F5B400, #FF8A00); background: linear-gradient(135deg, #F5B400, #FF8A00); -webkit-transform: scale(1.04); transform: scale(1.04); }
   #hora { position: absolute; right: 0; top: 4px; text-align: right; }
   #hora b { display: block; font-size: 48px; font-weight: 800; letter-spacing: 1px; line-height: 1; }
-  #hora span { font-size: 21px; color: var(--suave); text-transform: capitalize; }
+  #hora span { font-size: 21px; color: #9AA3B5; text-transform: capitalize; }
   /* colunas */
   .col { position: absolute; top: 160px; bottom: 48px; }
-  .tit { font-size: 22px; font-weight: 700; color: var(--suave); margin: 0 0 14px 6px; height: 30px; }
+  .tit { font-size: 22px; font-weight: 700; color: #9AA3B5; margin: 0 0 14px 6px; height: 30px; }
   #cats { left: 56px; width: 420px; }
   #canais { left: 500px; width: 640px; }
   #lado { left: 1164px; right: 56px; }
   .lista { position: relative; overflow: hidden; }
   #cats .lista { height: 842px; }
   #canais .lista { height: 842px; }
-  .lin { position: relative; display: flex; align-items: center; box-sizing: border-box; border-radius: 16px; margin-bottom: 8px; transition: background .15s, transform .15s, box-shadow .15s; }
+  .lin { position: relative; display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; box-sizing: border-box; border-radius: 16px; margin-bottom: 8px; -webkit-transition: background .15s, -webkit-transform .15s, box-shadow .15s; transition: background .15s, transform .15s, box-shadow .15s; }
+  #cats .lin span:first-child { -webkit-box-flex: 1; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #cats .lin { height: 62px; padding: 0 22px; font-size: 24px; font-weight: 600; color: #D9DDE6; }
-  #cats .lin .q { margin-left: auto; font-size: 20px; color: var(--suave); font-weight: 600; }
-  #cats .lin.sel { color: var(--texto); background: rgba(255,255,255,.06); }
-  #cats .lin.sel:before { content: ""; position: absolute; left: 0; top: 16px; bottom: 16px; width: 4px; border-radius: 4px; background: var(--ouro); }
+  #cats .lin .q { margin-left: auto; font-size: 20px; color: #9AA3B5; font-weight: 600; }
+  #cats .lin.sel { color: #F4F1EA; background: rgba(255,255,255,.06); }
+  #cats .lin.sel:before { content: ""; position: absolute; left: 0; top: 16px; bottom: 16px; width: 4px; border-radius: 4px; background: #F5B400; }
   #canais .lin { height: 92px; padding: 0 20px; background: rgba(255,255,255,.025); }
-  #canais .lin .n { width: 64px; font-size: 22px; color: var(--suave); font-weight: 700; }
-  #canais .lin .ic { width: 64px; height: 64px; border-radius: 14px; background: #1B2130 center/contain no-repeat; margin-right: 20px; flex: none; }
-  #canais .lin .nm { font-size: 25px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #canais .lin.tocando .nm:after { content: "  ●"; color: var(--vivo); font-size: 18px; }
-  .lin.f { background: linear-gradient(135deg, var(--ouro), var(--ouro2)) !important; color: #14100A !important; transform: scale(1.025); box-shadow: 0 12px 36px rgba(245,180,0,.28); }
+  #canais .lin .n { width: 64px; font-size: 22px; color: #9AA3B5; font-weight: 700; }
+  #canais .lin .ic { width: 64px; height: 64px; border-radius: 14px; background-color: #1B2130; background-position: center; background-size: contain; background-repeat: no-repeat; margin-right: 20px; flex: none; }
+  #canais .lin .nm { -webkit-box-flex: 1; flex: 1; min-width: 0; font-size: 25px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #canais .lin.tocando .nm:after { content: "  ●"; color: #EF4444; font-size: 18px; }
+  .lin.f { background: #F5B400 !important; background: -webkit-linear-gradient(-45deg, #F5B400, #FF8A00) !important; background: linear-gradient(135deg, #F5B400, #FF8A00) !important; color: #14100A !important; -webkit-transform: scale(1.025); transform: scale(1.025); box-shadow: 0 12px 36px rgba(245,180,0,.28); }
   .lin.f .q, .lin.f .n { color: rgba(20,16,10,.7) !important; }
-  .barra { position: absolute; right: -14px; width: 4px; border-radius: 4px; background: rgba(255,255,255,.18); transition: top .15s; }
+  .barra { position: absolute; right: -14px; width: 4px; border-radius: 4px; background: rgba(255,255,255,.18); -webkit-transition: top .15s; transition: top .15s; }
   /* prévia */
-  #tela { position: relative; width: 700px; height: 394px; border-radius: 22px; overflow: hidden; background: #000; box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px var(--linha); }
+  #tela { position: relative; width: 700px; height: 394px; border-radius: 22px; overflow: hidden; background: #000; box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.07); }
   #tela video { width: 100%; height: 100%; object-fit: cover; background: #000; }
-  #tela .msg { position: absolute; left: 0; right: 0; top: 50%; margin-top: -16px; text-align: center; font-size: 24px; color: var(--suave); }
-  #tela .ao { position: absolute; left: 18px; top: 18px; padding: 6px 14px; border-radius: 10px; background: var(--vivo); font-size: 18px; font-weight: 800; letter-spacing: 1px; display: none; }
+  #tela .msg { position: absolute; left: 0; right: 0; top: 50%; margin-top: -16px; text-align: center; font-size: 24px; color: #9AA3B5; }
+  #tela .ao { position: absolute; left: 18px; top: 18px; padding: 6px 14px; border-radius: 10px; background: #EF4444; font-size: 18px; font-weight: 800; letter-spacing: 1px; display: none; }
   #info { margin-top: 28px; }
   #info h2 { margin: 0; font-size: 40px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .prog { margin-top: 18px; padding: 20px 24px; border-radius: 18px; background: rgba(255,255,255,.04); border: 1px solid var(--linha); }
-  .prog .h { font-size: 20px; color: var(--ouro); font-weight: 700; }
+  .prog { margin-top: 18px; padding: 20px 24px; border-radius: 18px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07); }
+  .prog .h { font-size: 20px; color: #F5B400; font-weight: 700; }
   .prog .t { font-size: 27px; font-weight: 700; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .prog .b { height: 6px; margin-top: 14px; border-radius: 6px; background: rgba(255,255,255,.1); overflow: hidden; }
-  .prog .b i { display: block; height: 100%; background: linear-gradient(90deg, var(--ouro), var(--ouro2)); }
+  .prog .b i { display: block; height: 100%; background: linear-gradient(90deg, #F5B400, #FF8A00); }
   .prog.prox { opacity: .7; }
-  #dica { position: absolute; bottom: 0; font-size: 20px; color: var(--suave); }
-  #dica b { color: var(--texto); padding: 2px 10px; border-radius: 8px; background: rgba(255,255,255,.08); margin: 0 4px; }
+  #dica { position: absolute; bottom: 0; font-size: 20px; color: #9AA3B5; }
+  #dica b { color: #F4F1EA; padding: 2px 10px; border-radius: 8px; background: rgba(255,255,255,.08); margin: 0 4px; }
   /* tela cheia */
   body.cheia #tela { position: absolute; left: -1164px; top: -160px; width: 1920px; height: 1080px; border-radius: 0; z-index: 5; }
   body.cheia #tela video { object-fit: contain; }
   #faixa { position: absolute; left: 0; right: 0; bottom: 0; padding: 60px 72px 56px; background: linear-gradient(transparent, rgba(0,0,0,.85)); z-index: 6; display: none; }
   body.cheia #faixa { display: block; }
   #faixa h3 { margin: 0; font-size: 46px; } #faixa p { margin: 6px 0 0; font-size: 26px; color: #DDD; }
-  #aviso { position: absolute; left: 50%; bottom: 60px; transform: translateX(-50%) translateY(30px); padding: 18px 34px; border-radius: 18px; background: #1B2130; font-size: 24px; opacity: 0; transition: opacity .25s, transform .25s; z-index: 9; }
-  #aviso.on { opacity: 1; transform: translateX(-50%); }
-  .vazio { padding: 24px; font-size: 22px; color: var(--suave); }
-  .carreg { padding: 24px; font-size: 22px; color: var(--suave); }
+  #aviso { position: absolute; left: 50%; bottom: 60px; -webkit-transform: translateX(-50%) translateY(30px); transform: translateX(-50%) translateY(30px); padding: 18px 34px; border-radius: 18px; background: #1B2130; font-size: 24px; opacity: 0; -webkit-transition: opacity .25s, -webkit-transform .25s; transition: opacity .25s, transform .25s; z-index: 9; }
+  #aviso.on { opacity: 1; -webkit-transform: translateX(-50%); transform: translateX(-50%); }
+  .vazio { padding: 24px; font-size: 22px; color: #9AA3B5; }
+  .carreg { padding: 24px; font-size: 22px; color: #9AA3B5; }
+  #zap { position: absolute; left: 0; top: 0; bottom: 0; width: 640px; padding: 70px 40px; box-sizing: border-box; background: rgba(7,9,15,.88); z-index: 7; display: none; }
+  #zap .tit { color: #F5B400; }
+  #zap .lista { height: 900px; }
+  #zap .lin { height: 84px; padding: 0 18px; background: rgba(255,255,255,.04); }
+  #zap .lin .n { width: 60px; font-size: 22px; color: #9AA3B5; font-weight: 700; }
+  #zap .lin .ic { width: 56px; height: 56px; border-radius: 12px; background-color: #1B2130; background-position: center; background-size: contain; background-repeat: no-repeat; margin-right: 18px; }
+  #zap .lin .nm { -webkit-box-flex: 1; flex: 1; min-width: 0; font-size: 24px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.zap #zap { display: block; }
 </style>
 </head>
 <body>
@@ -89,7 +93,8 @@
     <div id="info"><h2 id="nome">&nbsp;</h2><div id="epg"></div></div>
     <div id="dica"><b>OK</b> tela cheia &nbsp; <b>◀ ▶</b> trocar coluna &nbsp; <b>Voltar</b> sair</div>
   </div>
-  <div id="faixa"><h3 id="fn"></h3><p id="fp"></p></div>
+  <div id="zap"><div class="tit" id="zt">Canais</div><div class="lista" id="lz"></div></div>
+  <div id="faixa"><h3 id="fn"></h3><p id="fp"></p><p style="font-size:20px;color:#9AA3B5;margin-top:14px">OK: lista de canais · ▲▼: trocar de canal · Voltar: sair da tela cheia</p></div>
   <div id="aviso"></div>
 </div>
 <script>
@@ -102,7 +107,11 @@
   function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
 
   // ---------- palco 1920x1080 escalado para a tela ----------
-  function escalar() { var k = Math.min(window.innerWidth / 1920, window.innerHeight / 1080); $("palco").style.transform = "scale(" + k + ")"; }
+  function escalar() {
+    var w = document.documentElement.clientWidth || window.innerWidth, h = document.documentElement.clientHeight || window.innerHeight;
+    var k = Math.min(w / 1920, h / 1080), st = $("palco").style;
+    st.webkitTransform = "scale(" + k + ")"; st.transform = "scale(" + k + ")";
+  }
   window.addEventListener("resize", escalar); escalar();
 
   // ---------- relógio (hora da própria TV) ----------
@@ -233,15 +242,31 @@
     if (l[1]) h += '<div class="prog prox"><div class="h">A seguir · ' + hhmm(l[1].i) + '</div><div class="t">' + esc(l[1].t) + "</div></div>";
     $("epg").innerHTML = h; $("fp").innerHTML = esc(a.t);
   }
-  var cheia = false, tFaixa;
-  function telaCheia(sim) { cheia = sim; document.body.className = sim ? "cheia" : ""; if (sim) { clearTimeout(tFaixa); $("faixa").style.opacity = 1; tFaixa = setTimeout(function () { $("faixa").style.opacity = 0; }, 4000); } }
+  var cheia = false, zapAberto = false, tFaixa;
+  function classes() { document.body.className = (cheia ? "cheia" : "") + (zapAberto ? " zap" : ""); }
+  function telaCheia(sim) { cheia = sim; if (!sim) zapAberto = false; classes(); if (sim) { clearTimeout(tFaixa); $("faixa").style.opacity = 1; tFaixa = setTimeout(function () { $("faixa").style.opacity = 0; }, 4500); } }
+  // lista de canais por cima do vídeo (tela cheia): OK abre, ▲▼ navega, OK troca, Voltar fecha
+  var zap = new Lista($("lz"), 92, function (c, k, f) {
+    return '<div class="lin' + (f ? " f" : "") + (c.id === tocandoId ? " tocando" : "") + '"><span class="n">' + esc(c.n) + '</span><span class="ic"' + (c.img ? ' style="background-image:url(\'' + esc(c.img).replace(/'/g, "%27") + '\')"' : "") + '></span><span class="nm">' + esc(c.nome) + "</span></div>";
+  });
+  function abrirZap() { zapAberto = true; zap.ativa = true; $("zt").innerHTML = esc((cats.itens[cats.sel] || {}).nome || "Canais"); var i = 0; for (var k = 0; k < canais.itens.length; k++) if (canais.itens[k].id === tocandoId) { i = k; break; } classes(); zap.vis = 9; zap.usar(canais.itens, i); $("faixa").style.opacity = 0; }
 
   // ---------- controle remoto ----------
   var VOLTAR = { 461: 1, 10009: 1, 8: 1, 27: 1 };
   function sair() { if (history.length > 1) history.back(); else aviso("Use o botão Home do controle para sair"); }
   document.addEventListener("keydown", function (e) {
     var k = e.keyCode, usado = true;
+    if (cheia && zapAberto) {
+      if (VOLTAR[k]) { zapAberto = false; classes(); }
+      else if (k === 38) zap.mover(-1);
+      else if (k === 40) zap.mover(1);
+      else if (k === 33) zap.mover(-8);
+      else if (k === 34) zap.mover(8);
+      else if (k === 13) { var z = zap.atual(); canais.i = zap.i; canais.ajustar(); tocar(z); zapAberto = false; classes(); telaCheia(true); }
+      e.preventDefault(); return;
+    }
     if (cheia) {
+      if (k === 13) { abrirZap(); e.preventDefault(); return; }
       if (VOLTAR[k]) telaCheia(false);
       else if (k === 38 || k === 427) { if (canais.mover(-1)) tocar(canais.atual()); telaCheia(true); }
       else if (k === 40 || k === 428) { if (canais.mover(1)) tocar(canais.atual()); telaCheia(true); }
