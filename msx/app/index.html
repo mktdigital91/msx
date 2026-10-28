@@ -53,6 +53,8 @@ body.semtopo #topo { display: none; }
 .card.f .cp:after { border-color: #F5B400; box-shadow: 0 0 0 2px rgba(245,180,0,.35); }
 .card .nm { margin-top: 12px; font-size: 21px; font-weight: 700; color: #D9DDE6; }
 .card.f .nm { color: #F5B400; }
+.nm.rola { text-overflow: clip; }
+.nm.rola span { display: inline-block; white-space: nowrap; }
 .card .nota { position: absolute; right: 10px; top: 10px; padding: 4px 10px; border-radius: 9px; background: rgba(7,9,15,.82); font-size: 17px; font-weight: 800; color: #F5B400; }
 .card .pg { position: absolute; left: 0; right: 0; bottom: 0; height: 7px; background: rgba(0,0,0,.6); }
 .card .pg i { display: block; height: 100%; background: #F5B400; }
@@ -603,6 +605,31 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
   }
   function irTopo() { noTopo = true; for (var i = 0; i < NAV.length; i++) if (atual && NAV[i].id === atual.secao) navI = i; if (atual && atual.desfocar) atual.desfocar(); navRender(); }
   function sairTopo() { noTopo = false; navRender(); if (atual && atual.focar) atual.focar(); }
+
+  // ---------- título longo: com o seletor parado na capa, o nome rola para mostrar o resto ----------
+  (function () {
+    var alvo = null, tm = null;
+    function parar() { if (tm) { clearTimeout(tm); tm = null; } }
+    function ciclo(el, sp, d) {
+      var dur = Math.max(2, d / 70);
+      sp.style.webkitTransition = sp.style.transition = "none"; sp.style.webkitTransform = sp.style.transform = "translateX(0)";
+      tm = setTimeout(function () {
+        if (alvo !== el) return;
+        sp.style.webkitTransition = sp.style.transition = "-webkit-transform " + dur + "s linear, transform " + dur + "s linear";
+        sp.style.webkitTransform = sp.style.transform = "translateX(-" + d + "px)";
+        tm = setTimeout(function () { if (alvo === el) ciclo(el, sp, d); }, dur * 1000 + 1600);
+      }, 1200);
+    }
+    setInterval(function () {
+      var el = document.querySelector(".card.f .nm.ell, .ep.f .nm.ell, .pf.f .nm.ell");
+      if (el === alvo) return;
+      parar(); alvo = el;
+      if (!el || el.scrollWidth <= el.clientWidth + 2) return;
+      var sp = document.createElement("span"); while (el.firstChild) sp.appendChild(el.firstChild); el.appendChild(sp);
+      el.className += " rola";
+      ciclo(el, sp, sp.offsetWidth - el.clientWidth + 6);
+    }, 300);
+  })();
   var PROX = "";
   function abrir(nome, p, empilhar) {
     PROX = nome; if (atual && atual.sair) atual.sair();
