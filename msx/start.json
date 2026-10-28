@@ -1,6 +1,6 @@
 {
     "name": "Gold Play",
     "version": "0.3.0",
-    "parameter": "content:request:interaction:init@https://mktdigital91.github.io/msx/msx/mira.html",
+    "parameter": "content:request:interaction:init@https://xunix.shop/msx/mira.html",
     "welcome": "none"
 }

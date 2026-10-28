@@ -17,7 +17,7 @@ const CORS = {
   "cache-control": "no-store",
 };
 
-const IMG = "https://mktdigital91.github.io/msx/msx/img/";
+const IMG = "https://xunix.shop/msx/img/";
 let LOGO = IMG + "logo-goldplay.png";
 let FUNDO_CFG = ""; // imagem de fundo escolhida no painel (vazio = fundos padrão)
 // ---------- temas do app (painel > Personalizar app) ----------
@@ -495,8 +495,8 @@ async function aparelhoDoToken(t: string): Promise<string | null> {
     return Array.isArray(j) && j[0] ? (j[0].aparelho as string) : null;
   } catch { return null; }
 }
-const PLUGIN = "https://mktdigital91.github.io/msx/msx/mira.html";
-const PAGINA_CELULAR = "https://mktdigital91.github.io/msx/entrar/";
+const PLUGIN = "https://xunix.shop/msx/mira.html";
+const PAGINA_CELULAR = "https://xunix.shop/entrar/";
 
 const normMac = (v: unknown) => { const h = String(v ?? "").toUpperCase().replace(/[^0-9A-F]/g, ""); return h.length === 10 ? h.replace(/(..)(?=.)/g, "$1:") : ""; };
 async function tvPorMac(mac: string): Promise<{ aparelho: string; bloqueado: boolean } | null> {
@@ -646,7 +646,7 @@ const pn = (o: Record<string, string | number>) => RC()?.cap && RC()?.relay
 // endereço do vídeo passando pelo servidor: a TV (e qualquer mensagem de erro) não vê o DNS nem usuário/senha do provedor
 const fluxo = (tipo: string, t: string, id: string | number, ext: string) => `${SELF()}/v/${tipo}/${t}/${encodeURIComponent(String(id))}.${ext.replace(/[^a-z0-9]/gi, "")}`;
 // toca pelo player próprio (msx/player.html): erro em português e sem mostrar nenhum link; canais tentam .ts e depois .m3u8
-const PLAYER = "https://mktdigital91.github.io/msx/msx/player.html";
+const PLAYER = "https://xunix.shop/msx/player.html";
 // o player recebe o endereço direto do provedor (codificado, nunca exibido): sem passar pelo servidor, abre mais rápido
 // reg: o player avisa o servidor o que está tocando (Continuar assistindo / Últimos canais)
 type Reg = { t: string; tp: "live" | "filme" | "ep"; nome: string; icone?: string; extra?: Record<string, unknown> };
@@ -2411,7 +2411,7 @@ async function apiApp(cred: Cred, url: URL) {
   }
   return { ok: false, erro: "op" };
 }
-const APP_NOVO = "https://mktdigital91.github.io/msx/msx/app/index.html";
+const APP_NOVO = "https://xunix.shop/msx/app/index.html";
 const ORDENS: Record<string, string> = { "": "Padrão", rec: "Recentes", nota: "Nota", az: "A–Z" };
 const PROX_ORDEM: Record<string, string> = { "": "rec", rec: "nota", nota: "az", az: "" };
 function ordenar(lst: any[], o: string) {

@@ -37,7 +37,7 @@
     x.ontimeout = erro;
     x.send();
   }
-  var PLUGIN = 'https://mktdigital91.github.io/msx/msx/mira.html';
+  var PLUGIN = 'https://xunix.shop/msx/mira.html';
   var telas = {};
 
   // Servidores que não deixam o Supabase falar com eles: o servidor pede, a TV busca no provedor
@@ -106,11 +106,11 @@
   var NOMES_SECAO = { live: 'TV ao vivo', vod: 'Filmes', series: 'Séries' };
   var VID_N = 'rgba(10,12,28,0.62)', VID_OURO = 'rgba(245,180,0,0.32)';
   var FUNDOS = { live: 'bg-tv.jpg', vod: 'bg-filmes.jpg', series: 'bg-series.jpg' };
-  var IMG = 'https://mktdigital91.github.io/msx/msx/img/';
+  var IMG = 'https://xunix.shop/msx/img/';
   // cores e imagens do tema escolhido no painel (vêm junto com o catálogo)
   var TEMAS_PLUGIN = {
-    classico: { img: 'https://mktdigital91.github.io/msx/msx/img/', n: 'rgba(10,12,28,0.62)', ouro: 'rgba(245,180,0,0.32)' },
-    onix: { img: 'https://mktdigital91.github.io/msx/msx/img/temas/onix/', n: 'rgba(18,17,21,0.72)', ouro: 'rgba(214,178,94,0.30)' }
+    classico: { img: 'https://xunix.shop/msx/img/', n: 'rgba(10,12,28,0.62)', ouro: 'rgba(245,180,0,0.32)' },
+    onix: { img: 'https://xunix.shop/msx/img/temas/onix/', n: 'rgba(18,17,21,0.72)', ouro: 'rgba(214,178,94,0.30)' }
   };
   function aplicarTema(tm) { if (tm.img) { IMG = tm.img; } if (tm.n) { VID_N = tm.n; } if (tm.ouro) { VID_OURO = tm.ouro; } }
   function chaveCat() { return BUSCA.t.slice(-32) + '|' + BUSCA.k; }
@@ -256,14 +256,14 @@
 
   // splash: aparece na hora em que o app abre e é trocado pela tela inicial assim que ela fica pronta
   var telaPronta = null;
-  var SPLASH = { type: 'pages', flag: 'splash', transparent: 0, background: 'https://mktdigital91.github.io/msx/msx/img/splash.gif',
-    pages: [{ items: [{ type: 'space', layout: '0,0,12,6', offset: '-1,-1,2,2', image: 'https://mktdigital91.github.io/msx/msx/img/splash.gif', imageFiller: 'cover', enable: false },
+  var SPLASH = { type: 'pages', flag: 'splash', transparent: 0, background: 'https://xunix.shop/msx/img/splash.gif',
+    pages: [{ items: [{ type: 'space', layout: '0,0,12,6', offset: '-1,-1,2,2', image: 'https://xunix.shop/msx/img/splash.gif', imageFiller: 'cover', enable: false },
       { type: 'default', layout: '0,0,1,1', offset: '-5,-5,0,0', color: 'transparent', action: '[]', focus: true }] }] };
   // menu do MSX em português (Início, Configurações, Sair do app…) — aplicado uma vez ao abrir
   var dicionarioOk = false;
   function aplicarDicionario() {
     if (dicionarioOk) { return; } dicionarioOk = true;
-    setTimeout(function () { try { TVXInteractionPlugin.executeAction('dictionary:https://mktdigital91.github.io/msx/msx/pt-br.json'); } catch (e) { } }, 300);
+    setTimeout(function () { try { TVXInteractionPlugin.executeAction('dictionary:https://xunix.shop/msx/pt-br.json'); } catch (e) { } }, 300);
   }
   function abrir(id, callback, acao, semSplash) {
     aplicarDicionario();
