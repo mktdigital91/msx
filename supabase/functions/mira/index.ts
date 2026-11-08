@@ -1989,7 +1989,8 @@ async function listaApp(cred: Cred, acao: string, minutos = 10): Promise<any[]> 
   const k = `${cred.u}|${acao}`, c = _appCache.get(k);
   if (c && Date.now() - c.em < minutos * 60_000) return c.v as any[];
   const d = await api(cred, `&action=${acao}`);
-  const v = Array.isArray(d) ? d : [];
+  if (!Array.isArray(d)) throw new Error("provedor sem lista"); // não guarda falha no cache
+  const v = d;
   if (_appCache.size > 80) _appCache.clear();
   _appCache.set(k, { em: Date.now(), v });
   return v;
