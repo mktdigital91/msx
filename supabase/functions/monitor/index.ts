@@ -92,7 +92,7 @@ async function sondar(d: Dns) {
     const r = await fetch(`${base}/player_api.php`, { signal: AbortSignal.timeout(TIMEOUT_MS), redirect: "manual", headers: { "user-agent": "Mozilla/5.0 (GoldPlay monitor)" } });
     const ms = Math.round(performance.now() - t0);
     try { await r.body?.cancel(); } catch { /* ignora */ }
-    if (r.status >= 500) return { ok: false, status: r.status, ms, erro: `HTTP ${r.status}` };
+    if (r.status >= 500 || r.status === 404) return { ok: false, status: r.status, ms, erro: r.status === 404 ? "HTTP 404: o servidor não responde como painel IPTV (endereço mudou?)" : `HTTP ${r.status}` };
     return { ok: true, status: r.status, ms, erro: null as string | null };
   } catch (e) {
     const ms = Math.round(performance.now() - t0);
