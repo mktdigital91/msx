@@ -170,6 +170,11 @@ body.zap #zap { display: block; }
 #pl { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 60; display: none; }
 body.vod #pl { display: block; }
 #plTopo { position: absolute; left: 0; right: 0; top: 0; padding: 50px 72px 90px; background: -webkit-linear-gradient(top, rgba(0,0,0,.8), rgba(0,0,0,0)); background: linear-gradient(180deg, rgba(0,0,0,.8), rgba(0,0,0,0)); }
+#plTopo { padding-left: 176px; }
+#plVolta { position: absolute; left: 72px; top: 44px; width: 76px; height: 76px; border-radius: 50%; background: rgba(255,255,255,.14); }
+#plVolta svg { position: absolute; left: 18px; top: 18px; width: 40px; height: 40px; fill: #FFFFFF; }
+#plVolta.f { background: #F5B400; }
+#plVolta.f svg { fill: #14100A; }
 #plTopo h2 { margin: 0; font-size: 44px; font-weight: 800; }
 #plTopo p { margin: 6px 0 0; font-size: 24px; color: #C7CCD6; }
 #plBase { position: absolute; left: 0; right: 0; bottom: 0; padding: 90px 72px 60px; background: -webkit-linear-gradient(top, rgba(0,0,0,0), rgba(0,0,0,.88)); background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.88)); }
@@ -381,13 +386,13 @@ body.vfull #falha { display: none; }
   <div class="tela" id="s-conta"><div id="cTxt"><h2 id="cUsu"></h2><p id="cPlano"></p></div><div id="cItens"></div></div>
 
   <!-- player de filmes e séries (por cima do vídeo) -->
-  <div id="pl"><div id="plTopo"><h2 class="ell" id="plNome"></h2><p id="plSub"></p></div>
+  <div id="pl"><div id="plTopo"><span id="plVolta"><svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></span><h2 class="ell" id="plNome"></h2><p id="plSub"></p></div>
     <div id="plMeio"></div><div id="plCarreg"></div>
     <div id="plProx"><b>Próximo episódio em <span id="plSeg" style="display:inline;font-size:20px;margin:0">8</span>s</b><span class="ell" id="plProxNome"></span></div>
     <div id="plBase"><div id="plBarra"><div class="ok" id="plOk"></div><div class="bol" id="plBol"></div></div>
       <div id="plTempos"><span id="plAtual">0:00</span><span class="dir" id="plTotal">0:00</span></div>
       <div id="plBts"></div>
-      <div id="plDica"><b>OK</b> pausar &nbsp; <b>◀ ▶</b> voltar/avançar 10 s &nbsp; <b>▼</b> botões &nbsp; <b>Voltar</b> sair</div></div>
+      <div id="plDica"><b>OK</b> pausar &nbsp; <b>◀ ▶</b> voltar/avançar 10 s &nbsp; <b>▲</b> seta voltar &nbsp; <b>▼</b> botões &nbsp; <b>Voltar</b> sair</div></div>
   </div>
 
   <!-- TV ao vivo em tela cheia: faixa e lista -->
@@ -804,18 +809,26 @@ body.vfull #falha { display: none; }
   // todos os canais vêm uma vez só (e ficam guardados na TV por 6 h); as categorias são filtradas aqui, na hora
   function todosCanais(ok, erro) {
     if (LV.todos) { ok(LV.todos); return; }
-    var g = ls(chaveLS("lv"));
+    var g = ls(chaveLS("lv2"));
     if (g && g.v && agora() - g.em < 6 * 3600000) { LV.todos = g.v; ok(LV.todos); return; }
     LV.esperam.push([ok, erro]); if (LV.carregando) return; LV.carregando = true;
-    chamar({ op: "itens", k: "live", c: "" }, function (r) {
-      LV.carregando = false; LV.todos = r.itens || []; ls(chaveLS("lv"), { em: agora(), v: LV.todos });
-      var e = LV.esperam; LV.esperam = []; for (var i = 0; i < e.length; i++) e[i][0](LV.todos);
-    }, function () { LV.carregando = false; var e = LV.esperam; LV.esperam = []; for (var i = 0; i < e.length; i++) if (e[i][1]) e[i][1](); });
+    // o servidor entrega no máximo 1000 por vez: busca em páginas até completar a lista
+    var junto = [];
+    var falhou = function () { LV.carregando = false; var e = LV.esperam; LV.esperam = []; for (var i = 0; i < e.length; i++) if (e[i][1]) e[i][1](); };
+    var pagina = function (ini) {
+      chamar({ op: "itens", k: "live", c: "", ini: ini, lim: 1000 }, function (r) {
+        var l = r.itens || []; for (var i = 0; i < l.length; i++) junto.push(l[i]);
+        if (l.length && junto.length < (r.total || 0) && ini < 20000) { pagina(junto.length); return; }
+        LV.carregando = false; LV.todos = junto; if (junto.length) ls(chaveLS("lv2"), { em: agora(), v: junto });
+        var e = LV.esperam; LV.esperam = []; for (var j = 0; j < e.length; j++) e[j][0](LV.todos);
+      }, falhou);
+    };
+    pagina(0);
   }
   function catsLive(ok, erro) {
     if (LV.cats) { ok(LV.cats); return; }
-    var g = ls(chaveLS("lc")); if (g && g.v && agora() - g.em < 6 * 3600000) { LV.cats = g.v; ok(LV.cats); return; }
-    chamar({ op: "cats", k: "live" }, function (r) { LV.cats = r.cats || []; ls(chaveLS("lc"), { em: agora(), v: LV.cats }); ok(LV.cats); }, erro);
+    var g = ls(chaveLS("lc")); if (g && g.v && g.v.length && agora() - g.em < 6 * 3600000) { LV.cats = g.v; ok(LV.cats); return; }
+    chamar({ op: "cats", k: "live" }, function (r) { LV.cats = r.cats || []; if (LV.cats.length) ls(chaveLS("lc"), { em: agora(), v: LV.cats }); ok(LV.cats); }, erro);
   }
   function carregarFavs() { chamar({ op: "itens", k: "live", c: "fav" }, function (r) { LV.favs = {}; var l = r.itens || []; for (var i = 0; i < l.length; i++) LV.favs[l[i].id] = 1; L.cache.fav = l; lvCanais.render(); }, function () {}); }
   function obterCanais(c, ok, erro) {
@@ -1154,7 +1167,9 @@ body.vfull #falha { display: none; }
   //  TELA: Player de filmes e séries
   // =====================================================================
   var P = { p: null, tOculta: null, tSalva: null, seek: 0, tSeek: null, inicio: 0, prox: null, tProx: null, contagem: 0, posIni: 0, parado: 0, ult: -1 };
-  function plMostrar() { $("pl").className = ""; clearTimeout(P.tOculta); P.tOculta = setTimeout(function () { if (!v.paused) $("pl").className = "oculto"; }, 4000); }
+  function plMostrar() { $("pl").className = ""; clearTimeout(P.tOculta); P.tOculta = setTimeout(function () { if (!v.paused) { $("pl").className = "oculto"; if (P.foco === "volta") { P.foco = "barra"; plVolta(); } } }, 4000); }
+  function plVolta() { $("plVolta").className = P.foco === "volta" ? "f" : ""; }
+  $("plVolta").onclick = function () { if (atual === TELAS.player) voltar(); };
   // botões do rodapé: episódio anterior, voltar 10 s, pausar, avançar 10 s, próximo episódio
   function plEpAlvo(d) {
     var s2 = P.p && P.p.serie; if (!s2) return null;
@@ -1192,7 +1207,7 @@ body.vfull #falha { display: none; }
   TELAS.player = {
     el: null, secao: "",
     entrar: function (p) {
-      P.p = p; P.posIni = p.pos || 0; P.seek = 0; P.prox = null; P.foco = "barra"; P.bi = null; clearInterval(P.tProx); $("plProx").style.display = "none";
+      P.p = p; P.posIni = p.pos || 0; P.seek = 0; P.prox = null; P.foco = "barra"; plVolta(); P.bi = null; clearInterval(P.tProx); $("plProx").style.display = "none";
       classe("semtopo", true); classe("vod", true); modoVideo("full");
       $("plNome").innerHTML = esc(p.nome); $("plSub").innerHTML = esc(p.sub || ""); plBotoes(); $("plMeio").style.display = "none"; $("plCarreg").style.display = "block"; plMostrar(); plAtualizar();
       abrirUrls(p.k, p.id, p.x, function (f) {
@@ -1222,6 +1237,13 @@ body.vfull #falha { display: none; }
       var oculto = $("pl").className === "oculto"; plMostrar();
       if (k === 427 || k === 418) { plIrEp(1); return true; } // canal +/próximo
       if (k === 428 || k === 419) { plIrEp(-1); return true; }
+      // seta de voltar no canto superior esquerdo: ▲ chega nela, OK volta para o catálogo
+      if (P.foco === "volta") {
+        if (k === 13) { voltar(); return true; }
+        if (k === 40) { P.foco = "barra"; plVolta(); return true; }
+        return true;
+      }
+      if (k === 38 && P.foco !== "bt") { if (!oculto) { P.foco = "volta"; plVolta(); } return true; }
       if (k === 40) { if (!oculto) { P.foco = "bt"; plBotoes(); } return true; }
       if (P.foco === "bt") {
         if (k === 38) { P.foco = "barra"; plBotoes(); return true; }
