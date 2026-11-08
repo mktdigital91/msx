@@ -646,7 +646,7 @@ const pn = (o: Record<string, string | number>) => RC()?.cap && RC()?.relay
 // endereço do vídeo passando pelo servidor: a TV (e qualquer mensagem de erro) não vê o DNS nem usuário/senha do provedor
 const fluxo = (tipo: string, t: string, id: string | number, ext: string) => `${SELF()}/v/${tipo}/${t}/${encodeURIComponent(String(id))}.${ext.replace(/[^a-z0-9]/gi, "")}`;
 // toca pelo player próprio (msx/player.html): erro em português e sem mostrar nenhum link; canais tentam .ts e depois .m3u8
-const PLAYER = "https://xunix.shop/msx/player.html";
+const PLAYER = "https://xunix.shop/msx/player";
 // o player recebe o endereço direto do provedor (codificado, nunca exibido): sem passar pelo servidor, abre mais rápido
 // reg: o player avisa o servidor o que está tocando (Continuar assistindo / Últimos canais)
 type Reg = { t: string; tp: "live" | "filme" | "ep"; nome: string; icone?: string; extra?: Record<string, unknown> };
@@ -1616,7 +1616,6 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "4,0,4,2", image: LOGO, imageFiller: "fit" },
       { type: "default", layout: "3,3,6,1", color: VID.ouro, title: "Abrir o Gold Play", titleFooter: "Interface nova", alignment: "center", action: link, focus: true },
-      { type: "default", layout: "3,4,6,1", color: VID.n, title: "Usar o visual clássico", titleFooter: "Volta para as telas antigas nesta TV", alignment: "center", action: go({ a: "tema", t, v: "", d }) },
     ] }] };
   }
   const [usuario] = quemTxt.split(" · ");
@@ -2411,7 +2410,7 @@ async function apiApp(cred: Cred, url: URL) {
   }
   return { ok: false, erro: "op" };
 }
-const APP_NOVO = "https://xunix.shop/msx/app/index.html";
+const APP_NOVO = "https://xunix.shop/msx/app/";
 const ORDENS: Record<string, string> = { "": "Padrão", rec: "Recentes", nota: "Nota", az: "A–Z" };
 const PROX_ORDEM: Record<string, string> = { "": "rec", rec: "nota", nota: "az", az: "" };
 function ordenar(lst: any[], o: string) {
