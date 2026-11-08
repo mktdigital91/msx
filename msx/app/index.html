@@ -307,6 +307,11 @@ body.vod #pl { display: block; }
 .lin .cad { margin-left: 8px; font-size: 18px; }
 #aviso { position: absolute; left: 50%; bottom: 90px; -webkit-transform: translateX(-50%) translateY(30px); transform: translateX(-50%) translateY(30px); padding: 26px 48px; border-radius: 22px; background: #1B2130; border: 2px solid rgba(245,180,0,.5); box-shadow: 0 20px 60px rgba(0,0,0,.5); font-size: 30px; font-weight: 700; opacity: 0; -webkit-transition: opacity .25s, -webkit-transform .25s; transition: opacity .25s, transform .25s; z-index: 90; }
 body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
+#falha { position: absolute; left: 50%; top: 150px; width: 1100px; margin-left: -550px; padding: 30px 44px; border-radius: 22px; background: #2A1416; border: 2px solid rgba(255,96,96,.55); box-shadow: 0 20px 60px rgba(0,0,0,.55); z-index: 89; display: none; }
+#falha.on { display: block; }
+#falha b { display: block; font-size: 34px; font-weight: 800; color: #FF8A80; margin-bottom: 10px; }
+#falha span { display: block; font-size: 26px; line-height: 1.4; color: #E8E2D6; }
+body.vfull #falha { display: none; }
 #aviso.on { opacity: 1; -webkit-transform: translateX(-50%); transform: translateX(-50%); }
 </style>
 </head>
@@ -391,6 +396,7 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
 
   <div id="topo"><img id="logo" src="https://xunix.shop/msx/img/logo-goldplay.png" alt=""><div id="nav"></div><div id="hora"><b id="hh">--:--</b><span id="dd"></span></div></div>
   <div id="aviso"></div>
+  <div id="falha"><b id="falhaT"></b><span id="falhaM"></span></div>
   <div id="pin"><div class="cx"><h2 id="pinT">Senha</h2><p id="pinX"></p><div id="pinPts"></div><div id="pinTec"></div></div></div>
   <div id="txt"><div class="cx"><h2 id="txtT"></h2><div id="txtCampo"><input id="txtIn" type="text" maxlength="20" autocomplete="off"></div><div id="txtBts"></div></div></div>
   <div class="tela" id="s-guia"><div class="gTopo"><h2 class="ell" id="gNome"></h2><div id="gDias"></div></div><div class="lista" id="gProgs"></div><div id="gDesc"></div></div>
@@ -505,13 +511,24 @@ body.vod #aviso, body.vfull #aviso { bottom: auto; top: 140px; }
         for (var i = 0; i < 8 && i < urls.length; i++) vez();
         return;
       }
+      if (r && r.headline === "Erro" && r.items) { falha("lista"); if (erro) erro(); return; }
       if (r && r.erro === "sessao") { if (atual !== TELAS.login) { T = ""; abrir("login", { msg: "Sua sessão expirou. Entre de novo.", erro: true }); } return; }
       if (r && r.ok === false && r.erro === undefined && !r.cats && !r.itens) { /* resposta de tela antiga */ }
+      semFalha();
       ok(r || {});
     };
-    x.onerror = function () { if (erro) erro(); }; x.ontimeout = function () { if (erro) erro(); };
+    x.onerror = function () { falha("nosso"); if (erro) erro(); }; x.ontimeout = function () { falha("nosso"); if (erro) erro(); };
     if (rel) { x.setRequestHeader("Content-Type", "text/plain"); x.send(JSON.stringify({ rel: rel })); } else x.send();
   }
+  // aviso fixo quando o servidor da lista (ou o nosso) não responde; some na próxima resposta boa
+  var tFalha = null;
+  function falha(tipo) {
+    var t = tipo === "nosso" ? "Sem conexão com o Gold Play" : "O servidor da sua lista não está respondendo";
+    var m = tipo === "nosso" ? "Confira a internet da TV e tente de novo em instantes. Use o botão ⟳ no menu para recarregar." : "O conteúdo não pode ser carregado agora. Tente de novo em alguns minutos com o botão ⟳ no menu. Se continuar, fale com quem vendeu o seu plano.";
+    $("falhaT").innerHTML = esc(t); $("falhaM").innerHTML = esc(m); $("falha").className = "on";
+    clearTimeout(tFalha); tFalha = setTimeout(function () { $("falha").className = ""; }, 15000);
+  }
+  function semFalha() { if ($("falha").className) { clearTimeout(tFalha); $("falha").className = ""; } }
   function avisarVisto(o) { if (!DEMO) chamar(o, function () {}, function () {}); }
   var AP = param("d"), CFG = null;
   function ls(k, v) { try { if (v === undefined) { var t = localStorage.getItem(k); return t ? JSON.parse(t) : null; } localStorage.setItem(k, JSON.stringify(v)); } catch (e) { return null; } }

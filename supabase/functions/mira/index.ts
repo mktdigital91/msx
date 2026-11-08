@@ -1603,7 +1603,7 @@ const resumoImg = (total: number, vivos: number, falhou: boolean) => `${SELF()}?
 // tela de passagem do MSX para a interface nova (ela mesma cuida do login, perfis e conteúdo)
 function ponteApp(d: string | null) {
   const link = `link:${APP_NOVO}?${q({ api: SELF(), ...(d ? { d } : {}) })}`;
-  return { type: "pages", transparent: 2, ready: { action: link }, background: IMG + "bg-tv.jpg", pages: [{ items: [
+  return { type: "pages", transparent: 2, ready: { action: `[settings:validate_links:0|${link}]` }, background: IMG + "bg-tv.jpg", pages: [{ items: [
     { type: "space", layout: "4,1,4,2", image: LOGO, imageFiller: "fit" },
     { type: "default", layout: "4,4,4,1", color: "rgba(245,180,0,0.9)", title: "{col:msx-black}Abrir o Gold Play", alignment: "center", centration: "title", action: link, focus: true },
   ] }] };
@@ -1612,7 +1612,7 @@ async function home(t: string, quemTxt: string, d: string | null = null, escolhe
   // TV que escolheu a interface nova: abre direto (com botões de reserva caso a abertura automática não aconteça)
   if (d && (await temaDoAparelho(d)) === "app") {
     const link = `link:${APP_NOVO}?${q({ t, api: SELF(), d })}`;
-    return { type: "pages", transparent: 2, ready: { action: link }, background: FUNDO_CFG || IMG + "bg-tv.jpg", pages: [{ items: [
+    return { type: "pages", transparent: 2, ready: { action: `[settings:validate_links:0|${link}]` }, background: FUNDO_CFG || IMG + "bg-tv.jpg", pages: [{ items: [
       camadaFundo("bg-tv.jpg"),
       { type: "space", layout: "4,0,4,2", image: LOGO, imageFiller: "fit" },
       { type: "default", layout: "3,3,6,1", color: VID.ouro, title: "Abrir o Gold Play", titleFooter: "Interface nova", alignment: "center", action: link, focus: true },
