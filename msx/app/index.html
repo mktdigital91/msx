@@ -526,7 +526,7 @@ body.vfull #falha { display: none; }
   var tFalha = null;
   function falha(tipo) {
     var t = tipo === "nosso" ? "Sem conexão com o Gold Play" : "O servidor da sua lista não está respondendo";
-    var m = tipo === "nosso" ? "Confira a internet da TV e tente de novo em instantes. Use o botão ⟳ no menu para recarregar." : "O conteúdo não pode ser carregado agora. Tente de novo em alguns minutos com o botão ⟳ no menu. Se continuar, fale com quem vendeu o seu plano.";
+    var m = tipo === "nosso" ? "Confira a internet da TV e tente de novo em instantes. Use o botão de atualizar (a seta em círculo no menu) para recarregar." : "O conteúdo não pode ser carregado agora. Tente de novo em alguns minutos com o botão de atualizar (a seta em círculo no menu). Se continuar, fale com quem vendeu o seu plano.";
     $("falhaT").innerHTML = esc(t); $("falhaM").innerHTML = esc(m); $("falha").className = "on";
     clearTimeout(tFalha); tFalha = setTimeout(function () { $("falha").className = ""; }, 15000);
   }
