@@ -514,7 +514,7 @@ body.vfull #falha { display: none; }
       if (r && r.headline === "Erro" && r.items) { falha("lista"); if (erro) erro(); return; }
       if (r && r.erro === "sessao") { if (atual !== TELAS.login) { T = ""; abrir("login", { msg: "Sua sessão expirou. Entre de novo.", erro: true }); } return; }
       if (r && r.ok === false && r.erro === undefined && !r.cats && !r.itens) { /* resposta de tela antiga */ }
-      semFalha();
+      if (/^(home|cats|itens|busca|catalogo|jogos)$/.test(o.op || "")) semFalha();
       ok(r || {});
     };
     x.onerror = function () { falha("nosso"); if (erro) erro(); }; x.ontimeout = function () { falha("nosso"); if (erro) erro(); };
