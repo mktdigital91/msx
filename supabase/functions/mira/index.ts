@@ -1996,7 +1996,8 @@ async function listaApp(cred: Cred, acao: string, minutos = 10): Promise<any[]> 
   return v;
 }
 // ---------- catálogo indexado no banco (catalogo_itens): páginas, categorias e ordem saem prontas em milissegundos ----------
-const chaveCat = (cred: Cred) => `${(cred.b ?? BASE_PROV).replace(/^https?:\/\//, "")}|${cred.u}`;
+// um catálogo por servidor (DNS), compartilhado por todos os clientes dele: menos espaço no banco e mais rápido para quem chega depois
+const chaveCat = (cred: Cred) => (cred.b ?? BASE_PROV).replace(/^https?:\/\//, "").replace(/\/+$/, "").toLowerCase();
 const ACAO_ITENS: Record<string, string> = { vod: "get_vod_streams", series: "get_series", live: "get_live_streams" };
 const _meta = new Map<string, { em: number; t: number }>();
 const _atualizando = new Set<string>();
