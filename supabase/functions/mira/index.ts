@@ -1996,8 +1996,16 @@ async function listaApp(cred: Cred, acao: string, minutos = 10): Promise<any[]> 
   return v;
 }
 // ---------- catálogo indexado no banco (catalogo_itens): páginas, categorias e ordem saem prontas em milissegundos ----------
-// um catálogo por servidor (DNS), compartilhado por todos os clientes dele: menos espaço no banco e mais rápido para quem chega depois
-const chaveCat = (cred: Cred) => (cred.b ?? BASE_PROV).replace(/^https?:\/\//, "").replace(/\/+$/, "").toLowerCase();
+// um catálogo por servidor (DNS) E por pacote: clientes com as mesmas categorias compartilham o catálogo;
+// quem tem plano diferente (só canais, sem adultos etc.) fica com o seu, sem ver o que não contratou
+function fnv(t: string) { let h = 0x811c9dc5; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(36); }
+async function chaveCat(cred: Cred, k: string): Promise<string | null> {
+  const host = (cred.b ?? BASE_PROV).replace(/^https?:\/\//, "").replace(/\/+$/, "").toLowerCase();
+  let cats: any[] = [];
+  try { cats = await listaApp(cred, CATS_ACAO[k], 30); } catch (e) { if (e instanceof RelayNeed) throw e; return null; }
+  if (!cats.length) return null; // pacote sem esse tipo de conteúdo: nada a guardar nem a mostrar do banco
+  return host + "|" + k + "-" + fnv(cats.map((x: any) => String(x.category_id)).sort().join(","));
+}
 const ACAO_ITENS: Record<string, string> = { vod: "get_vod_streams", series: "get_series", live: "get_live_streams" };
 const _meta = new Map<string, { em: number; t: number }>();
 const _atualizando = new Set<string>();
@@ -2030,12 +2038,17 @@ async function gravarCatalogo(chave: string, k: string, lista: any[]) {
     await fetch(`${SB()}/rest/v1/catalogo_itens?chave=eq.${encodeURIComponent(chave)}&k=eq.${k}&v=lt.${v}`, { method: "DELETE", headers: sbh(), signal: AbortSignal.timeout(30000) });
     await fetch(`${SB()}/rest/v1/catalogo_meta?on_conflict=chave,k`, { method: "POST", headers: { ...sbh(), prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify({ chave, k, em: new Date(v).toISOString(), total: linhas.length }), signal: AbortSignal.timeout(8000) });
     _meta.set(chave + "|" + k, { em: v, t: Date.now() });
+    // limpeza: catálogos do mesmo servidor que ninguém atualiza há 3 dias (pacote mudou ou sem clientes) saem do banco
+    const pref = encodeURIComponent(chave.split("|")[0] + "|" + k + "-") + "*", velho = Date.now() - 3 * 86400_000;
+    await fetch(`${SB()}/rest/v1/catalogo_itens?chave=like.${pref}&k=eq.${k}&v=lt.${velho}`, { method: "DELETE", headers: sbh(), signal: AbortSignal.timeout(30000) }).catch(() => {});
+    await fetch(`${SB()}/rest/v1/catalogo_meta?chave=like.${pref}&k=eq.${k}&em=lt.${new Date(velho).toISOString()}`, { method: "DELETE", headers: sbh(), signal: AbortSignal.timeout(8000) }).catch(() => {});
   } catch (e) { console.log("gravarCatalogo", String(e)); } finally { _atualizando.delete(chave + k); }
 }
 function emSegundoPlano(p: Promise<unknown>) { const er = (globalThis as any).EdgeRuntime; if (er?.waitUntil) er.waitUntil(p); }
 // página do catálogo pelo banco; null = ainda não guardado (aí usa a lista do provedor e guarda por trás)
 async function paginaCat(cred: Cred, k: string, c: string, o: string, ini: number, lim: number, semCats: string[]): Promise<{ total: number; itens: any[] } | null> {
-  const chave = chaveCat(cred), em = await metaCat(chave, k);
+  const chave = await chaveCat(cred, k); if (!chave) return null;
+  const em = await metaCat(chave, k);
   if (!em) return null;
   if (Date.now() - em > 6 * 3600_000 && !_atualizando.has(chave + k)) emSegundoPlano(listaApp(cred, ACAO_ITENS[k], 1).then((l) => gravarCatalogo(chave, k, l)).catch(() => {}));
   const ordem = o === "rec" ? "added.desc.nullslast" : o === "nota" ? "r.desc.nullslast" : o === "az" ? "ord_nome.asc" : k === "live" ? "n.asc.nullslast" : "added.desc.nullslast";
@@ -2270,8 +2283,9 @@ async function apiApp(cred: Cred, url: URL) {
       recS = ps.itens.map((x: any) => ({ series_id: x.id, name: x.nome, cover: x.img, rating: x.r }));
     } else {
       const l = await juntos([listaApp(cred, "get_vod_streams"), listaApp(cred, "get_series")]);
-      const vods = (l[0] ?? []) as any[], series = (l[1] ?? []) as any[], ch = chaveCat(cred);
-      emSegundoPlano(gravarCatalogo(ch, "vod", vods).then(() => gravarCatalogo(ch, "series", series)));
+      const vods = (l[0] ?? []) as any[], series = (l[1] ?? []) as any[];
+      const [chv, chs] = await Promise.all([chaveCat(cred, "vod").catch(() => null), chaveCat(cred, "series").catch(() => null)]);
+      emSegundoPlano((chv && vods.length ? gravarCatalogo(chv, "vod", vods) : Promise.resolve()).then(() => chs && series.length ? gravarCatalogo(chs, "series", series) : undefined));
       const fv = regra.protege ? await filtroAdulto(cred, "vod") : null, fs = regra.protege ? await filtroAdulto(cred, "series") : null;
       recV = vods.filter((x) => !fv || !fv(String(x.category_id), "vod")).sort((a, b) => Number(b.added || 0) - Number(a.added || 0)).slice(0, 30);
       recS = series.filter((x) => !fs || !fs(String(x.category_id), "series")).sort((a, b) => Number(b.last_modified || 0) - Number(a.last_modified || 0)).slice(0, 30);
@@ -2314,8 +2328,8 @@ async function apiApp(cred: Cred, url: URL) {
       return { ok: true, total: pg0.total, ini: ini0, itens: pg0.itens.map((x: any, i: number) => k === "live" ? { id: x.id, n: x.n ?? ini0 + i + 1, nome: x.nome, img: x.img, c: x.cat } : { id: x.id, nome: x.nome, img: x.img, r: x.r ? Number(x.r).toFixed(1) : "", x: x.x || "mp4" }) };
     }
     // primeira vez: lista do provedor agora, e guarda no banco por trás
-    const ch = chaveCat(cred);
-    emSegundoPlano(listaApp(cred, ACAO_ITENS[k] ?? A[1]).then((l) => gravarCatalogo(ch, k, l)).catch(() => {}));
+    const ch = await chaveCat(cred, k).catch(() => null);
+    if (ch) emSegundoPlano(listaApp(cred, ACAO_ITENS[k] ?? A[1]).then((l) => l.length ? gravarCatalogo(ch, k, l) : undefined).catch(() => {}));
   }
   if (op === "itens") {
     const regra = await regraAdulto(cred);
