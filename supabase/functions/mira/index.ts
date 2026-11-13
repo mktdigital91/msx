@@ -2020,7 +2020,9 @@ async function gravarCatalogo(chave: string, k: string, lista: any[]) {
   if (_atualizando.has(chave + k)) return; _atualizando.add(chave + k);
   try {
     const v = Date.now(), mk = linhaCat(chave, k, v);
-    const linhas = lista.map(mk).filter((x) => x.id && x.id !== "undefined");
+    // o provedor às vezes repete o mesmo título em duas categorias: sem tirar a repetição o banco recusa o lote inteiro
+    const vistos = new Set<string>();
+    const linhas = lista.map(mk).filter((x) => x.id && x.id !== "undefined" && !vistos.has(x.id) && (vistos.add(x.id), true));
     for (let i = 0; i < linhas.length; i += 4000) {
       const r = await fetch(`${SB()}/rest/v1/catalogo_itens?on_conflict=chave,k,id`, { method: "POST", headers: { ...sbh(), prefer: "resolution=merge-duplicates,return=minimal" }, body: JSON.stringify(linhas.slice(i, i + 4000)), signal: AbortSignal.timeout(30000) });
       if (!r.ok) { console.log("catalogo_itens", r.status, (await r.text()).slice(0, 200)); return; }
