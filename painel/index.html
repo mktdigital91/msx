@@ -203,6 +203,13 @@
     main { padding-top: 22px; }
   }
   @media (prefers-reduced-motion: no-preference) { .btn { transition: border-color .15s, filter .15s, transform .1s; } }
+.barras{display:flex;align-items:flex-end;gap:4px;height:150px;padding-top:8px}
+.barras div{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+.barras i{display:block;width:100%;border-radius:4px 4px 0 0;background:var(--acento,#7c5cff);min-height:2px}
+.barras i.zero{opacity:.25}
+.barras span{font-size:10px;color:var(--suave,#8a8aa0);margin-top:4px;white-space:nowrap}
+.barras b{font-size:11px;margin-bottom:3px}
+.agora-ponto{display:inline-block;width:9px;height:9px;border-radius:50%;background:#22c55e;margin-right:6px;box-shadow:0 0 0 3px rgba(34,197,94,.25)}
 </style>
 </head>
 <body>
@@ -261,6 +268,7 @@
     <a class="item" href="#/tvs" data-rota="tvs"><svg class="i" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="13" rx="2.5"/><path d="M8 21h8M12 17v4"/></svg><span>TVs</span></a>
     <a class="item" href="#/usuarios" data-rota="usuarios"><svg class="i" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-3.5 3.2-5.5 6.5-5.5s6 2 6.5 5.5M16 4.6a3.5 3.5 0 010 6.8M18 14.8c1.9.7 3.2 2.4 3.5 5.2"/></svg><span>Usuários</span></a>
     <a class="item" href="#/acessos" data-rota="acessos"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Acessos</span></a>
+    <a class="item" href="#/ativacoes" data-rota="ativacoes"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="7" width="4" height="14" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg><span>Ativações</span></a>
     <a class="item" href="#/qualidade" data-rota="qualidade"><svg class="i" viewBox="0 0 24 24"><path d="M3 3v18h18M7 15l4-4 3 3 6-6"/></svg><span>Qualidade</span></a>
     <a class="item" href="#/trocas" data-rota="trocas"><svg class="i" viewBox="0 0 24 24"><path d="M17 3l4 4-4 4M21 7H8a4 4 0 00-4 4M7 21l-4-4 4-4M3 17h13a4 4 0 004-4"/></svg><span>Trocas de DNS</span></a>
     <a class="item" href="#/app" data-rota="app"><svg class="i" viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="11.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 22a10 10 0 110-20c5.5 0 10 3.6 10 8 0 3-2.5 4-5 4h-2a2 2 0 00-1 3.7c.7.5.5 2.3-2 4.3z"/></svg><span>Personalizar app</span></a>
@@ -596,6 +604,7 @@ var acoes = {
   irAtivar: function () { $("#form-entrar").hidden = true; $("#form-ativar").hidden = false; },
   irEntrar: function () { $("#form-ativar").hidden = true; $("#form-entrar").hidden = false; },
   sair: async function () { await sb.auth.signOut(); mostrarEntrar(); },
+  recarregarAtivacoes: async function () { await rotear(true); },
 
   verificarTudo: async function (_, btn) {
     btn.disabled = true;
@@ -720,10 +729,10 @@ async function vUsuarios(el) {
     var mapa = {}; S.cache.dnsLista.forEach(function (d) { mapa[d.id] = d; });
     var lista = S.cache.usuarios.filter(function (u) { return !t || u.usuario.toLowerCase().indexOf(t) >= 0; });
     $("#tab-usuarios").innerHTML = !lista.length ? '<div class="vazio">Nenhum usuário encontrado.</div>' :
-      '<table><thead><tr><th>Usuário</th><th>DNS</th><th>Logins</th><th>Último login</th><th>Último acesso</th><th>Situação</th><th></th></tr></thead><tbody>' +
+      '<table><thead><tr><th>Usuário</th><th>DNS</th><th>Ativado em</th><th>Vence em</th><th>Logins</th><th>Último login</th><th>Último acesso</th><th>Situação</th><th></th></tr></thead><tbody>' +
       lista.map(function (u) {
         return "<tr><td><b>" + e(u.usuario) + "</b>" + (u.observacao ? '<br><span class="suave" style="font-size:12px">' + e(u.observacao) + "</span>" : "") + "</td>" +
-          '<td class="mono">' + e(mapa[u.dns_id] ? mapa[u.dns_id].host : "-") + "</td><td>" + (u.logins || 0) + '</td><td class="suave">' + e(ROTULO_METODO[u.ultimo_metodo] || "-") + '</td><td class="suave">' + e(tempo(u.ultimo_acesso)) + "</td>" +
+          '<td class="mono">' + e(mapa[u.dns_id] ? mapa[u.dns_id].host : "-") + "</td><td>" + (u.primeiro_acesso ? fmtData(u.primeiro_acesso) : "-") + "</td><td>" + (u.vence ? (new Date(u.vence) < Date.now() ? '<span class="pilula erro">' + fmtData(u.vence) + "</span>" : fmtData(u.vence)) : "-") + "</td><td>" + (u.logins || 0) + '</td><td class="suave">' + e(ROTULO_METODO[u.ultimo_metodo] || "-") + '</td><td class="suave">' + e(tempo(u.ultimo_acesso)) + "</td>" +
           "<td>" + (u.bloqueado ? '<span class="pilula erro">Bloqueado</span>' : '<span class="pilula ok">Liberado</span>') + "</td>" +
           '<td class="acoes"><button class="btn pequeno" data-acao="editarUsuario" data-id="' + e(u.usuario) + '">Editar</button>' +
           '<button class="btn pequeno" data-acao="alternarBloqueio" data-id="' + e(u.usuario) + '">' + (u.bloqueado ? "Liberar" : "Bloquear") + "</button>" +
@@ -1130,7 +1139,85 @@ async function vQualidade(el) {
   }
   el.innerHTML = h + "</section>";
 }
-var VISTAS = { qualidade: vQualidade, resumo: vResumo, dns: vDns, tvs: vTvs, usuarios: vUsuarios, acessos: vAcessos, trocas: vTrocas, app: vApp, telegram: vTelegram, equipe: vEquipe };
+// ---------- ativações, quem está on-line, vencimentos ----------
+// on-line = TV que mandou sinal nos últimos minutos (filme/série: a cada 1 min; TV ao vivo: a cada 5 min). Não faz nenhuma chamada extra.
+function diaBR(d) { var x = new Date(d); return new Date(x.getTime() - 3 * 3600e3).toISOString().slice(0, 10); }
+function horaBR(d) { return new Date(new Date(d).getTime() - 3 * 3600e3).getUTCHours(); }
+function fmtData(d) { return d ? new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "-"; }
+function fmtHora(d) { return d ? new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "-"; }
+async function vAtivacoes(el) {
+  var agora = Date.now(), d30 = new Date(agora - 30 * 864e5).toISOString(), hojeIni = diaBR(agora);
+  var r = await Promise.all([
+    q(sb.from("usuarios_app").select("usuario,primeiro_acesso,ultimo_acesso,vence,bloqueado,observacao,dns_id").limit(5000)),
+    q(sb.from("acessos").select("usuario,mac,aparelho,em,evento").gte("em", d30).order("em", { ascending: false }).limit(5000)),
+    sb.from("historico").select("usuario,tipo,nome,atualizado").gte("atualizado", new Date(agora - 7 * 60e3).toISOString()).order("atualizado", { ascending: false }).limit(500)
+  ]);
+  var us = r[0], ac = r[1], hist = r[2].error ? null : r[2].data;
+  var novos = us.filter(function (u) { return u.primeiro_acesso; });
+  var hoje = novos.filter(function (u) { return diaBR(u.primeiro_acesso) === hojeIni; });
+  var n7 = novos.filter(function (u) { return agora - new Date(u.primeiro_acesso) < 7 * 864e5; }).length;
+  var n30 = novos.filter(function (u) { return agora - new Date(u.primeiro_acesso) < 30 * 864e5; }).length;
+  var acHoje = ac.filter(function (a) { return diaBR(a.em) === hojeIni; });
+  var usuHoje = {}, tvHoje = {}; acHoje.forEach(function (a) { usuHoje[a.usuario] = 1; tvHoje[a.mac || a.aparelho || a.usuario] = 1; });
+  us.forEach(function (u) { if (u.ultimo_acesso && diaBR(u.ultimo_acesso) === hojeIni) usuHoje[u.usuario] = 1; });
+  // on-line agora: último sinal de cada usuário (perfil sem o sufixo)
+  var online = [], visto = {};
+  (hist || []).forEach(function (x) {
+    var u = String(x.usuario).split("#")[0]; if (visto[u]) return;
+    var lim = x.tipo === "live" ? 6.5 * 60e3 : 2.5 * 60e3; if (agora - new Date(x.atualizado) > lim) return;
+    visto[u] = 1; online.push({ u: u, tipo: x.tipo, nome: x.nome, em: x.atualizado });
+  });
+  var h = cab("Ativações", "Novos usuários, quem está assistindo agora e quem vence nos próximos dias.", '<button class="btn" data-acao="recarregarAtivacoes">Atualizar</button>');
+  h += '<div class="grade n4" style="margin-bottom:18px">' +
+    '<div class="numero"><div class="ico">' + ico("users") + "</div><div><b>" + hoje.length + "</b><span>ativações hoje</span></div></div>" +
+    '<div class="numero"><div class="ico">' + ico("clock") + "</div><div><b>" + n7 + " / " + n30 + "</b><span>ativações em 7 / 30 dias</span></div></div>" +
+    '<div class="numero"><div class="ico">' + ico("users") + "</div><div><b>" + Object.keys(usuHoje).length + "</b><span>usuários ativos hoje, em " + Object.keys(tvHoje).length + " TVs</span></div></div>" +
+    '<div class="numero"><div class="ico"><span class="agora-ponto" style="margin:0"></span></div><div><b>' + (hist ? online.length : "-") + "</b><span>assistindo agora</span></div></div></div>";
+  // on-line agora
+  h += '<section class="cartao"><h2><span class="agora-ponto"></span>Assistindo agora</h2>';
+  if (!hist) h += '<div class="nota info">Para ver quem está assistindo, falta liberar a leitura do histórico para o painel (um comando SQL que o Claude te passou).</div>';
+  else if (!online.length) h += '<div class="vazio">Ninguém assistindo neste momento.</div>';
+  else {
+    h += '<div class="tabela-rolagem"><table><thead><tr><th>Usuário</th><th>Assistindo</th><th>Tipo</th><th>Último sinal</th></tr></thead><tbody>';
+    online.forEach(function (o) { h += "<tr><td><b>" + e(o.u) + "</b></td><td>" + e(o.nome || "-") + "</td><td>" + ({ live: "TV ao vivo", filme: "Filme", ep: "Série" }[o.tipo] || o.tipo) + '</td><td class="suave">' + e(tempo(o.em)) + "</td></tr>"; });
+    h += "</tbody></table></div>";
+  }
+  h += "</section>";
+  // gráficos
+  var dias = []; for (var i = 29; i >= 0; i--) dias.push(diaBR(agora - i * 864e5));
+  var porDia = {}; novos.forEach(function (u) { var k = diaBR(u.primeiro_acesso); porDia[k] = (porDia[k] || 0) + 1; });
+  var maxD = Math.max(1, Math.max.apply(null, dias.map(function (k) { return porDia[k] || 0; })));
+  var porHora = []; for (var hh = 0; hh < 24; hh++) porHora.push(0);
+  acHoje.forEach(function (a) { porHora[horaBR(a.em)]++; });
+  var maxH = Math.max(1, Math.max.apply(null, porHora));
+  h += '<div class="grade n2"><section class="cartao"><h2>Ativações por dia (30 dias)</h2><div class="barras">' + dias.map(function (k, i) {
+    var n = porDia[k] || 0; return '<div title="' + k.split("-").reverse().join("/") + ": " + n + '">' + (n ? "<b>" + n + "</b>" : "") + '<i class="' + (n ? "" : "zero") + '" style="height:' + Math.round(n / maxD * 100) + '%"></i><span>' + (i % 5 === 4 || i === 29 ? k.slice(8) + "/" + k.slice(5, 7) : "&nbsp;") + "</span></div>";
+  }).join("") + '</div></section><section class="cartao"><h2>Acessos por horário (hoje)</h2><div class="barras">' + porHora.map(function (n, hh) {
+    return '<div title="' + hh + "h: " + n + '">' + (n ? "<b>" + n + "</b>" : "") + '<i class="' + (n ? "" : "zero") + '" style="height:' + Math.round(n / maxH * 100) + '%"></i><span>' + (hh % 3 === 0 ? hh + "h" : "&nbsp;") + "</span></div>";
+  }).join("") + "</div></section></div>";
+  // vencimentos
+  var em7 = us.filter(function (u) { if (!u.vence) return false; var t = new Date(u.vence) - agora; return t <= 7 * 864e5; }).sort(function (a, b) { return new Date(a.vence) - new Date(b.vence); });
+  h += '<section class="cartao"><h2>Vencidos e vencendo nos próximos 7 dias</h2>';
+  if (!em7.length) h += '<div class="vazio">Ninguém vence nos próximos 7 dias.</div>';
+  else {
+    h += '<div class="tabela-rolagem"><table><thead><tr><th>Usuário</th><th>Vence em</th><th>Situação</th><th>Último acesso</th></tr></thead><tbody>';
+    em7.forEach(function (u) { var dd = Math.ceil((new Date(u.vence) - agora) / 864e5);
+      h += "<tr><td><b>" + e(u.usuario) + "</b>" + (u.observacao ? '<br><span class="suave" style="font-size:12px">' + e(u.observacao) + "</span>" : "") + "</td><td>" + fmtData(u.vence) + "</td><td>" + (dd < 0 ? '<span class="pilula erro">Vencido há ' + (-dd) + (dd === -1 ? " dia" : " dias") + "</span>" : dd === 0 ? '<span class="pilula erro">Vence hoje</span>' : '<span class="pilula neutra">Faltam ' + dd + (dd === 1 ? " dia" : " dias") + "</span>") + '</td><td class="suave">' + e(tempo(u.ultimo_acesso)) + "</td></tr>"; });
+    h += "</tbody></table></div>";
+  }
+  h += "</section>";
+  // últimas ativações
+  var ult = novos.slice().sort(function (a, b) { return new Date(b.primeiro_acesso) - new Date(a.primeiro_acesso); }).slice(0, 30);
+  h += '<section class="cartao"><h2>Últimas ativações</h2>';
+  if (!ult.length) h += '<div class="vazio">Nenhuma ativação ainda.</div>';
+  else {
+    h += '<div class="tabela-rolagem"><table><thead><tr><th>Usuário</th><th>Ativado em</th><th>Vence em</th><th>Último acesso</th></tr></thead><tbody>';
+    ult.forEach(function (u) { h += "<tr><td><b>" + e(u.usuario) + "</b></td><td>" + fmtHora(u.primeiro_acesso) + "</td><td>" + fmtData(u.vence) + '</td><td class="suave">' + e(tempo(u.ultimo_acesso)) + "</td></tr>"; });
+    h += "</tbody></table></div>";
+  }
+  el.innerHTML = h + "</section>";
+}
+var VISTAS = { ativacoes: vAtivacoes, qualidade: vQualidade, resumo: vResumo, dns: vDns, tvs: vTvs, usuarios: vUsuarios, acessos: vAcessos, trocas: vTrocas, app: vApp, telegram: vTelegram, equipe: vEquipe };
 var seq = 0;
 async function rotear(silencioso) {
   if (!S.user) return;

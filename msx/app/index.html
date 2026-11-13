@@ -690,6 +690,12 @@ body.vfull #falha { display: none; }
   // erro no meio da reprodução: primeiro tenta reabrir o mesmo endereço; erro antes de tocar: passa para o próximo formato
   v.addEventListener("error", function () { if (!fontes.length) return; if (WD.tocou && WD.tent < 3) { reconectar("erro"); return; } fonteI++; abrirFonte(); });
 
+  // ---------- "ainda assistindo" na TV ao vivo: um aviso a cada 5 min para o painel saber quem está on-line ----------
+  setInterval(function () {
+    if (!fontes.length || v.paused || atual === TELAS.player || !L.canal) return;
+    var c = L.canal; avisarVisto({ op: "visto", tp: "live", s: c.id, n: c.nome, i: c.img || "" });
+  }, 300000);
+
   // ---------- vigia de travadas: se a imagem para por alguns segundos, reabre sozinho ----------
   // custo zero de servidor: tudo acontece na TV; o servidor só recebe um aviso curto para a tela Qualidade
   var WD = { ult: -1, desde: 0, tent: 0, tocou: false, ok: 0 };
@@ -1244,7 +1250,7 @@ body.vfull #falha { display: none; }
         if (P.p !== p) return;
         tocarFontes(f, function (ok) { if (P.p !== p) return; $("plCarreg").style.display = "none"; if (!ok) { aviso("Não foi possível reproduzir"); } });
       }, function () { aviso("Não foi possível abrir o vídeo"); });
-      clearInterval(P.tSalva); P.tSalva = setInterval(plSalvar, 20000);
+      clearInterval(P.tSalva); P.tSalva = setInterval(plSalvar, 60000); // a cada 1 min: guarda onde parou e mostra no painel quem está assistindo
     },
     sair: function () { plSalvar(); clearInterval(P.tSalva); clearInterval(P.tProx); classe("semtopo", false); classe("vod", false); modoVideo(""); pararVideo(); P.p = null; },
     fim: function () {
