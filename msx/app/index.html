@@ -681,14 +681,44 @@ body.vfull #falha { display: none; }
     document.body.className = b + (m ? " v" + m : "");
   }
   function classe(nome, sim) { var b = (" " + document.body.className + " ").replace(" " + nome + " ", " "); document.body.className = (b + (sim ? nome : "")).replace(/^\s+|\s+$/g, "").replace(/\s+/g, " "); }
-  function tocarFontes(f, cb) { fontes = f || []; fonteI = 0; aoTocar = cb || null; abrirFonte(); }
+  function tocarFontes(f, cb) { fontes = f || []; fonteI = 0; aoTocar = cb || null; WD.tent = 0; WD.tocou = false; abrirFonte(); }
   function abrirFonte() {
     if (fonteI >= fontes.length) { if (aoTocar) aoTocar(false); return; }
     try { v.src = fontes[fonteI]; v.load(); var p = v.play(); if (p && p["catch"]) p["catch"](function () {}); } catch (e) {}
   }
   function pararVideo() { try { v.pause(); v.removeAttribute("src"); v.load(); } catch (e) {} fontes = []; }
-  v.addEventListener("error", function () { if (!fontes.length) return; fonteI++; abrirFonte(); });
-  v.addEventListener("playing", function () { if (aoTocar) { var c = aoTocar; aoTocar = null; c(true); } });
+  // erro no meio da reprodução: primeiro tenta reabrir o mesmo endereço; erro antes de tocar: passa para o próximo formato
+  v.addEventListener("error", function () { if (!fontes.length) return; if (WD.tocou && WD.tent < 3) { reconectar("erro"); return; } fonteI++; abrirFonte(); });
+
+  // ---------- vigia de travadas: se a imagem para por alguns segundos, reabre sozinho ----------
+  // custo zero de servidor: tudo acontece na TV; o servidor só recebe um aviso curto para a tela Qualidade
+  var WD = { ult: -1, desde: 0, tent: 0, tocou: false, ok: 0 };
+  function reconectar(motivo) {
+    if (!fontes.length) return;
+    WD.tent++; WD.desde = agora();
+    var aoVivo = !(atual === TELAS.player), pos = v.currentTime || 0, src = fontes[fonteI];
+    if (WD.tent > 3) { // três tentativas sem sucesso: tenta o outro formato; acabou, avisa
+      telEnviar({ e: "erro", dur: 0 });
+      fonteI++; WD.tent = 0; WD.tocou = false;
+      if (fonteI >= fontes.length) { pararVideo(); aviso(aoVivo ? "Este canal não está respondendo. Tente outro canal." : "Não foi possível continuar o vídeo. Tente de novo em instantes."); return; }
+      abrirFonte(); return;
+    }
+    if (WD.tent === 1 || motivo === "erro") telEnviar({ e: "reconexao", dur: 0 });
+    try {
+      v.src = src; v.load();
+      if (!aoVivo && pos > 5) { var volta = function () { v.removeEventListener("loadedmetadata", volta); try { v.currentTime = pos; } catch (e) {} }; v.addEventListener("loadedmetadata", volta); }
+      var pr = v.play(); if (pr && pr["catch"]) pr["catch"](function () {});
+    } catch (e) {}
+  }
+  setInterval(function () {
+    if (!fontes.length || !v.getAttribute("src") || v.paused || P.prox) { WD.ult = -1; WD.desde = agora(); return; }
+    var t = v.currentTime || 0;
+    if (t !== WD.ult) { WD.ult = t; WD.desde = agora(); if (t > 0) { WD.tocou = true; if (agora() - WD.ok > 30000) WD.tent = 0; } return; }
+    WD.ok = agora(); // última vez que a imagem estava parada: só zera as tentativas depois de 30 s tocando sem parar
+    var limite = !WD.tocou ? 15000 : WD.tent === 0 ? 8000 : WD.tent === 1 ? 12000 : 20000;
+    if (agora() - WD.desde > limite) reconectar("parado");
+  }, 1000);
+  v.addEventListener("playing", function () { WD.tocou = true; if (aoTocar) { var c = aoTocar; aoTocar = null; c(true); } });
 
   // =====================================================================
   //  TELA: Início
