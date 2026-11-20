@@ -668,7 +668,7 @@ body.vfull #falha { display: none; }
       var els = document.querySelectorAll(".tela"); for (var i = 0; i < els.length; i++) els[i].className = "tela"; if (t.el) t.el.className = "tela on";
       noTopo = false; if (t.retomar) t.retomar(); else t.entrar(p.p); navRender(); return; }
     if (atual && atual.nome !== "home") { abrir("home"); return; }
-    confirmar("Sair do Gold Play?", "Você pode voltar quando quiser. Seu progresso fica salvo.", [{ t: "Ficar no app", a: null }, { t: "Sair do app", a: sairApp }]);
+    confirmar("Sair do Gold Play?", "Você pode voltar quando quiser. Seu progresso fica salvo.", [{ t: "Ficar no app", a: null }, { t: "Trocar de app", a: trocarDeApp }, { t: "Sair do app", a: sairApp }]);
   }
   function sair() { if (history.length > 1) history.back(); else aviso("Use o botão Home do controle para sair"); }
 
@@ -1506,6 +1506,7 @@ body.vfull #falha { display: none; }
     it.push({ tipo: "op", a: "parental", t: "Controle parental", s: C.parental === false ? "Desligado · toque para ligar" : "Ligado · categorias adultas pedem senha" });
     it.push({ tipo: "op", a: "senha", t: "Trocar a senha", s: "Senha do controle parental (padrão 0000)" });
     it.push({ tipo: "op", a: "trocar", t: "Sair da conta", s: "Entrar com outro usuário" });
+    it.push({ tipo: "op", a: "msx", t: "Trocar de app (MSX)", s: "Abre as configurações do Media Station X" });
     it.push({ tipo: "op", a: "sair", t: "Sair do app", s: "Fecha o Gold Play" });
     C.itens = it; if (C.i >= it.length) C.i = 0;
   }
@@ -1573,6 +1574,7 @@ body.vfull #falha { display: none; }
         if (x.tipo === "ct" && x.v === (CFG || {}).usuario) { abrir("home"); return true; }
         if (x.a === "classico") { confirmar("Voltar ao visual clássico?", "Esta TV passa a abrir as telas antigas do app.", [{ t: "Cancelar", a: null }, { t: "Usar o clássico", a: function () { chamar({ op: "tema", v: "", d: AP }, function () { aviso("Visual clássico ativado"); setTimeout(sairApp, 900); }); } }]); return true; }
         if (x.a === "classico_antigo") { chamar({ op: "tema", v: "", d: AP }, function () { aviso("Visual clássico ativado"); setTimeout(sairApp, 900); }); return true; }
+        if (x.a === "msx") { confirmar("Trocar de app?", "Vamos voltar ao Media Station X com as configurações em destaque. Lá, troque o Start Parameter para abrir outro app.", [{ t: "Cancelar", a: null }, { t: "Ir para o MSX", a: trocarDeApp }]); return true; }
         if (x.a === "sair") { confirmar("Sair do Gold Play?", "Você pode voltar quando quiser. Seu progresso fica salvo.", [{ t: "Cancelar", a: null }, { t: "Sair do app", a: sairApp }]); return true; }
         if (x.a === "trocar") { confirmar("Sair da conta " + ((CFG && CFG.usuario) || "") + "?", "Você vai para a tela de entrada para usar outro usuário. Esta conta continua salva nesta TV.", [{ t: "Cancelar", a: null }, { t: "Sair da conta", a: function () { chamar({ op: "sair", d: AP }, function () {}, function () {}); T = ""; abrir("login", { msg: "Você saiu. Entre com outro usuário." }); } }]); return true; }
         if (x.tipo === "ct" && x.v !== (CFG || {}).usuario) { var u2 = x.v; confirmar("Entrar como " + u2 + "?", "O app vai trocar para esse usuário salvo nesta TV.", [{ t: "Cancelar", a: null }, { t: "Trocar de usuário", a: function () { aviso("Entrando como " + u2 + "…"); chamar({ op: "conta", u: u2, d: AP }, function (r) { if (r.t) trocarSessao(r.t); else aviso(r.erro || "Não foi possível entrar"); }, function () { aviso("Não foi possível entrar"); }); } }]); return true; }
@@ -1682,6 +1684,20 @@ body.vfull #falha { display: none; }
     H.dados = null; LV.todos = null; LV.cats = null; L.cache = {}; G.catsPor = {}; lvCats.itens = []; CAT.vod = CAT.series = CAT.live = null; CAT.pedido = false;
     chamar({ op: "home", novo: 1 }, function (r) { H.dados = r; abrir("home"); aviso("Tudo atualizado"); }, function () { abrir("home"); });
   }
+  // volta ao Media Station X (sem fechar tudo) e pede ao servidor a tela com as configurações do MSX
+  function trocarDeApp() {
+    aviso("Abrindo o Media Station X…");
+    ls("gp_msxmenu", String(agora()));
+    var foi = false;
+    function ir() {
+      if (foi) return; foi = true; saindo = true;
+      try { history.go(-2); } catch (e) { try { history.back(); } catch (e2) {} }
+      setTimeout(function () { saindo = false; aviso("Aperte Voltar no controle para ir ao Media Station X"); }, 2500);
+    }
+    if (DEMO) { ir(); return; }
+    chamar({ op: "msxmenu", d: AP }, ir, ir);
+    setTimeout(ir, 3500);
+  }
   function sairApp() {
     saindo = true;
     try { if (window.webOS && webOS.platformBack) { webOS.platformBack(); return; } } catch (e) {}
@@ -1719,7 +1735,7 @@ body.vfull #falha { display: none; }
       else if (k === 13) {
         var n = NAV[navI].id; e.preventDefault();
         if (n === "atualizar") { atualizarTudo(); return; }
-        if (n === "sairapp") { confirmar("Sair do Gold Play?", "Você pode voltar quando quiser. Seu progresso fica salvo.", [{ t: "Ficar no app", a: null }, { t: "Sair do app", a: sairApp }]); return; }
+        if (n === "sairapp") { confirmar("Sair do Gold Play?", "Você pode voltar quando quiser. Seu progresso fica salvo.", [{ t: "Ficar no app", a: null }, { t: "Trocar de app", a: trocarDeApp }, { t: "Sair do app", a: sairApp }]); return; }
         if (atual && atual.secao === n) sairTopo(); else abrir(n); return;
       }
       navRender(); e.preventDefault(); return;

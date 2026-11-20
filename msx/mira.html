@@ -322,7 +322,10 @@
         return;
       }
       var feito = false;
-      function seguir(id) { if (feito) return; feito = true; abrir(id && id !== 'sem-id' ? id : idProprio(), callback, dataId === 'sair' ? 'sair' : 'inicio'); }
+      // "Trocar de app" no Gold Play: na volta ao MSX mostra as configurações em vez de abrir o app de novo
+      var menuMsx = false;
+      try { var mm = JSON.parse(localStorage.getItem('gp_msxmenu') || 'null'); localStorage.removeItem('gp_msxmenu'); menuMsx = mm && new Date().getTime() - Number(mm) < 180000; } catch (e) { }
+      function seguir(id) { if (feito) return; feito = true; abrir(id && id !== 'sem-id' ? id : idProprio(), callback, dataId === 'sair' ? 'sair' : (menuMsx ? 'inicio&m=1' : 'inicio'), menuMsx); }
       try {
         TVXInteractionPlugin.requestDeviceId(function (id) {
           seguir(typeof id === 'string' && id ? id : (TVXSettings.ID || ''));

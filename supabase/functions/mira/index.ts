@@ -921,7 +921,10 @@ async function tratar(url: URL) {
     return { ok: true };
   }
 
-  if (a === "inicio" && url.searchParams.get("classico") !== "1") return ponteApp(d); // o app abre sempre na interface nova
+  if (a === "inicio" && url.searchParams.get("classico") !== "1") { // o app abre sempre na interface nova
+    if (url.searchParams.get("m") === "1" || (d && await pediuMenuMsx(d))) { if (d && url.searchParams.get("m") === "1") await marcarMenuMsx(d, false); return telaMenuMsx(d); }
+    return ponteApp(d);
+  }
   if (a === "inicio") {
     if (url.searchParams.get("x")) { _cfgT = 0; _usr.clear(); _base.clear(); await carregarConfig(); } // botão Atualizar
     // TV cadastrada no painel (MAC + usuário + senha + DNS): entra sozinha; o painel manda no cadastro
@@ -1044,6 +1047,8 @@ async function tratar(url: URL) {
     return await home(tk, `${u} · vence ${exp}`, d, true);
   }
 
+  // "Trocar de app": a TV volta ao MSX e, na próxima abertura (até 3 min), mostra a tela com as configurações do MSX
+  if (a === "japi" && url.searchParams.get("op") === "msxmenu") { if (d) await marcarMenuMsx(d, true); return { ok: true }; }
   if (a === "japi" && ["codigo", "ver", "entrar", "conta0"].includes(url.searchParams.get("op") ?? "")) return await apiLogin(url, d);
   let cred = await lerToken(url.searchParams.get("t"));
   if (!cred && a === "japi") return { ok: false, erro: "sessao" };
@@ -1606,7 +1611,34 @@ function ponteApp(d: string | null) {
   return { type: "pages", transparent: 2, ready: { action: `[settings:validate_links:0|${link}]` }, background: IMG + "bg-tv.jpg", pages: [{ items: [
     { type: "space", layout: "4,1,4,2", image: LOGO, imageFiller: "fit" },
     { type: "default", layout: "4,4,4,1", color: "rgba(245,180,0,0.9)", title: "{col:msx-black}Abrir o Gold Play", alignment: "center", centration: "title", action: link, focus: true },
+    { type: "default", layout: "4,5,4,1", color: "msx-glass", title: "{ico:settings}  Trocar de app (MSX)", alignment: "center", centration: "title", action: "settings:start" },
   ] }] };
+}
+// "Trocar de app": mesma passagem, mas sem abrir o app sozinho e com as configurações do MSX em foco
+function telaMenuMsx(d: string | null) {
+  const link = `link:${APP_NOVO}?${q({ api: SELF(), ...(d ? { d } : {}) })}`;
+  return { type: "pages", transparent: 2, background: IMG + "bg-tv.jpg", pages: [{ items: [
+    { type: "space", layout: "4,0,4,2", image: LOGO, imageFiller: "fit" },
+    { type: "space", layout: "2,2,8,1", text: "{col:msx-white}Para abrir outro app no Media Station X, escolha {txt:msx-white:Configurações do MSX} e troque o {txt:msx-white:Start Parameter}.", alignment: "center" },
+    { type: "default", layout: "3,3,6,1", color: "rgba(245,180,0,0.9)", title: "{col:msx-black}{ico:settings}  Configurações do MSX", titleFooter: "{col:msx-black}Start Parameter", alignment: "center", action: "settings:start", focus: true },
+    { type: "default", layout: "3,4,6,1", color: "msx-glass", title: "Voltar ao Gold Play", alignment: "center", centration: "title", action: `[settings:validate_links:0|${link}]` },
+  ] }] };
+}
+// pedido guardado na mesma tabela das preferências da TV, com chave própria (vale por 3 minutos, uma vez)
+const chaveMenu = (d: string) => `menu:${d}`.slice(0, 120);
+async function marcarMenuMsx(d: string, ligar: boolean) {
+  try {
+    await fetch(`${SB()}/rest/v1/aparelho_cfg?on_conflict=aparelho`, { method: "POST", headers: { ...sbh(), prefer: "resolution=merge-duplicates" }, body: JSON.stringify({ aparelho: chaveMenu(d), tema: ligar ? "1" : null, atualizado: new Date().toISOString() }), signal: AbortSignal.timeout(4000) });
+  } catch { /* sem o pedido, a TV só abre o app como sempre */ }
+}
+async function pediuMenuMsx(d: string): Promise<boolean> {
+  try {
+    const r = await fetch(`${SB()}/rest/v1/aparelho_cfg?aparelho=eq.${encodeURIComponent(chaveMenu(d))}&select=tema,atualizado&limit=1`, { headers: sbh(), signal: AbortSignal.timeout(2000) });
+    const j = await r.json(); const x = Array.isArray(j) ? j[0] : null;
+    if (!x || x.tema !== "1" || Date.now() - Date.parse(x.atualizado) > 180_000) return false;
+    await marcarMenuMsx(d, false);
+    return true;
+  } catch { return false; }
 }
 async function home(t: string, quemTxt: string, d: string | null = null, escolher = false) {
   // TV que escolheu a interface nova: abre direto (com botões de reserva caso a abertura automática não aconteça)
