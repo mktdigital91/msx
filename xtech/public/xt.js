@@ -96,6 +96,19 @@
     });
   }
 
+  /* ---------- 3a'. Menu do celular nas páginas novas, até o kit visual carregar ---------- */
+  var tg = document.querySelector(".nav__toggle"), nv = document.querySelector("header.nav");
+  if (tg && nv) {
+    var abrirNav = function (sim) {
+      nv.classList.toggle("is-open", sim);
+      document.body.classList.toggle("nav-locked", sim);
+      tg.setAttribute("aria-expanded", sim ? "true" : "false");
+    };
+    tg.addEventListener("click", function () { if (!window.__xtKit) abrirNav(!nv.classList.contains("is-open")); });
+    document.addEventListener("keydown", function (ev) { if (!window.__xtKit && ev.key === "Escape" && nv.classList.contains("is-open")) { abrirNav(false); tg.focus(); } });
+    nv.addEventListener("click", function (ev) { if (!window.__xtKit && ev.target.closest("a[href]")) abrirNav(false); });
+  }
+
   /* ---------- 3b. Barra fixa de CTA (celular) ---------- */
   var barra = document.querySelector(".barra-cta");
   if (barra && "IntersectionObserver" in window) {

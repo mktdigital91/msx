@@ -1,0 +1,318 @@
+<!doctype html>
+<!-- Xtech, página inicial. Sistema visual: taste-skill (MIT, kit em assets/), com as cores da marca.
+     tipo: software (automação e IA para atendimento) · herói collage escuro com efeito gradient-mesh
+     momento: pinned-chapters em #como-funciona · diagramas: timeline (#situacao, parado) e fanin (#servicos, pulsando) -->
+<html lang="pt-BR" data-type="software" data-radius="soft" data-buttons="solid" data-motion>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Xtech Soluções Digitais: tráfego pago e automação para clínicas</title>
+<meta name="description" content="Tráfego pago e automação de atendimento para clínicas de estética: do anúncio ao WhatsApp e à sua recepção. Comece pelo diagnóstico gratuito.">
+{{HEAD}}
+<meta name="site-kind" content="software">
+<meta name="page-type" content="software">
+<link rel="preload" href="{{R}}fontes/manrope-latin-variavel.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{{R}}assets/site.css?v={{CSSV}}">
+<script src="{{R}}assets/backgrounds/backgrounds.js"></script>
+<script>document.documentElement.classList.add('mo-js');setTimeout(()=>document.documentElement.classList.add('mo-safe'),2500)</script>
+<link rel="modulepreload" href="{{R}}assets/moments/moments.js">
+<link rel="modulepreload" href="{{R}}assets/moments/lib.js">
+<link rel="modulepreload" href="{{R}}assets/moments/pinned-chapters/moment.js">
+<style>
+  #situacao .panel { --p-h: 300px; }
+  #servicos .panel { --p-h: 290px; }
+  @media (max-width: 639px) { #situacao .panel, #servicos .panel { --p-h: 220px; } #servicos .ui-chat__day { display: none; } }
+</style>
+</head>
+<body>
+{{PREVIA}}
+<header class="nav nav--tone">
+  <div class="wrap nav__bar">
+    <a class="skip-link" href="#top">Pular para o conteúdo</a>
+    <a class="nav__logo xt-logo" href="{{R}}./" aria-label="Xtech Soluções Digitais, página inicial"><img src="{{R}}marca/xtech-branca.svg" alt="Xtech Soluções Digitais" width="117" height="40"></a>
+    <nav class="nav__links" aria-label="Principal">
+      <div class="nav__item"><a class="nav__link" href="{{R}}automacao-de-atendimento/">Automação</a></div>
+      <div class="nav__item"><a class="nav__link" href="{{R}}trafego-pago/">Tráfego pago</a></div>
+      <div class="nav__item"><a class="nav__link" href="#servicos">Serviços</a></div>
+      <div class="nav__item"><a class="nav__link" href="#como-funciona">Como funciona</a></div>
+    </nav>
+    <div class="nav__actions">
+      <a class="btn btn--primary" href="{{QUIZ}}" data-xt="diagnostico" data-xt-posicao="home-menu">Fazer diagnóstico</a>
+    </div>
+    <button class="nav__toggle" type="button" aria-expanded="false" aria-label="Menu">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 5h14M2 13h14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero hero--collage ground-inverse" data-enter aria-labelledby="hero-h">
+    <div class="wrap"><div class="hero-text grid hero__grid">
+      <div class="hero__text span-5">
+        <h1 id="hero-h">Do anúncio à agenda da sua clínica</h1>
+        <p class="hero__lead">Tráfego pago e automação de atendimento para clínicas de estética. Cada mensagem do WhatsApp e do Instagram respondida na hora e entregue à sua recepção.</p>
+        <div class="btn-row">
+          <a class="btn btn--primary" href="{{QUIZ}}" data-xt="diagnostico" data-xt-posicao="home-topo">Fazer diagnóstico gratuito<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+          <a class="btn btn--secondary" href="#como-funciona">Ver como funciona</a>
+        </div>
+        <p class="hero__proof">Gratuito e sem compromisso. Atendimento remoto em todo o Brasil.</p>
+      </div>
+      <div class="hero__art span-6 start-7" id="exemplo" data-fx="gradient-mesh" data-fx-seed="7"
+           data-fx-palette='{"bg":"#0b3a4d","surface":"#11566b","ink":"#eef6f6","muted":"#a9c3ca","accent":"#02c2b9"}'
+           data-fx-params='{"speed":0.12,"calm":0.25,"calmX":0.3,"calmY":0.4,"tint":0.75,"relief":0.4}'
+           role="img" aria-label="Exemplo de atendimento: a mensagem “Olá, gostaria de agendar uma avaliação” chega pelo WhatsApp, é marcada como interesse em avaliação e encaminhada à recepção.">
+        <div class="ly-piece ly-piece--main xw" aria-hidden="true">
+          <div class="xw__bar"><span class="xw__dots"><i></i><i></i><i></i></span><span>Caixa de atendimento · Exemplo</span></div>
+          <div class="xw__body">
+            <div class="xw__side">
+              <span class="is-on"><img src="{{R}}assets/icons/ui-inbox.svg" alt="">Todas <b>12</b></span>
+              <span><img src="{{R}}assets/icons/whatsapp.svg" alt="">WhatsApp <b>7</b></span>
+              <span><img src="{{R}}assets/icons/instagram.svg" alt="">Instagram <b>4</b></span>
+              <span><img src="{{R}}assets/icons/facebook.svg" alt="">Facebook <b>1</b></span>
+              <span class="xw__label">Equipe</span>
+              <span><i class="xw__av">R</i>Recepção</span>
+            </div>
+            <div class="xw__main">
+              <div class="xw__head"><h4>Conversas de hoje</h4><span class="xw__chip xw__chip--live">Automação ligada</span></div>
+              <div class="xw__rows">
+                <div class="xw__row is-new"><img src="{{R}}assets/icons/whatsapp.svg" alt=""><div><b>Olá, gostaria de agendar uma avaliação</b><small>WhatsApp · agora</small></div><span class="xw__chip xw__chip--accent">Interesse em avaliação</span></div>
+                <div class="xw__row"><img src="{{R}}assets/icons/instagram.svg" alt=""><div><b>Quanto custa a limpeza de pele?</b><small>Direct · 21:12</small></div><span class="xw__chip">Pedido de valor</span></div>
+                <div class="xw__row"><img src="{{R}}assets/icons/whatsapp.svg" alt=""><div><b>Tem horário no sábado?</b><small>WhatsApp · 20:40</small></div><span class="xw__chip">Encaminhado</span></div>
+                <div class="xw__row"><img src="{{R}}assets/icons/facebook.svg" alt=""><div><b>Vocês atendem por convênio?</b><small>Messenger · 19:05</small></div><span class="xw__chip">Respondido</span></div>
+                <div class="xw__row"><img src="{{R}}assets/icons/whatsapp.svg" alt=""><div><b>Queria tirar uma dúvida do pós</b><small>WhatsApp · 18:31</small></div><span class="xw__chip">Com a equipe</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ly-piece ly-piece--note xn" aria-hidden="true" data-ly-steps="900">
+          <div class="xn__row"><h5>Nova conversa</h5><span class="xw__chip xw__chip--accent" data-step data-step-at="4">Na recepção</span></div>
+          <div class="xn__line" data-step><i><img src="{{R}}assets/icons/whatsapp.svg" alt=""></i><span>Mensagem recebida <b>às 21:47</b></span></div>
+          <div class="xn__line" data-step><i>✓</i><span>Organizada como <b>interesse em avaliação</b></span></div>
+          <div class="xn__line" data-step><i>✓</i><span><b>Encaminhado à recepção</b> com o histórico</span></div>
+        </div>
+      </div>
+    </div></div>
+  </section>
+
+  <section class="section" id="situacao" aria-labelledby="situacao-h">
+    <div class="wrap">
+      <div class="section-head">
+        <h2 id="situacao-h">Onde sua clínica perde pacientes? <span class="muted">Os dois casos começam pelo mesmo diagnóstico.</span></h2>
+      </div>
+      <div class="grid">
+        <article class="card card--row card--open span-6" id="mais-contatos">
+          <h3>Faltam contatos</h3>
+          <p>Anúncios para os procedimentos que você quer preencher na agenda. <a class="link" href="{{R}}trafego-pago/">Tráfego pago</a></p>
+          <div class="panel">
+            <div class="dg" data-dg-still data-diagram><script type="application/json">{"layout":"timeline","alt":"Exemplo: um anúncio no Instagram leva a uma conversa no WhatsApp, a recepção confirma e a avaliação é marcada.","steps":[{"label":"Anúncio","sub":"Instagram","icon":"instagram"},{"label":"Conversa","sub":"WhatsApp","icon":"whatsapp"},{"label":"Recepção","sub":"Confirma","icon":"ui:headset"},{"label":"Avaliação","sub":"Marcada","icon":"ui:calendar-check"}],"ground":"dots"}</script></div>
+          </div>
+        </article>
+        <article class="card card--row card--open span-6" id="perco-agendamentos">
+          <h3>As mensagens chegam, o agendamento não</h3>
+          <p>A automação responde na hora e passa a conversa para a recepção. <a class="link" href="{{R}}automacao-de-atendimento/">Automação</a></p>
+          <div class="panel">
+            <div class="stage stage--fade-b"><div class="at-rise fit to-edge" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:40px;--ay-sm:16px" data-ui-loop>
+              <div class="ui ui-panel ui-chat" data-ui="chat">
+                <div class="ui-head"><span class="ui-agent" aria-hidden="true"></span><div class="ui-title">Atendimento da clínica</div><span class="ui-chat__online">Online</span><span class="ui-spacer"></span></div>
+                <div class="ui-chat__body">
+                  <div class="ui-chat__day">Hoje, 21:47</div>
+                  <div class="ui-msg ui-msg--me" data-chat-q><span class="ui-msg__text">Oi! Vocês fazem limpeza de pele? Queria um horário essa semana.</span></div>
+                  <div class="ui-msg ui-msg--bot" data-chat-a>
+                    <span class="ui-agent ui-msg__av" aria-hidden="true"></span>
+                    <span class="ui-msg__col">
+                      <span class="ui-chat__typing" aria-hidden="true"><i></i><i></i><i></i></span>
+                      <span class="ui-chat__answer">Fazemos, sim! Já passei seu pedido para a <b>recepção</b>, que confirma o horário amanhã cedo.</span>
+                      <span class="ui-chat__srcs"><span class="ui-chat__src"><img class="xt-ico" src="{{R}}assets/icons/ui-tag.svg" alt="">Limpeza de pele</span><span class="ui-chat__src"><img class="xt-ico" src="{{R}}assets/icons/ui-headset.svg" alt="">Recepção</span></span>
+                    </span>
+                  </div>
+                  <div class="ui-msg ui-msg--me"><span class="ui-msg__text">Perfeito, obrigada!</span></div>
+                </div>
+                <div class="ui-chat__input"><span class="ui-chat__ph">Escreva uma mensagem</span><span class="ui-chat__send" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M8 13V3.5M3.8 7.5 8 3.3l4.2 4.2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+              </div>
+            </div></div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section g2 ground-surface" id="servicos" aria-labelledby="servicos-h">
+    <div class="wrap">
+      <div class="group">
+        <div class="section-head">
+          <h2 id="servicos-h">O que a Xtech implanta. <span class="muted">Cada serviço pelo que fica funcionando.</span></h2>
+        </div>
+        <div class="grid">
+          <article class="card card--row card--open span-6">
+            <h3>Automação de atendimento</h3>
+            <p>WhatsApp, Instagram e Facebook numa só caixa, com a equipe treinada. <a class="link" href="{{R}}automacao-de-atendimento/">Ver detalhes</a></p>
+            <div class="panel">
+              <div class="dg" data-diagram><script type="application/json">{"layout":"fanin","alt":"Mensagens do WhatsApp, do Instagram e do Facebook chegam a uma só caixa na Melina Chat e seguem para a recepção.","sources":[{"label":"WhatsApp","icon":"whatsapp","sub":"Mensagens"},{"label":"Instagram","icon":"instagram","sub":"Direct"},{"label":"Facebook","icon":"facebook","sub":"Messenger"}],"target":{"label":"Melina Chat","icon":"ui:inbox"},"then":{"label":"Recepção","icon":"ui:headset","meta":"com histórico"}}</script></div>
+            </div>
+          </article>
+          <article class="card card--row card--open span-6">
+            <h3>Gestão de tráfego pago</h3>
+            <p>Campanhas planejadas e acompanhadas, do investimento até a oportunidade. <a class="link" href="{{R}}trafego-pago/">Ver detalhes</a></p>
+            <div class="panel">
+              <div class="stage"><div class="at-corner fit" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:40px">
+                <div class="ui ui-notify" data-ui="notify">
+                  <ul class="ui-notify__list" data-notify-list>
+                    <li class="ui-note"><span class="ui-note__ico"><img class="xt-ico" src="{{R}}assets/icons/instagram.svg" alt=""></span><span class="ui-note__text"><span class="ui-note__title">Nova conversa do anúncio<time>agora</time></span><span class="ui-note__body">Limpeza de pele, público da sua região</span></span></li>
+                    <li class="ui-note"><span class="ui-avatar ui-note__av" data-tone="3">JM</span><span class="ui-note__text"><span class="ui-note__title">Campanha ajustada<time>2 h</time></span><span class="ui-note__body">Harmonização facial, nova mensagem no ar</span></span></li>
+                    <li class="ui-note"><span class="ui-note__ico"><svg class="ui-icon" viewBox="0 0 16 16"><path d="m3.5 8.4 2.8 2.8 6.2-6.4"/></svg></span><span class="ui-note__text"><span class="ui-note__title">Resumo da semana pronto<time>ontem</time></span><span class="ui-note__body">Investimento, contatos e oportunidades</span></span></li>
+                  </ul>
+                </div>
+              </div></div>
+            </div>
+          </article>
+        </div>
+      </div>
+      <div class="grid">
+        <article class="card card--row card--open span-6">
+          <h3>Tráfego + atendimento</h3>
+          <p>Os anúncios trazem, a automação recebe e a recepção agenda. Tudo acompanhado.</p>
+          <div class="panel">
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:380px;--ax:max(24px, 50% - 190px);--ay:40px">
+              <div class="ui ui-panel ui-checks" data-ui="checklist">
+                <div class="ui-checks__head"><div class="ui-title">Caminho do contato</div><span class="ui-spacer"></span><div class="ui-meta" data-checks-count>3 de 4</div></div>
+                <div class="ui-checks__bar"><i data-checks-bar style="--k:0.75"></i></div>
+                <ul class="ui-checks__list">
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Anúncio no ar</span></li>
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Mensagem respondida na hora</span></li>
+                  <li class="ui-check is-done"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Interesse registrado</span></li>
+                  <li class="ui-check"><span class="ui-check__box"><svg viewBox="0 0 16 16"><path d="m4.5 8.2 2.3 2.3 4.7-5"/></svg></span><span class="ui-check__label">Recepção confirma o horário</span></li>
+                </ul>
+              </div>
+            </div></div>
+          </div>
+        </article>
+        <article class="card card--row card--open span-6" id="sistemas-e-ia">
+          <h3>Sistemas e IA sob medida</h3>
+          <p>Para tarefas que hoje tomam horas da equipe. {{SISTEMAS_LINK}}</p>
+          <div class="panel">
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:40px">
+              <div class="ui ui-panel ui-toggles" data-ui="toggles">
+                <div class="ui-head"><svg class="ui-icon ui-toggles__ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 13 4v3.6c0 3-2.1 5.4-5 6.6-2.9-1.2-5-3.6-5-6.6V4z"/><path d="m5.8 8 1.6 1.6 3-3.2"/></svg><div class="ui-title">Tarefas automáticas</div><span class="ui-spacer"></span><div class="ui-meta" data-tg-count>3 de 4 ligadas</div></div>
+                <ul class="ui-toggles__list">
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Lembrete na véspera</span><span class="ui-tg__sub">Mensagem para quem tem horário</span></span><span class="ui-switch is-on" aria-hidden="true"><i></i></span></li>
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Relatório semanal</span><span class="ui-tg__sub">Montado sozinho toda segunda</span></span><span class="ui-switch is-on" aria-hidden="true"><i></i></span></li>
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Cadastro em um só lugar</span><span class="ui-tg__sub">Sem digitar duas vezes</span></span><span class="ui-switch is-on" aria-hidden="true"><i></i></span></li>
+                  <li class="ui-tg"><span class="ui-tg__text"><span class="ui-tg__label">Seu processo aqui</span><span class="ui-tg__sub">Conte o que quer melhorar</span></span><span class="ui-switch" aria-hidden="true"><i></i></span></li>
+                </ul>
+              </div>
+            </div></div>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="como-funciona" style="--h: 2" data-moment="pinned-chapters" aria-labelledby="como-h">
+    <div class="wrap mo-pc__grid">
+      <div class="mo-pc__text">
+        <h2 id="como-h">Como funciona</h2>
+        <ol class="mo-pc__steps">
+          <li class="mo-pc__step">
+            <h3>Diagnóstico gratuito</h3>
+            <p>Algumas perguntas no Responda.me mostram se o ponto de atenção é captação, atendimento ou os dois.</p>
+            <figure class="mo-pc__visual xv" role="img" aria-label="Uma pergunta do diagnóstico com a resposta escolhida">
+              <div class="xq">
+                <p class="xq__step">Pergunta 3 de 8</p>
+                <p class="xq__q">Quando chega uma mensagem à noite, o que acontece?</p>
+                <span class="xq__opt">Respondemos na hora</span>
+                <span class="xq__opt is-on">Fica para o dia seguinte</span>
+                <span class="xq__opt">Às vezes ninguém responde</span>
+              </div>
+            </figure>
+          </li>
+          <li class="mo-pc__step">
+            <h3>Conversa com Jhonie</h3>
+            <p>Havendo encaixe, você marca uma reunião remota com Jhonie Michael, que conduz o diagnóstico e a implantação.</p>
+            <figure class="mo-pc__visual xv" role="img" aria-label="Convite de reunião por videochamada com Jhonie Michael">
+              <div class="xm">
+                <span class="xm__ico"><img src="{{R}}assets/icons/ui-video.svg" alt=""></span>
+                <p class="xm__t">Reunião de diagnóstico</p>
+                <p class="xm__s">Videochamada com Jhonie Michael</p>
+                <div class="xm__who"><i>JM</i><i class="is-you">Você</i></div>
+                <span class="xm__btn">Horário confirmado</span>
+              </div>
+            </figure>
+          </li>
+          <li class="mo-pc__step">
+            <h3>Proposta e implantação</h3>
+            <p>Escopo definido por escrito. Jhonie acompanha a configuração, os testes e o treinamento da equipe.</p>
+            <figure class="mo-pc__visual xv" role="img" aria-label="Lista da implantação com três etapas concluídas">
+              <div class="xl">
+                <p class="xl__t">Implantação</p>
+                <span class="is-done">Mapeamento do atendimento</span>
+                <span class="is-done">Canais conectados</span>
+                <span class="is-done">Testes com a equipe</span>
+                <span class="is-now">Treinamento da recepção</span>
+              </div>
+            </figure>
+          </li>
+        </ol>
+      </div>
+      <div class="mo-pc__visuals frame"></div>
+    </div>
+  </section>
+
+  <section class="section ground-inverse" id="jhonie" aria-labelledby="jhonie-h">
+    <div class="wrap">
+      <div class="grid xj">
+        <div class="span-6">
+          <h2 id="jhonie-h">Quem implanta é quem atende você</h2>
+          <p class="t-lead xj__lead">Jhonie Michael lidera a Xtech e participa pessoalmente das reuniões de diagnóstico e da implantação. A experiência vem da operação de captação e atendimento da AC Harmony, clínica de estética em João Pessoa.</p>
+          <dl class="xj__facts">
+            <div><dt>Base</dt><dd>João Pessoa (PB)</dd></div>
+            <div><dt>Atendimento</dt><dd>Remoto, em todo o Brasil</dd></div>
+            <div><dt>Na reunião</dt><dd>Você fala com quem implanta</dd></div>
+          </dl>
+        </div>
+        <div class="span-5 start-8 xj__art frame" aria-hidden="true">
+          {{RETRATO}}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="duvidas" aria-labelledby="duvidas-h">
+    <div class="wrap">
+      <div class="grid grid--top">
+        <div class="span-4">
+          <h2 id="duvidas-h">Dúvidas antes de começar</h2>
+        </div>
+        <div class="span-7 start-6 xfaq">
+          <details><summary>Posso contratar só a automação?</summary><p>Sim. Ela organiza os contatos que já chegam hoje. Os anúncios podem entrar depois, se o diagnóstico mostrar que faltam contatos.</p></details>
+          <details><summary>Quem assume a conversa quando o cliente precisa de uma pessoa?</summary><p>A pessoa da sua equipe definida no mapeamento, normalmente a recepção, com todo o histórico da conversa.</p></details>
+          <details><summary>A Xtech atende minha cidade?</summary><p>Sim. A Xtech fica em João Pessoa (PB) e atende todo o Brasil de forma remota, com reuniões por videochamada.</p></details>
+          <details><summary>O que acontece depois do diagnóstico?</summary><p>Você pode seguir pelo WhatsApp e, havendo encaixe, marcar a reunião com Jhonie. Depois recebe uma proposta com escopo definido. Sem compromisso.</p></details>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="footer closing footer--dark ground-inverse" id="diagnostico" aria-labelledby="close-h">
+  <div class="wrap">
+    <div class="closing__cta close--type">
+      <div class="section-head">
+        <h2 id="close-h">Comece pelo diagnóstico gratuito</h2>
+        <p>Algumas perguntas sobre como sua clínica recebe e atende contatos. Sem compromisso.</p>
+      </div>
+      <a class="btn btn--primary btn--xl btn--wide" href="{{QUIZ}}" data-xt="diagnostico" data-xt-posicao="home-final">Fazer diagnóstico gratuito<svg class="m-arrow" viewBox="0 0 12 12" aria-hidden="true"><path class="m-arrow__stem" d="M1 6h8"/><path class="m-arrow__head" d="M4.5 2.5 8 6l-3.5 3.5"/></svg></a>
+    </div>
+    {{RODAPE}}
+  </div>
+</footer>
+
+<nav class="actionbar" aria-label="Ação rápida">
+  <a class="btn btn--primary" href="{{QUIZ}}" data-xt="diagnostico" data-xt-posicao="home-barra">Fazer diagnóstico gratuito</a>
+</nav>
+{{CONSENTIMENTO}}
+<!-- o kit visual (efeitos, telas animadas, diagramas) carrega depois da primeira pintura ou no primeiro gesto:
+     o conteúdo e os botões já funcionam antes disso (xt.js cuida do menu do celular até lá) -->
+<script>(function(){var R="{{R}}",d=0;function go(){if(d)return;d=1;["assets/system.js","assets/motion/motion.js","assets/layout/layout.js","assets/diagrams/mount.js"].forEach(function(s){var e=document.createElement("script");e.type="module";e.src=R+s;if(s.indexOf("system")>-1)e.onload=function(){window.__xtKit=1};document.body.appendChild(e)})}["scroll","pointerdown","keydown","touchstart"].forEach(function(t){addEventListener(t,go,{once:true,passive:true})});addEventListener("load",function(){setTimeout(go,1500)})})();</script>
+{{XT_JS}}
+</body>
+</html>

@@ -252,9 +252,98 @@ ${consent}
   return { pg, destino, bytes: Buffer.byteLength(html) };
 }
 
+/* ---------- Páginas no novo sistema visual (src/v2, kit taste-skill em assets/) ---------- */
+function montarV2(arquivo, fnMeta, { raiz, slug }) {
+  const h = criarHelpers({ raiz });
+  const pg = fnMeta(h); // reaproveita título, descrição, migalha e schema da página antiga
+  const canon = dominio ? `${dominio}${caminho(slug)}` : "";
+  const indexar = producao;
+  const ogImg = dominio ? `${dominio}/marca/og-xtech.png` : "";
+  const schemas = [slug === "" ? schemaOrganizacao() : null, schemaMigalhas(pg)].filter(Boolean);
+  const cfgCliente = {
+    quizUrl: cfg.quizUrl || "",
+    parametros: cfg.parametrosPreservados || [],
+    parametroOrigem: cfg.parametroOrigem || "",
+    pagina: caminho(slug),
+    eventos: { cliqueDiagnostico: cfg.eventos.cliqueDiagnostico.nome, cliqueWhatsapp: cfg.eventos.cliqueWhatsapp.nome },
+    mensuracao: { gtmId: m.gtmId || "", ga4Id: m.ga4Id || "", metaPixelId: m.metaPixelId || "", criativivoScriptUrl: m.criativivoScriptUrl || "" },
+  };
+  const temMensuracao = !!(m.gtmId || m.ga4Id || m.metaPixelId || m.criativivoScriptUrl);
+  const head = [
+    indexar ? "" : '<meta name="robots" content="noindex, nofollow">',
+    canon ? `<link rel="canonical" href="${canon}">` : "",
+    '<meta name="theme-color" content="#072D3D">',
+    `<link rel="icon" href="${raiz}marca/xtech-simbolo.svg" type="image/svg+xml">`,
+    `<link rel="apple-touch-icon" href="${raiz}marca/apple-touch-icon.png">`,
+    '<meta property="og:type" content="website">', '<meta property="og:locale" content="pt_BR">',
+    '<meta property="og:site_name" content="Xtech Soluções Digitais">',
+    `<meta property="og:title" content="${esc(pg.titulo)}">`, `<meta property="og:description" content="${esc(pg.descricao)}">`,
+    canon ? `<meta property="og:url" content="${canon}">` : "",
+    ogImg ? `<meta property="og:image" content="${ogImg}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">` : "",
+    '<meta name="twitter:card" content="summary_large_image">',
+    ...schemas.map((s) => `<script type="application/ld+json">${JSON.stringify(s)}</script>`),
+    `<script id="xt-config" type="application/json">${JSON.stringify(cfgCliente).replace(/</g, "\\u003c")}</script>`,
+  ].filter(Boolean).join("\n");
+  const quiz = esc(cfg.quizUrl || "#diagnostico");
+  const whats = (texto, msg, posicao, cls = "link") => h.linkWhats({ posicao, texto, mensagem: msg, classe: cls });
+  const r = cfg.responsavel || {};
+  const retrato = r.foto
+    ? `<img class="xj__foto" src="${raiz}fotos/${esc(r.foto)}" alt="${esc(r.fotoDescricao || r.nome)}" width="800" height="1000" loading="lazy" decoding="async">`
+    : `<img class="xj__x" src="${raiz}marca/xtech-simbolo-branco.svg" alt="" width="512" height="512" loading="lazy">`;
+  const e = cfg.empresa;
+  const contato = [
+    `<li><a href="${quiz}" data-xt="diagnostico" data-xt-posicao="rodape">Diagnóstico gratuito</a></li>`,
+    whats("WhatsApp comercial", null, "rodape", ""),
+    cfg.instagram && `<a href="${esc(cfg.instagram)}" rel="noopener">Instagram</a>`,
+    cfg.email && `<a href="mailto:${esc(cfg.email)}">${esc(cfg.email)}</a>`,
+  ].filter(Boolean).map((x) => (x.startsWith("<li>") ? x : `<li>${x}</li>`)).join("");
+  const rodapeV2 = `<div class="closing__links">
+      <div class="grid">
+        <div class="span-4 stack-4">
+          <a class="nav__logo xt-logo" href="${raiz || "./"}" aria-label="Xtech Soluções Digitais, página inicial"><img src="${raiz}marca/xtech-branca.svg" alt="Xtech Soluções Digitais" width="150" height="51" loading="lazy"></a>
+          <p class="footer__lede">Tecnologia e marketing para clínicas e empresas. ${esc(e.cidade)} (${esc(e.uf)}), atendimento remoto em todo o Brasil.</p>
+        </div>
+        <div class="span-3 start-6 footer__col"><h3>Serviços</h3><ul>
+          <li><a href="${raiz}automacao-de-atendimento/">Automação de atendimento</a></li>
+          <li><a href="${raiz}trafego-pago/">Gestão de tráfego pago</a></li>
+          <li><a href="${raiz || "./"}#sistemas-e-ia">Sistemas e IA</a></li>
+          <li><a href="${raiz}clinicas-de-estetica/">Para clínicas de estética</a></li></ul></div>
+        <div class="span-3 start-10 footer__col"><h3>Contato</h3><ul>${contato}<li><a href="${raiz}privacidade/">Privacidade</a></li></ul></div>
+      </div>
+      <div class="footer__legal">
+        <span>&copy; ${agora.getFullYear()} ${esc(e.razaoSocial || e.nome)}${e.cnpj ? ` · CNPJ ${esc(e.cnpj)}` : ""} &nbsp; <a href="${raiz}privacidade/">Privacidade</a></span>
+        <span class="t-small">Interface baseada no kit taste-skill (licença MIT)</span>
+      </div>
+    </div>`;
+  const consent = temMensuracao
+    ? `<div class="consentimento" id="consentimento" role="region" aria-label="Aviso de cookies" hidden><p>Usamos cookies de mensuração para entender quais páginas e anúncios ajudam as pessoas a chegar até a Xtech. Você escolhe. <a href="${raiz}privacidade/">Saiba mais</a>.</p><div class="btn-row"><button class="btn btn--primary" type="button" data-consentimento="aceito">Aceitar</button><button class="btn btn--secondary" type="button" data-consentimento="recusado">Recusar</button></div></div>`
+    : "";
+  const sistemas = whats("Conte seu processo", cfg.whatsapp?.mensagemSistemas, `${slug || "home"}-sistemas`)
+    || `<a class="link" href="${quiz}" data-xt="diagnostico" data-xt-posicao="${slug || "home"}-sistemas">Conte seu processo</a>`;
+  let html = readFileSync(join(SRC, "v2", arquivo), "utf8");
+  const trocas = { CSSV: cssV2.versao, HEAD: head, PREVIA: faixaPrevia(), QUIZ: quiz, SISTEMAS_LINK: sistemas, RETRATO: retrato, RODAPE: rodapeV2,
+    CONSENTIMENTO: consent, XT_JS: `<script src="${raiz}xt.js?v=${jsVersao}" defer></script>`, R: raiz };
+  html = html.replace(/\{\{([A-Z_]+)\}\}/g, (mm, k) => (k in trocas ? trocas[k] : mm));
+  if (/\{\{[A-Z_]+\}\}/.test(html)) throw new Error(`Marcador sem valor em ${arquivo}`);
+  const destino = join(SAIDA, slug, "index.html");
+  mkdirSync(dirname(destino), { recursive: true });
+  writeFileSync(destino, html);
+  return { pg: { ...pg, slug }, destino, bytes: Buffer.byteLength(html) };
+}
+
 /* ---------- Execução ---------- */
 rmSync(SAIDA, { recursive: true, force: true });
 mkdirSync(SAIDA, { recursive: true });
+cpSync(join(SRC, "kit"), join(SAIDA, "assets"), { recursive: true });
+cpSync(join(SRC, "v2", "xtech.css"), join(SAIDA, "assets", "xtech.css"));
+// um só arquivo de estilos para as páginas novas (menos requisições bloqueando a primeira pintura)
+const cssV2 = (() => {
+  const ordem = readFileSync(join(SRC, "v2", "css-ordem.txt"), "utf8").split("\n").filter(Boolean);
+  const texto = ordem.map((f) => readFileSync(join(SAIDA, "assets", f), "utf8")).join("\n");
+  const min = minCss(texto);
+  writeFileSync(join(SAIDA, "assets", "site.css"), min);
+  return { versao: hash(min) };
+})();
 cpSync(join(SRC, "marca"), join(SAIDA, "marca"), { recursive: true });
 cpSync(join(SRC, "fontes"), join(SAIDA, "fontes"), { recursive: true });
 if (cfg.responsavel?.foto) {
@@ -272,7 +361,10 @@ const paginas = [
   [P.campanha, "clinicas-de-estetica"],
   [P.privacidade, "privacidade"],
 ];
-const gerados = paginas.map(([fn, slug]) => montar(fn, { raiz: slug ? "../" : "", slugSaida: slug }));
+const gerados = paginas.map(([fn, slug]) =>
+  existsSync(join(SRC, "v2", `${slug || "home"}.html`))
+    ? montarV2(`${slug || "home"}.html`, fn, { raiz: slug ? "../" : "", slug })
+    : montar(fn, { raiz: slug ? "../" : "", slugSaida: slug }));
 gerados.push(montar(P.erro404, { raiz: "/", slugSaida: "404" }));
 
 // robots.txt e sitemap.xml
