@@ -477,7 +477,8 @@ async function visuals() {
   // (under 640px), on kind other and on a place nothing loops: the hero's ground is drawn once like the
   // rest and every fragment holds its finished picture (as most good sites cut motion there), so no
   // pause button covers the UI. A held fragment still plays while the pointer is on its card.
-  const phone = window.matchMedia('(max-width: 639px)').matches || kindOther();
+  // Xtech: <html data-phone-motion> mantém as animações também no celular (alteração local do kit)
+  const phone = (window.matchMedia('(max-width: 639px)').matches && !document.documentElement.hasAttribute('data-phone-motion')) || kindOther();
   const box = el => el.closest('.frame, .panel__screen, .panel') || el;
   const moving = phone ? [] : grounds.filter(el => el.closest('.hero, .section--hero') && !box(el).querySelector('[data-print], [data-scene]'));
   const live = el => moving.includes(el);

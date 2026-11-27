@@ -2,7 +2,7 @@
 <!-- Xtech, página inicial. Sistema visual: taste-skill (MIT, kit em assets/), com as cores da marca.
      tipo: software (automação e IA para atendimento) · herói collage escuro com efeito gradient-mesh
      momento: pinned-chapters em #como-funciona · diagramas: timeline (#situacao, parado) e fanin (#servicos, pulsando) -->
-<html lang="pt-BR" data-type="software" data-radius="soft" data-buttons="solid" data-motion>
+<html lang="pt-BR" data-type="software" data-radius="soft" data-buttons="solid" data-motion data-phone-motion>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -61,7 +61,7 @@
            data-fx-palette='{"bg":"#0b3a4d","surface":"#11566b","ink":"#eef6f6","muted":"#a9c3ca","accent":"#02c2b9"}'
            data-fx-params='{"speed":0.12,"calm":0.25,"calmX":0.3,"calmY":0.4,"tint":0.75,"relief":0.4}'
            role="img" aria-label="Exemplo de atendimento: a mensagem “Olá, gostaria de agendar uma avaliação” chega pelo WhatsApp, é marcada como interesse em avaliação e encaminhada à recepção.">
-        <div class="ly-piece ly-piece--main xw" aria-hidden="true">
+        <div class="ly-piece ly-piece--main xw" aria-hidden="true" data-xt-anim="caixa">
           <div class="xw__bar"><span class="xw__dots"><i></i><i></i><i></i></span><span>Caixa de atendimento · Exemplo</span></div>
           <div class="xw__body">
             <div class="xw__side">
@@ -104,7 +104,7 @@
           <h3>Faltam contatos</h3>
           <p>Anúncios para os procedimentos que você quer preencher na agenda. <a class="link" href="{{R}}trafego-pago/">Tráfego pago</a></p>
           <div class="panel">
-            <div class="dg" data-dg-still data-diagram><script type="application/json">{"layout":"timeline","alt":"Exemplo: um anúncio no Instagram leva a uma conversa no WhatsApp, a recepção confirma e a avaliação é marcada.","steps":[{"label":"Anúncio","sub":"Instagram","icon":"instagram"},{"label":"Conversa","sub":"WhatsApp","icon":"whatsapp"},{"label":"Recepção","sub":"Confirma","icon":"ui:headset"},{"label":"Avaliação","sub":"Marcada","icon":"ui:calendar-check"}],"ground":"dots"}</script></div>
+            <div class="dg" data-dg-phone="loop" data-diagram><script type="application/json">{"layout":"timeline","alt":"Exemplo: um anúncio no Instagram leva a uma conversa no WhatsApp, a recepção confirma e a avaliação é marcada.","steps":[{"label":"Anúncio","sub":"Instagram","icon":"instagram"},{"label":"Conversa","sub":"WhatsApp","icon":"whatsapp"},{"label":"Recepção","sub":"Confirma","icon":"ui:headset"},{"label":"Avaliação","sub":"Marcada","icon":"ui:calendar-check"}],"ground":"dots"}</script></div>
           </div>
         </article>
         <article class="card card--row card--open span-6" id="perco-agendamentos">
@@ -147,14 +147,35 @@
             <h3>Automação de atendimento</h3>
             <p>WhatsApp, Instagram e Facebook numa só caixa, com a equipe treinada. <a class="link" href="{{R}}automacao-de-atendimento/">Ver detalhes</a></p>
             <div class="panel">
-              <div class="dg" data-diagram><script type="application/json">{"layout":"fanin","alt":"Mensagens do WhatsApp, do Instagram e do Facebook chegam a uma só caixa na Melina Chat e seguem para a recepção.","sources":[{"label":"WhatsApp","icon":"whatsapp","sub":"Mensagens"},{"label":"Instagram","icon":"instagram","sub":"Direct"},{"label":"Facebook","icon":"facebook","sub":"Messenger"}],"target":{"label":"Melina Chat","icon":"ui:inbox"},"then":{"label":"Recepção","icon":"ui:headset","meta":"com histórico"}}</script></div>
+              <div class="xf" role="img" aria-label="Mensagens do WhatsApp, do Instagram e do Facebook chegam a uma só caixa na Melina Chat e seguem para a recepção.">
+                <svg class="xf__svg" viewBox="0 0 560 300" aria-hidden="true" focusable="false">
+                  <defs><filter id="xf-brilho" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+                  <path id="xf-wa" class="xf__base" d="M178 62 C 228 62, 228 150, 272 150"/>
+                  <path id="xf-ig" class="xf__base" d="M178 150 L 272 150"/>
+                  <path id="xf-fb" class="xf__base" d="M178 238 C 228 238, 228 150, 272 150"/>
+                  <path id="xf-out" class="xf__base" d="M388 150 L 432 150"/>
+                  <path class="xf__rastro xf__rastro--wa" pathLength="100" d="M178 62 C 228 62, 228 150, 272 150"/>
+                  <path class="xf__rastro xf__rastro--ig" pathLength="100" d="M178 150 L 272 150"/>
+                  <path class="xf__rastro xf__rastro--fb" pathLength="100" d="M178 238 C 228 238, 228 150, 272 150"/>
+                  <path class="xf__rastro xf__rastro--out" pathLength="100" d="M388 150 L 432 150"/>
+                  <circle class="xf__cometa" r="5.5" fill="#25D366" filter="url(#xf-brilho)"><animateMotion dur="2.4s" begin="0s" repeatCount="indefinite"><mpath href="#xf-wa"/></animateMotion></circle>
+                  <circle class="xf__cometa" r="5.5" fill="#E1306C" filter="url(#xf-brilho)"><animateMotion dur="2.4s" begin="0.8s" repeatCount="indefinite"><mpath href="#xf-ig"/></animateMotion></circle>
+                  <circle class="xf__cometa" r="5.5" fill="#1877F2" filter="url(#xf-brilho)"><animateMotion dur="2.4s" begin="1.6s" repeatCount="indefinite"><mpath href="#xf-fb"/></animateMotion></circle>
+                  <circle class="xf__cometa" r="5" fill="#02C2B9" filter="url(#xf-brilho)"><animateMotion dur="0.8s" begin="0.4s" repeatCount="indefinite"><mpath href="#xf-out"/></animateMotion></circle>
+                </svg>
+                <span class="xf__no xf__no--wa"><img src="{{R}}assets/icons/whatsapp.svg" alt=""><b>WhatsApp</b></span>
+                <span class="xf__no xf__no--ig"><img src="{{R}}assets/icons/instagram.svg" alt=""><b>Instagram</b></span>
+                <span class="xf__no xf__no--fb"><img src="{{R}}assets/icons/facebook.svg" alt=""><b>Facebook</b></span>
+                <span class="xf__nucleo"><img src="{{R}}assets/icons/ui-inbox.svg" alt=""><b>Melina Chat</b></span>
+                <span class="xf__no xf__no--out"><img src="{{R}}assets/icons/ui-headset.svg" alt=""><b>Recepção</b></span>
+              </div>
             </div>
           </article>
           <article class="card card--row card--open span-6">
             <h3>Gestão de tráfego pago</h3>
             <p>Campanhas planejadas e acompanhadas, do investimento até a oportunidade. <a class="link" href="{{R}}trafego-pago/">Ver detalhes</a></p>
             <div class="panel">
-              <div class="stage"><div class="at-corner fit" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:40px">
+              <div class="stage"><div class="at-corner fit" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:40px" data-ui-loop>
                 <div class="ui ui-notify" data-ui="notify">
                   <ul class="ui-notify__list" data-notify-list>
                     <li class="ui-note"><span class="ui-note__ico"><img class="xt-ico" src="{{R}}assets/icons/instagram.svg" alt=""></span><span class="ui-note__text"><span class="ui-note__title">Nova conversa do anúncio<time>agora</time></span><span class="ui-note__body">Limpeza de pele, público da sua região</span></span></li>
@@ -172,7 +193,7 @@
           <h3>Tráfego + atendimento</h3>
           <p>Os anúncios trazem, a automação recebe e a recepção agenda. Tudo acompanhado.</p>
           <div class="panel">
-            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:380px;--ax:max(24px, 50% - 190px);--ay:40px">
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:380px;--ax:max(24px, 50% - 190px);--ay:40px" data-ui-loop>
               <div class="ui ui-panel ui-checks" data-ui="checklist">
                 <div class="ui-checks__head"><div class="ui-title">Caminho do contato</div><span class="ui-spacer"></span><div class="ui-meta" data-checks-count>3 de 4</div></div>
                 <div class="ui-checks__bar"><i data-checks-bar style="--k:0.75"></i></div>
@@ -190,7 +211,7 @@
           <h3>Sistemas e IA sob medida</h3>
           <p>Para tarefas que hoje tomam horas da equipe. {{SISTEMAS_LINK}}</p>
           <div class="panel">
-            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:40px">
+            <div class="stage stage--fade-b"><div class="at-rise fit" style="--fit-max:400px;--ax:max(24px, 50% - 200px);--ay:40px" data-ui-loop>
               <div class="ui ui-panel ui-toggles" data-ui="toggles">
                 <div class="ui-head"><svg class="ui-icon ui-toggles__ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 13 4v3.6c0 3-2.1 5.4-5 6.6-2.9-1.2-5-3.6-5-6.6V4z"/><path d="m5.8 8 1.6 1.6 3-3.2"/></svg><div class="ui-title">Tarefas automáticas</div><span class="ui-spacer"></span><div class="ui-meta" data-tg-count>3 de 4 ligadas</div></div>
                 <ul class="ui-toggles__list">
@@ -216,7 +237,7 @@
             <h3>Diagnóstico gratuito</h3>
             <p>Algumas perguntas no Responda.me mostram se o ponto de atenção é captação, atendimento ou os dois.</p>
             <figure class="mo-pc__visual xv" role="img" aria-label="Uma pergunta do diagnóstico com a resposta escolhida">
-              <div class="xq">
+              <div class="xq" data-xt-anim="radio">
                 <p class="xq__step">Pergunta 3 de 8</p>
                 <p class="xq__q">Quando chega uma mensagem à noite, o que acontece?</p>
                 <span class="xq__opt">Respondemos na hora</span>
@@ -242,7 +263,7 @@
             <h3>Proposta e implantação</h3>
             <p>Escopo definido por escrito. Jhonie acompanha a configuração, os testes e o treinamento da equipe.</p>
             <figure class="mo-pc__visual xv" role="img" aria-label="Lista da implantação com três etapas concluídas">
-              <div class="xl">
+              <div class="xl" data-xt-anim="lista">
                 <p class="xl__t">Implantação</p>
                 <span class="is-done">Mapeamento do atendimento</span>
                 <span class="is-done">Canais conectados</span>

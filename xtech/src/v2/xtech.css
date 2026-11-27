@@ -182,3 +182,71 @@
   .closing > .wrap, .closing__cta, .closing__links { min-width: 0; }
   .footer__legal { flex-wrap: wrap; }
 }
+
+/* ---------- diagrama dos canais: brilho na cor de cada rede ---------- */
+.xf { position: absolute; left: 50%; top: 50%; width: min(calc(100% - 32px), 540px); aspect-ratio: 560 / 300; transform: translate(-50%, -50%); font: 12px/1.2 var(--font-text); color: #072d3d; }
+.xf__svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.xf__base { fill: none; stroke: rgb(7 45 61 / .22); stroke-width: 2; stroke-linecap: round; }
+.xf__rastro { fill: none; stroke-width: 3.5; stroke-linecap: round; stroke-dasharray: 16 84; stroke-dashoffset: 116; filter: url(#xf-brilho); animation: xf-rastro 2.4s linear infinite; }
+.xf__rastro--wa { stroke: #25D366; }
+.xf__rastro--ig { stroke: #E1306C; animation-delay: .8s; }
+.xf__rastro--fb { stroke: #1877F2; animation-delay: 1.6s; }
+.xf__rastro--out { stroke: #02C2B9; animation-duration: .8s; animation-delay: .4s; }
+@keyframes xf-rastro { from { stroke-dashoffset: 116; } to { stroke-dashoffset: 0; } }
+.xf__no, .xf__nucleo { position: absolute; display: flex; align-items: center; gap: 8px; transform: translateY(-50%); }
+.xf__no { left: 4.3%; width: 27.5%; padding: 8px 10px; background: #fff; border-radius: 12px; border: 1px solid rgb(7 45 61 / .1); box-shadow: 0 8px 20px -12px rgb(7 45 61 / .45); }
+.xf__no img { width: 20px; height: 20px; flex: none; }
+.xf__no b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.xf__no--wa { top: 20.7%; } .xf__no--ig { top: 50%; } .xf__no--fb { top: 79.3%; }
+.xf__no--wa { animation: xf-chega-wa 2.4s ease-out infinite; }
+.xf__no--ig { animation: xf-chega-ig 2.4s ease-out .8s infinite; }
+.xf__no--fb { animation: xf-chega-fb 2.4s ease-out 1.6s infinite; }
+@keyframes xf-chega-wa { 0%, 12% { box-shadow: 0 0 0 3px rgb(37 211 102 / .45), 0 8px 20px -12px rgb(7 45 61 / .45); } 40%, 100% { box-shadow: 0 0 0 0 rgb(37 211 102 / 0), 0 8px 20px -12px rgb(7 45 61 / .45); } }
+@keyframes xf-chega-ig { 0%, 12% { box-shadow: 0 0 0 3px rgb(225 48 108 / .45), 0 8px 20px -12px rgb(7 45 61 / .45); } 40%, 100% { box-shadow: 0 0 0 0 rgb(225 48 108 / 0), 0 8px 20px -12px rgb(7 45 61 / .45); } }
+@keyframes xf-chega-fb { 0%, 12% { box-shadow: 0 0 0 3px rgb(24 119 242 / .45), 0 8px 20px -12px rgb(7 45 61 / .45); } 40%, 100% { box-shadow: 0 0 0 0 rgb(24 119 242 / 0), 0 8px 20px -12px rgb(7 45 61 / .45); } }
+.xf__no--out { left: 77.5%; width: 19%; top: 50%; }
+.xf__nucleo { left: 48.6%; top: 50%; width: 20.7%; aspect-ratio: 116 / 84; flex-direction: column; justify-content: center; gap: 6px; padding: 8px;
+  background: #072d3d; color: #fff; border-radius: 16px; box-shadow: 0 0 0 1px rgb(2 194 185 / .4), 0 16px 30px -14px rgb(7 45 61 / .7); animation: xf-nucleo .8s ease-out infinite; }
+.xf__nucleo img { width: 22px; height: 22px; filter: brightness(0) invert(1); }
+.xf__nucleo b { font-weight: 600; text-align: center; line-height: 1.15; }
+@keyframes xf-nucleo { 0% { box-shadow: 0 0 0 1px rgb(2 194 185 / .4), 0 0 0 0 rgb(2 194 185 / .55), 0 16px 30px -14px rgb(7 45 61 / .7); }
+  100% { box-shadow: 0 0 0 1px rgb(2 194 185 / .4), 0 0 0 14px rgb(2 194 185 / 0), 0 16px 30px -14px rgb(7 45 61 / .7); } }
+@media (max-width: 639px) {
+  .xf { width: calc(100% - 16px); font-size: 11px; }
+  .xf__no { padding: 5px 6px; gap: 5px; border-radius: 10px; } .xf__no img { width: 16px; height: 16px; }
+  .xf__no b { font-size: 10.5px; }
+  .xf__no--out { left: auto; right: 0; width: auto; }
+  .xf__nucleo { width: 26%; padding: 6px; border-radius: 12px; }
+}
+
+/* ---------- herói: a conversa nova chega de novo a cada ciclo ---------- */
+.xw__chip--live::before { animation: xt-pulso 1.6s ease-out infinite; }
+@keyframes xt-pulso { 0% { box-shadow: 0 0 0 0 rgb(2 194 185 / .6); } 100% { box-shadow: 0 0 0 8px rgb(2 194 185 / 0); } }
+.xw__row.xt-chega { animation: xt-chega .7s cubic-bezier(.2,.8,.2,1) both; }
+.xw__row.xt-chega .xw__chip { animation: xt-pop .45s cubic-bezier(.3,1.6,.5,1) .55s both; }
+@keyframes xt-chega { from { opacity: 0; transform: translateY(-14px); background-color: rgb(2 194 185 / .35); } to { opacity: 1; transform: none; } }
+@keyframes xt-pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+.xw__rows.xt-desce .xw__row:not(.xt-chega) { animation: xt-desce .7s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes xt-desce { from { transform: translateY(-52px); } to { transform: none; } }
+
+/* ---------- como funciona: a resposta sendo escolhida e a lista sendo marcada ---------- */
+.xq__opt { position: relative; padding-left: 38px !important; transition: border-color .25s, background-color .25s, box-shadow .25s; }
+.xq__opt::before { content: ""; position: absolute; left: 12px; top: 50%; width: 16px; height: 16px; margin-top: -8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px rgb(7 45 61 / .35); transition: box-shadow .25s; }
+.xq__opt::after { content: ""; position: absolute; left: 16px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: #02c2b9; transform: scale(0); transition: transform .3s cubic-bezier(.3,1.6,.5,1); }
+.xq__opt.is-on::before { box-shadow: inset 0 0 0 2px #02c2b9; }
+.xq__opt.is-on::after { transform: scale(1); }
+.xq__opt.is-hover { border-color: rgb(7 45 61 / .35); background: #f3f8f8; }
+[data-xt-anim].is-anim .xq__opt.is-on { animation: xt-escolhe .5s ease-out; }
+@keyframes xt-escolhe { 0% { transform: scale(.98); } 60% { transform: scale(1.02); } 100% { transform: none; } }
+.xl span { transition: color .3s; }
+.xl span::before { transition: background-color .3s, border-color .3s, transform .35s cubic-bezier(.3,1.6,.5,1), box-shadow .3s; }
+.xl span.is-done::before { transform: scale(1); }
+[data-xt-anim].is-anim .xl span.is-done:last-of-type::before, .xl span.xt-agora::before { transform: scale(1.18); }
+.xm__btn::before { animation: xt-pulso 1.6s ease-out infinite; }
+.xm__who i { animation: xt-pop .5s cubic-bezier(.3,1.6,.5,1) both; }
+.xm__who i.is-you { animation-delay: .25s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .xf__rastro, .xf__cometa { display: none; }
+  .xf__no, .xf__nucleo, .xw__chip--live::before, .xm__btn::before { animation: none !important; }
+}

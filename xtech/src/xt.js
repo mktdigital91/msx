@@ -206,6 +206,59 @@
     setTimeout(function () { alvo.dispatchEvent(new CustomEvent("xt:tocar")); }, reduzir ? 0 : 350);
   });
 
+  /* ---------- 5. Animações próprias da Xtech (rodam também no celular) ---------- */
+  function emTela(el, aoVer) {
+    if (!("IntersectionObserver" in window)) { aoVer(true); return; }
+    new IntersectionObserver(function (en) { aoVer(en[0].isIntersecting); }, { threshold: 0.2 }).observe(el);
+  }
+  function ciclo(el, passos, intervalo, pausaFinal) {
+    // passos: lista de funções; roda uma por vez enquanto o elemento está na tela
+    var i = 0, timer = null, visivel = false;
+    function proximo() {
+      if (!visivel) { timer = null; return; }
+      passos[i]();
+      var espera = i === passos.length - 1 ? pausaFinal : intervalo;
+      i = (i + 1) % passos.length;
+      timer = setTimeout(proximo, espera);
+    }
+    emTela(el, function (v) { visivel = v; if (v && !timer) timer = setTimeout(proximo, 400); });
+  }
+  var anims = document.querySelectorAll("[data-xt-anim]");
+  Array.prototype.forEach.call(anims, function (el) {
+    if (reduzir) return;
+    el.classList.add("is-anim");
+    var tipo = el.getAttribute("data-xt-anim");
+    if (tipo === "radio") {
+      var ops = el.querySelectorAll(".xq__opt"), alvo = 1;
+      var limpa = function () { Array.prototype.forEach.call(ops, function (o) { o.classList.remove("is-on", "is-hover"); }); };
+      var passos = [limpa];
+      Array.prototype.forEach.call(ops, function (o, k) {
+        if (k > alvo) return;
+        passos.push(function () { Array.prototype.forEach.call(ops, function (x) { x.classList.remove("is-hover"); }); o.classList.add("is-hover"); });
+      });
+      passos.push(function () { ops[alvo].classList.remove("is-hover"); ops[alvo].classList.add("is-on"); });
+      ciclo(el, passos, 700, 2600);
+    } else if (tipo === "lista") {
+      var itens = el.querySelectorAll("span");
+      var passosL = [function () { Array.prototype.forEach.call(itens, function (s) { s.classList.remove("is-done", "is-now", "xt-agora"); }); }];
+      Array.prototype.forEach.call(itens, function (s, k) {
+        passosL.push(function () {
+          Array.prototype.forEach.call(itens, function (x) { x.classList.remove("xt-agora"); });
+          if (k === itens.length - 1) s.classList.add("is-now"); else s.classList.add("is-done", "xt-agora");
+        });
+      });
+      ciclo(el, passosL, 750, 2400);
+    } else if (tipo === "caixa") {
+      var linhas = el.querySelector(".xw__rows"), nova = el.querySelector(".xw__row.is-new");
+      if (!linhas || !nova) return;
+      ciclo(el, [function () {
+        nova.classList.remove("xt-chega"); linhas.classList.remove("xt-desce");
+        void nova.offsetWidth;
+        nova.classList.add("xt-chega"); linhas.classList.add("xt-desce");
+      }], 4200, 4200);
+    }
+  });
+
   /* ---------- 4. Consentimento e mensuração ---------- */
   var m = cfg.mensuracao || {};
   var temMensuracao = !!(m.gtmId || m.ga4Id || m.metaPixelId || m.criativivoScriptUrl);
