@@ -15,6 +15,17 @@ Site estático em português do Brasil, gerado por um script Node sem dependênc
 
 Sistemas e IA ficam na home (`/#sistemas-e-ia`) até haver material para uma página própria.
 
+## Visual novo (em andamento)
+
+A home foi refeita com o kit do [taste-skill](https://github.com/Leonxlnx/taste-skill) (licença MIT), copiado em `src/kit/` e publicado em `public/assets/`. Ele traz o sistema de layout, as telas de exemplo (chat, notificações, checklist, interruptores), os diagramas animados, o efeito de fundo do herói e a seção "Como funciona" que acompanha a rolagem.
+
+- `src/v2/home.html`: o modelo da home nova. Marcadores como `{{QUIZ}}` são trocados pelo build com os dados de `site.config.mjs`.
+- `src/v2/xtech.css`: cores da marca, fonte e as telas próprias da Xtech sobre o kit.
+- `src/v2/css-ordem.txt`: a ordem dos estilos juntados em `assets/site.css`.
+- Os ícones reais (WhatsApp, Instagram, Facebook) estão em `src/kit/icons/`.
+
+Uma página com um arquivo `src/v2/<endereço>.html` usa o visual novo. As demais seguem no visual anterior até serem refeitas.
+
 ## Estrutura
 
 ```
