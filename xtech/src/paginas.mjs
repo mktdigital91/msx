@@ -86,8 +86,8 @@ export function home(h) {
 
   return {
     slug: "",
-    titulo: "Xtech Soluções Digitais | Tráfego pago e automação para clínicas",
-    descricao: "Tráfego pago e automação de atendimento para clínicas de estética: do anúncio ao WhatsApp e à sua recepção. Comece pelo diagnóstico gratuito.",
+    titulo: "Xtech: tráfego pago e automação de WhatsApp para clínicas de estética",
+    descricao: "Sua clínica perde pacientes quando a mensagem fica sem resposta. A Xtech une tráfego pago e automação de atendimento, do anúncio à agenda. Faça o diagnóstico gratuito.",
     nav: "inicio",
     corpo: `
 <section class="hero" aria-labelledby="titulo-pagina">
