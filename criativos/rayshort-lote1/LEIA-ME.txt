@@ -1,0 +1,33 @@
+RAYSHORT — CRIATIVOS LOTE 1 (Meta Ads, cliente final)
+
+PASTAS
+01 - Site      -> anúncios que levam para rayshort.live (logo RayShort, botão rosa)
+02 - Telegram  -> anúncios que levam para o canal (ícone do Telegram, sem nome/logo do canal, sem botões VIP)
+
+Vídeos 9x16 (1080x1920) -> posicionamentos Reels e Stories
+Imagens 4x5 (1080x1350) -> posicionamento Feed
+Botão do anúncio sugerido: "Assistir mais" ou "Saiba mais"
+
+VÍDEOS
+V1 para-na-melhor-parte  | Ângulo: dor            | Voz feminina (Betina) | "Sabe aquelas novelinhas que param bem na melhor parte?"
+V2 o-zelador             | Ângulo: curiosidade    | Voz masculina (Luan)  | "Ele era só o zelador da empresa..."
+V3 so-mais-um            | Ângulo: humor          | Sem narração          | "Eu às 23h: só um episodiozinho / Eu às 3h da manhã"
+V4 lista                 | Ângulo: lista          | Voz feminina (Mônica) | "Novelinhas que me fizeram perder o sono"
+V5 beleza-ou-sucesso     | Ângulo: pergunta       | Voz masculina (Elvis) | "Se você ganhasse um sistema mágico... Beleza ou Sucesso?"
+V6 antes-que-saia        | Ângulo: urgência       | Voz masculina (Cortez)| "Essa tá em alta no RayShort!" / "antes que saia do ar"
+
+IMAGENS
+I1 ate-o-final        | comparativo "para na melhor parte" x "assiste até o final"
+I2 o-zelador          | curiosidade
+I3 so-mais-um         | meme 23h x 3h
+I4 beleza-ou-sucesso  | pergunta
+I5 lista              | bloco de notas com 3 séries
+I6 antes-que-saia     | urgência / em alta
+I7 canal-telegram     | exclusiva Telegram: print do canal
+
+SUGESTÕES DE TEXTO PRINCIPAL (copy)
+- Cansou de novelinha que para na melhor parte? Aqui você assiste completo e dublado. Toque no botão e assista agora.
+- Ele era só o zelador... até descobrirem quem ele era de verdade. Assista o que acontece depois.
+- Era pra ser só um episódio. Já são 3 da manhã. Cuidado: vicia.
+- Beleza ou sucesso? Ela teve que escolher, e mudou tudo. Assista completo.
+- Tá em alta! Assista agora, antes que saia do ar.
